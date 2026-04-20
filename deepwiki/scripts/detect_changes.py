@@ -9,7 +9,6 @@ import json
 import hashlib
 import fnmatch
 import yaml
-import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any
 from datetime import datetime, timezone
