@@ -15,7 +15,12 @@
       "Bash(sed -i 's/^## Recommended Reading Paths$/## 推荐阅读路径/' references/templates.md)",
       "Bash(sed -i 's/^### New Users$/### 新手用户/' references/templates.md)",
       "Bash(sed -i 's/^## Full Document Index$/## 完整文档索引/' references/templates.md)",
-      "Bash(sed -i 's/^### Entry Documents$/### 入口文档/' references/templates.md)"
+      "Bash(sed -i 's/^### Entry Documents$/### 入口文档/' references/templates.md)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''scripts/detect_changes.py'', doraise=True\\); print\\(''detect_changes.py OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''scripts/check_quality.py'', doraise=True\\); print\\(''check_quality.py OK''\\)\")",
+      "Bash(python -c \"import yaml; print\\(''yaml OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''scripts/generate_menu.py'', doraise=True\\); print\\(''generate_menu.py OK''\\)\")",
+      "Bash(python -c \":*)"
     ]
   }
 }

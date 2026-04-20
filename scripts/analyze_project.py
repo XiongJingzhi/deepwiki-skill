@@ -8,8 +8,9 @@
 
 import os
 import json
+import fnmatch
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Set
+from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime, timezone
 
 # 忽略的目录
@@ -27,6 +28,69 @@ IGNORE_FILES = {
     'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
     'poetry.lock', 'Pipfile.lock', 'composer.lock'
 }
+
+# 模块级 .gitignore 缓存（analyze_project 运行时加载一次）
+_gitignore_dirs: Set[str] = set()
+_gitignore_globs: Set[str] = set()
+_gitignore_loaded: bool = False
+
+
+def load_gitignore(root_path: Path) -> Tuple[Set[str], Set[str]]:
+    """
+    解析项目根目录的 .gitignore 文件。
+
+    Returns:
+        (dir_patterns, glob_patterns)
+        - dir_patterns: 纯名称匹配（如 node_modules、.env）
+        - glob_patterns: 通配符模式（如 *.log、*.pyc）
+    """
+    gitignore_path = root_path / '.gitignore'
+    if not gitignore_path.exists():
+        return set(), set()
+
+    dir_patterns: Set[str] = set()
+    glob_patterns: Set[str] = set()
+
+    try:
+        with open(gitignore_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                line = line.rstrip('\n\r')
+                stripped = line.strip()
+                if not stripped or stripped.startswith('#'):
+                    continue
+                # 移除行内注释
+                if ' #' in stripped:
+                    stripped = stripped[:stripped.index(' #')].strip()
+                # 跳过取反规则（保留所有文件在排除列表中的极少见场景）
+                if stripped.startswith('!'):
+                    continue
+                # 处理 **/ 前缀（匹配任意深度）
+                if stripped.startswith('**/'):
+                    stripped = stripped[3:]
+                # 处理 /** 后缀（匹配目录及所有内容）
+                elif stripped.endswith('/**'):
+                    stripped = stripped[:-3]
+                # 移除末尾 /（目录标记）
+                stripped = stripped.rstrip('/')
+                if not stripped:
+                    continue
+
+                if any(c in stripped for c in ('*', '?', '[')):
+                    glob_patterns.add(stripped)
+                else:
+                    dir_patterns.add(stripped)
+    except Exception:
+        pass
+
+    return dir_patterns, glob_patterns
+
+
+def _ensure_gitignore_loaded(root_path: Path):
+    """加载 .gitignore（仅首次调用时执行）。"""
+    global _gitignore_dirs, _gitignore_globs, _gitignore_loaded
+    if not _gitignore_loaded:
+        _gitignore_dirs, _gitignore_globs = load_gitignore(root_path)
+        _gitignore_loaded = True
 
 # 项目类型检测规则
 PROJECT_INDICATORS = {
@@ -256,12 +320,24 @@ def find_entry_points(root_path: Path, project_types: List[str]) -> List[str]:
 
 def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
                     all_files: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    """发现项目模块，基于文件重要性计算模块优先级"""
+    """发现项目模块，基于文件重要性计算模块优先级
+
+    扫描策略（两阶段）：
+    1. 优先扫描 src/lib/packages/apps/modules 等标准源码目录下的直接子目录。
+       此阶段不使用 FLAT_ROOT_SKIP，确保 src/config/、src/models/ 等合法业务模块不被误跳过。
+    2. 若第一阶段未发现模块（扁平结构项目），则回退到根目录一级扫描。
+       此阶段使用 FLAT_ROOT_SKIP 过滤纯工具/文档目录，避免误识别为业务模块。
+
+    重要：FLAT_ROOT_SKIP 只控制「根目录的哪些一级目录不被识别为模块」，
+    不影响已选中模块内部的文件计数（防止模块内 config/ 子目录的文件被漏计）。
+    """
     if exclude_dirs is None:
         exclude_dirs = IGNORE_DIRS
 
-    # 根目录扁平结构时，额外跳过这些非业务目录，避免将工具目录误识别为业务模块
-    FLAT_STRUCTURE_SKIP = {
+    # 扁平结构回退时，用于过滤根目录一级非业务目录的集合。
+    # 注意：仅用于判断"某个根目录下的一级目录是否应被识别为业务模块"，
+    #       不用于过滤模块内部的文件路径。
+    FLAT_ROOT_SKIP = {
         'scripts', 'script', 'tools', 'tool',
         'plugins', 'plugin', 'extensions', 'extension',
         'references', 'reference', 'docs', 'doc', 'documentation',
@@ -276,6 +352,9 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
     modules = []
     src_dirs = ['src', 'lib', 'packages', 'apps', 'modules']
 
+    # ── 阶段一：扫描标准源码目录下的子目录 ──────────────────────────────────
+    # 此阶段只用 exclude_dirs（技术排除目录），不使用 FLAT_ROOT_SKIP，
+    # 确保 src/config/、src/models/ 等合法业务模块不被误跳过。
     for src_dir in src_dirs:
         src_path = root_path / src_dir
         if not src_path.exists():
@@ -283,10 +362,12 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
 
         for item in src_path.iterdir():
             if item.is_dir() and item.name not in exclude_dirs:
-                file_count = sum(1 for f in item.rglob('*')
-                               if f.is_file() and f.suffix in CODE_EXTENSIONS
-                               and not any(p in f.parts for p in exclude_dirs))
-
+                file_count = sum(
+                    1 for f in item.rglob('*')
+                    if f.is_file()
+                    and f.suffix in CODE_EXTENSIONS
+                    and not any(p in f.parts for p in exclude_dirs)
+                )
                 if file_count > 0:
                     modules.append({
                         'name': item.name,
@@ -295,14 +376,22 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
                         'type': categorize_module(item.name),
                     })
 
-    # 如果没有找到明确的模块，尝试根目录下的主要目录（扁平结构）
+    # ── 阶段二：扁平结构回退——扫描根目录一级子目录 ──────────────────────────
+    # 仅在阶段一未发现任何模块时触发。
+    # FLAT_ROOT_SKIP 只用于入口判断（决定该目录是否作为模块），
+    # 统计文件数时仍只排除 exclude_dirs，避免模块内同名子目录文件被漏计。
     if not modules:
-        skip_dirs = exclude_dirs | FLAT_STRUCTURE_SKIP
+        root_skip = exclude_dirs | FLAT_ROOT_SKIP
         for item in root_path.iterdir():
-            if item.is_dir() and item.name not in skip_dirs and not item.name.startswith('.'):
-                file_count = sum(1 for f in item.rglob('*')
-                               if f.is_file() and f.suffix in CODE_EXTENSIONS
-                               and not any(p in f.parts for p in skip_dirs))
+            if (item.is_dir()
+                    and item.name not in root_skip
+                    and not item.name.startswith('.')):
+                file_count = sum(
+                    1 for f in item.rglob('*')
+                    if f.is_file()
+                    and f.suffix in CODE_EXTENSIONS
+                    and not any(p in f.parts for p in exclude_dirs)  # 只排除技术目录
+                )
                 if file_count > 0:
                     modules.append({
                         'name': item.name,
@@ -406,10 +495,15 @@ FRONTEND_EXTENSIONS = {'.vue', '.svelte', '.astro', '.wxml', '.ttml'}
 # 数据库相关扩展名
 DB_EXTENSIONS = {'.sql', '.prisma', '.graphql', '.gql'}
 
-# 构建配置扩展名
+# 构建配置扩展名（仅包含以 . 开头的真正扩展名）
 BUILD_EXTENSIONS = {
-    '.gradle', '.gradle.kts', '.pom', '.xml', 'Makefile',
-    'CMakeLists.txt', 'Cargo.toml', 'go.mod', 'package.json',
+    '.gradle', '.pom', '.xml',
+}
+
+# 构建配置文件名（无扩展名或特殊文件名，与 BUILD_EXTENSIONS 分开管理）
+BUILD_FILENAMES = {
+    'Makefile', 'CMakeLists.txt', 'Cargo.toml', 'go.mod', 'package.json',
+    'build.gradle', 'build.gradle.kts',
 }
 
 # 配置文件扩展名
@@ -429,49 +523,58 @@ LOCK_EXTENSIONS = {'.lock', '.lockb'}
 
 
 def _should_ignore_path(path: Path) -> bool:
-    """检查路径是否应被忽略"""
-    return any(part in IGNORE_DIRS for part in path.parts)
+    """检查路径是否应被忽略（硬编码规则 + .gitignore）"""
+    if any(part in IGNORE_DIRS for part in path.parts):
+        return True
+    if _gitignore_dirs and any(part in _gitignore_dirs for part in path.parts):
+        return True
+    if _gitignore_globs and any(fnmatch.fnmatch(path.name, p) for p in _gitignore_globs):
+        return True
+    return False
 
 
 def calculate_file_importance(file_path: Path, root_path: Path, size: int) -> float:
     """
-    使用加权多因子模型计算文件重要性评分 (0.0 - 1.0)
+    使用分组互斥加权模型计算文件重要性评分 (0.0 - 1.0)
 
-    因子参考 deepwiki-rs 的重要性评分引擎：
-    - 源码目录 (+0.3): 路径包含 src 或 lib
-    - 入口点 (+0.2): 路径包含 main 或 index
-    - 配置 (+0.1): 路径包含 config 或 setup
-    - 适中大小 (+0.2): 文件大小在 1KB - 50KB 之间
-    - 语言类型: 根据扩展名加权
-    - 数据库路径 (+0.15): 路径包含 database/schema/migrations
-    - 锁文件 (+0.05): .lock 扩展名
-    - 业务关键词 (+0.15): 路径/文件名包含核心业务角色词（agent/service/controller 等）
+    将所有因子划分为 4 个独立分组，每组内部互斥取最高分，
+    组间加权求和，避免原线性累加模型导致的分数堆叠问题。
+
+    分组及权重：
+    - 路径组 (30%)：文件所在目录对重要性的贡献，互斥取最高
+        src/lib → 1.0 | cmd/bin → 0.8 | 数据库路径 → 0.6 | 根目录 → 0.3
+    - 身份组 (25%)：文件名/路径语义对重要性的贡献，互斥取最高
+        入口点(main/index/app/mod) → 1.0 | 业务关键词(文件名) → 0.8
+        业务关键词(目录名) → 0.5 | 配置/setup → 0.3
+    - 语言组 (30%)：扩展名对重要性的贡献，互斥取最高
+        主要语言(.py/.go/.rs/.java等) → 1.0 | JS/TS/前端 → 1.0
+        DB(.sql/.graphql) → 0.9 | 构建文件 → 0.5
+        配置(.yaml/.json等) → 0.4 | 样式/模板 → 0.3 | 锁文件 → 0.1
+    - 大小组 (15%)：文件体积对重要性的贡献，互斥取最高
+        1KB-50KB(适中) → 1.0 | 100B-1KB(小文件) → 0.5
     """
-    score = 0.0
     rel_path = str(file_path.relative_to(root_path)).replace('\\', '/')
     rel_lower = rel_path.lower()
     ext = file_path.suffix.lower()
-
-    # 路径因子
     parts = Path(rel_path).parts
-
-    # 源码目录
-    if 'src' in parts or 'lib' in parts:
-        score += 0.3
-
-    # 入口点
     name_stem = file_path.stem.lower()
-    if name_stem in ('main', 'index', 'app', 'mod'):
-        score += 0.2
+
+    # ── 路径组 (weight=0.30) ─────────────────────────────────────────────────
+    # 互斥：取匹配到的最高路径信号
+    if 'src' in parts or 'lib' in parts:
+        path_score = 1.0
     elif 'cmd' in parts or 'bin' in parts:
-        score += 0.15
+        path_score = 0.8
+    elif any(k in rel_lower for k in ('database', 'schema', 'migration', 'migrations')):
+        path_score = 0.6
+    elif len(parts) == 1:
+        # 根目录下的文件（如 README.md、go.mod）
+        path_score = 0.3
+    else:
+        path_score = 0.2
 
-    # 配置
-    if any(k in rel_lower for k in ('config', 'setup', 'setting')):
-        score += 0.1
-
-    # 业务关键词：文件名/路径包含核心业务角色词时额外加分
-    # 参考 deepwiki-rs 的 CodePurpose 分类：Agent/Service/Controller/Router/Repository 等
+    # ── 身份组 (weight=0.25) ─────────────────────────────────────────────────
+    # 互斥：文件名/路径语义，取最高信号
     BUSINESS_KEYWORDS = {
         'agent', 'service', 'controller', 'router', 'handler',
         'repository', 'dao', 'entity', 'model', 'middleware',
@@ -479,44 +582,53 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int) -> fl
         'client', 'server', 'gateway', 'proxy',
         'factory', 'builder', 'manager', 'provider', 'resolver',
     }
-    name_lower = file_path.stem.lower()
     path_parts_lower = {p.lower() for p in parts}
-    if name_lower in BUSINESS_KEYWORDS or any(kw in name_lower for kw in BUSINESS_KEYWORDS):
-        score += 0.15
+
+    if name_stem in ('main', 'index', 'app', 'mod'):
+        identity_score = 1.0
+    elif name_stem in BUSINESS_KEYWORDS or any(kw in name_stem for kw in BUSINESS_KEYWORDS):
+        identity_score = 0.8
     elif path_parts_lower & BUSINESS_KEYWORDS:
-        score += 0.1  # 目录名匹配时加分略低
+        identity_score = 0.5
+    elif any(k in rel_lower for k in ('config', 'setup', 'setting')):
+        identity_score = 0.3
+    else:
+        identity_score = 0.0
 
-    # 文件大小因子
-    if 1024 <= size <= 51200:  # 1KB - 50KB
-        score += 0.2
-    elif 100 <= size < 1024:  # 100B - 1KB
-        score += 0.1
-
-    # 扩展名因子
-    if ext in PRIMARY_LANG_EXTENSIONS:
-        score += 0.3
-    elif ext in JS_TS_EXTENSIONS:
-        score += 0.3
-    elif ext in FRONTEND_EXTENSIONS:
-        score += 0.3
+    # ── 语言组 (weight=0.30) ─────────────────────────────────────────────────
+    # 互斥：扩展名优先级，取最高匹配
+    if ext in PRIMARY_LANG_EXTENSIONS or ext in JS_TS_EXTENSIONS or ext in FRONTEND_EXTENSIONS:
+        lang_score = 1.0
     elif ext in DB_EXTENSIONS:
-        score += 0.25
-    elif ext in BUILD_EXTENSIONS:
-        score += 0.15
+        lang_score = 0.9
+    elif ext in BUILD_EXTENSIONS or file_path.name in BUILD_FILENAMES:
+        lang_score = 0.5
     elif ext in CONFIG_EXTENSIONS:
-        score += 0.1
-    elif ext in STYLE_EXTENSIONS:
-        score += 0.1
-    elif ext in TEMPLATE_EXTENSIONS:
-        score += 0.1
+        lang_score = 0.4
+    elif ext in STYLE_EXTENSIONS or ext in TEMPLATE_EXTENSIONS:
+        lang_score = 0.3
     elif ext in LOCK_EXTENSIONS:
-        score += 0.05
+        lang_score = 0.1
+    else:
+        lang_score = 0.0
 
-    # 数据库路径
-    if any(k in rel_lower for k in ('database', 'schema', 'migration', 'migrations')):
-        score += 0.15
+    # ── 大小组 (weight=0.15) ─────────────────────────────────────────────────
+    # 互斥：文件大小信号
+    if 1024 <= size <= 51200:    # 1KB - 50KB，最有价值的大小区间
+        size_score = 1.0
+    elif 100 <= size < 1024:     # 100B - 1KB，小文件次之
+        size_score = 0.5
+    else:
+        size_score = 0.0
 
-    return min(score, 1.0)
+    # ── 加权求和 ──────────────────────────────────────────────────────────────
+    score = (
+        path_score     * 0.30 +
+        identity_score * 0.25 +
+        lang_score     * 0.30 +
+        size_score     * 0.15
+    )
+    return round(min(score, 1.0), 4)
 
 
 def estimate_complexity(file_path: Path) -> int:
@@ -776,6 +888,9 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     """
     root = Path(project_root)
 
+    # 加载 .gitignore 规则
+    _ensure_gitignore_loaded(root)
+
     # 检测项目类型
     project_types = detect_project_types(root)
 
@@ -836,11 +951,10 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     # 保存到缓存
     if save_to_cache:
         wiki_dir = root / '.deepwiki'
-        if wiki_dir.exists():
-            cache_path = wiki_dir / 'cache' / 'structure.json'
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(cache_path, 'w', encoding='utf-8') as f:
-                json.dump(result, f, indent=2, ensure_ascii=False)
+        cache_path = wiki_dir / 'cache' / 'structure.json'
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
 
     return result
 
@@ -902,5 +1016,5 @@ if __name__ == '__main__':
     import sys
 
     project_path = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    result = analyze_project(project_path, save_to_cache=False)
+    result = analyze_project(project_path, save_to_cache=True)
     print_analysis(result)

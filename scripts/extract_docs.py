@@ -184,7 +184,14 @@ def extract_docs_from_file(file_path: str) -> List[DocEntry]:
 
 
 def extract_go_docs(content: str, file_path: str) -> List[DocEntry]:
-    """从 Go 文件中提取文档注释"""
+    """从 Go 文件中提取文档注释
+    
+    遵循 GoDoc 规范：
+    - Go 文档注释是紧邻声明之前的普通 // 行注释
+    - GoDoc 不使用 @param/@returns 标签，参数说明在自然语言正文中
+    - 支持 // Deprecated: 注解
+    - 参数名从注释中通过自然语言模式推断（非强制解析）
+    """
     entries = []
 
     # Go doc: 注释紧邻声明之前
@@ -194,7 +201,6 @@ def extract_go_docs(content: str, file_path: str) -> List[DocEntry]:
     for match in re.finditer(pattern, content):
         comment_block = match.group(0)
         lines = re.findall(r'//\s*(.+)', comment_block)
-        # 最后一行是声明行中的名称后面的内容，去掉
         decl_match = re.search(r'(?:func|type|const|var)\s+(\w+)', comment_block)
         if not decl_match:
             continue
@@ -207,17 +213,12 @@ def extract_go_docs(content: str, file_path: str) -> List[DocEntry]:
         returns = None
 
         for line in lines:
-            if line.startswith('@deprecated'):
-                description_lines.append('[Deprecated] ' + line[len('@deprecated'):].strip())
-            elif line.startswith('@param') or line.startswith('@param:'):
-                param_match = re.match(r'@param:?\s+(\w+)\s*-?\s*(.*)', line)
-                if param_match:
-                    params.append({
-                        'name': param_match.group(1),
-                        'type': 'any',
-                        'description': param_match.group(2)
-                    })
-            elif not line.startswith('@'):
+            # GoDoc 的 Deprecated 标注
+            if line.startswith('Deprecated:'):
+                description_lines.append('[Deprecated] ' + line[len('Deprecated:'):].strip())
+            else:
+                # GoDoc 纯自然语言，不使用 @param 等标签
+                # 尝试识别形如 "The name parameter ..." 或 "name is ..." 的非正式参数描述
                 description_lines.append(line)
 
         description = ' '.join(description_lines).strip()
@@ -312,15 +313,22 @@ def extract_java_docs(content: str, file_path: str) -> List[DocEntry]:
 
 
 def extract_rust_docs(content: str, file_path: str) -> List[DocEntry]:
-    """从 Rust 文件中提取文档注释"""
+    """从 Rust 文件中提取文档注释
+    
+    正确处理 Rust 文档注释的各章节：
+    - # Examples / # Example  -> 收集到 examples 列表
+    - # Arguments / # Parameters -> 解析参数
+    - # Returns / # Return -> 提取返回值说明
+    - # Panics / # Errors / # Safety -> 追加标记到描述
+    """
     entries = []
 
-    # Rust doc: /// 注释紧邻 pub 声明之前
-    pattern = r'(?:(?:///[ \t]*(.+)\n)+)\s*(?:pub\s+)?(?:async\s+)?(?:fn|struct|enum|trait|type|const|static)\s+(\w+)'
+    # Rust doc: /// 注释紧邻 pub 声明之前（允许空行注释 /// 不含文本内容）
+    pattern = r'(?:(?:///[ \t]*.*\n)+)\s*(?:pub\s+)?(?:async\s+)?(?:fn|struct|enum|trait|type|const|static)\s+(\w+)'
 
     for match in re.finditer(pattern, content):
         comment_block = match.group(0)
-        lines = re.findall(r'///[ \t]*(.+)', comment_block)
+        lines = re.findall(r'///[ \t]*(.*)', comment_block)
         decl_match = re.search(r'(?:pub\s+)?(?:async\s+)?(?:fn|struct|enum|trait|type|const|static)\s+(\w+)', comment_block)
         if not decl_match:
             continue
@@ -328,17 +336,48 @@ def extract_rust_docs(content: str, file_path: str) -> List[DocEntry]:
         line_number = content[:match.start()].count('\n') + 1
 
         description_lines = []
+        examples = []
         params = []
         returns = None
 
+        # 按 Rust doc 章节解析（# 开头的行是章节标题）
+        current_section = 'description'
+
         for line in lines:
             if line.startswith('# '):
-                # Rust doc heading, skip section markers
-                description_lines.append(line[2:].strip())
-            elif not line.startswith('@'):
-                description_lines.append(line)
+                section_name = line[2:].strip().lower()
+                if section_name in ('examples', 'example'):
+                    current_section = 'examples'
+                elif section_name in ('arguments', 'parameters', 'args'):
+                    current_section = 'params'
+                elif section_name in ('returns', 'return'):
+                    current_section = 'returns'
+                elif section_name in ('panics', 'errors', 'safety'):
+                    # 保留章节标记到描述中，便于文档生成时识别
+                    description_lines.append(f'[{line[2:].strip()}]')
+                    current_section = 'description'
+                else:
+                    current_section = 'description'
+                continue
 
-        description = ' '.join(description_lines).strip()
+            if current_section == 'description':
+                description_lines.append(line)
+            elif current_section == 'examples':
+                examples.append(line)
+            elif current_section == 'params':
+                # 支持 "- `name` description" 或 "* name: description" 格式
+                param_match = re.match(r'[*\-]?\s*`?(\w+)`?\s*[-:]\s*(.*)', line.strip())
+                if param_match and param_match.group(1):
+                    params.append({
+                        'name': param_match.group(1),
+                        'type': 'any',
+                        'description': param_match.group(2)
+                    })
+            elif current_section == 'returns':
+                if line.strip():
+                    returns = (returns + ' ' + line.strip()) if returns else line.strip()
+
+        description = ' '.join(l for l in description_lines if l).strip()
 
         # 确定类型
         if 'fn ' in comment_block:
@@ -360,7 +399,7 @@ def extract_rust_docs(content: str, file_path: str) -> List[DocEntry]:
             description=description,
             params=params,
             returns=returns,
-            examples=[],
+            examples=examples,
             line_number=line_number,
             file_path=file_path
         ))

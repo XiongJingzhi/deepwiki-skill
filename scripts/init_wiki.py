@@ -100,13 +100,29 @@ exclude:
 
 
 def get_default_meta() -> dict:
-    """返回默认元数据"""
+    """返回默认元数据
+
+    modules 字段预定义每个模块的元数据结构，确保 Agent 在运行时
+    生成一致的结构而非随机追加字段。
+    """
     return {
         "version": "2.0.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "last_updated": None,
         "files_documented": 0,
-        "modules_count": 0
+        "modules_count": 0,
+        "modules": {}
+    }
+
+
+def get_default_module_meta() -> dict:
+    """返回单个模块的默认元数据模板"""
+    return {
+        "quality_level": None,    # basic / standard / professional
+        "section_count": 0,
+        "word_count": 0,
+        "diagram_count": 0,
+        "last_updated": None
     }
 
 
@@ -179,11 +195,13 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
     cache_files = {
         "cache/checksums.json": {},
         "cache/structure.json": {
+            "project_name": "",
             "project_type": [],
             "languages": [],
             "entry_points": [],
             "modules": [],
             "core_files": [],
+            "high_priority_files": [],
             "directories": [],
             "file_types": {},
             "size_distribution": {},
@@ -192,12 +210,28 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
                 "total_files": 0,
                 "code_files": 0,
                 "core_files_count": 0,
+                "high_priority_files_count": 0,
                 "total_modules": 0,
                 "total_directories": 0,
                 "total_docs": 0
             }
         },
-        "cache/progress.json": {},
+        "cache/progress.json": {
+            "last_updated": None,
+            "phases": {
+                "overview": {
+                    "status": "pending",
+                    "documents": {
+                        "index.md": "pending",
+                        "architecture.md": "pending",
+                        "getting-started.md": "pending",
+                        "doc-map.md": "pending"
+                    }
+                },
+                "details": {"status": "pending", "modules": {}},
+                "menu": {"status": "pending"}
+            }
+        },
     }
     
     for cache_file, default_content in cache_files.items():

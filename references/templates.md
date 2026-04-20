@@ -140,7 +140,6 @@ flowchart TB
 
 ---
 
-*由 [DeepWiki v{{ DEEP_WIKI_VERSION }}](https://github.com/trsoliu/deepwiki) 自动生成 | {{ GENERATED_AT }}*
 ```
 
 ---
@@ -311,7 +310,6 @@ sequenceDiagram
 
 ---
 
-*由 [DeepWiki v{{ DEEP_WIKI_VERSION }}](https://github.com/trsoliu/deepwiki) 自动生成 | {{ GENERATED_AT }}*
 ```
 
 ---
@@ -319,9 +317,13 @@ sequenceDiagram
 ## 模块模板
 
 本模板定义了单个模块文档的结构。
-它包含 9 个章节。AI 应根据实际源代码分析为每个章节生成内容。
+AI 应根据模块的实际内容**选择性生成章节**，而非机械填充所有章节。
 
-> **代码示例说明**：所有代码示例必须使用项目的主要语言。对于导入语句，请使用该语言的惯用形式（例如 `require`、`from ... import`、`use`、`include` 等）。请勿硬编码 JavaScript/TypeScript 特有的语法。
+> **条件章节规则**：标注 `（条件：…）` 的章节，仅当条件满足时生成。条件不满足时直接跳过该章节，不要生成空壳内容。
+
+> **Mermaid 节点 ID 规范**：所有 Mermaid 图表中的节点 ID 必须仅使用 ASCII 字母、数字和下划线。中文名称应转为拼音或英文缩写作为节点 ID，中文文本放在双引号标签中。例如：`A["用户管理"]` 而非 `A[用户管理]`。
+
+> **代码示例说明**：所有代码示例必须使用项目的主要语言。对于导入语句，将 `{{ IMPORT_STATEMENT }}` 替换为该语言的惯用导入形式（例如 `import { fn } from './module'`、`from module import fn`、`module.Fn()` 等）。
 
 ```markdown
 # {{ MODULE_NAME }}
@@ -353,7 +355,9 @@ flowchart TB
 
 ---
 
-## 核心类与函数
+## 核心类与函数（条件：模块包含 class/struct/interface/enum 定义）
+
+> 若模块仅包含函数（无类/接口定义），跳过本章节，将函数详情合并到"公开接口"章节。
 
 \`\`\`mermaid
 classDiagram
@@ -375,7 +379,9 @@ class {{ RELATED_CLASS }} {
 
 ---
 
-## 文件结构
+## 文件结构（条件：模块包含 2 个以上源文件）
+
+> 若模块只有 1 个源文件，用一句话说明即可（"本模块为单文件模块：`path/to/file.ts`"），无需树形图和表格。
 
 \`\`\`
 {{ MODULE_PATH }}/
@@ -428,8 +434,7 @@ class {{ RELATED_CLASS }} {
 **示例**
 
 \`\`\`{{ LANG }}
-# 导入（使用项目惯用的导入方式）
-<IMPORT_MODULE>
+{{ IMPORT_STATEMENT }}
 
 # 基本用法
 {{ EXAMPLE_BASIC }}
@@ -438,7 +443,7 @@ class {{ RELATED_CLASS }} {
 {{ EXAMPLE_WITH_OPTIONS }}
 \`\`\`
 
-### `{{ TYPE_1 }}`
+### `{{ TYPE_1 }}`（条件：模块导出自定义类型/接口/type）
 
 \`\`\`{{ LANG }}
 {{ TYPE_DEFINITION }}
@@ -452,14 +457,15 @@ class {{ RELATED_CLASS }} {
 
 ## 代码示例
 
-> **注意**：以下所有代码均使用项目的主要编程语言。请将 `<IMPORT_MODULE>` 替换为该语言惯用的导入语句。
+> **注意**：将 `{{ IMPORT_STATEMENT }}` 替换为项目主要语言的惯用导入语句。
+> 如果模块功能简单（纯工具函数且少于 3 个公开接口），1 个基础示例即可，无需凑 3 个。
 
 ### 示例 1：{{ USE_CASE_1_TITLE }}
 
 **场景**：{{ USE_CASE_1_SCENARIO }}
 
 \`\`\`{{ LANG }}
-<IMPORT_MODULE>
+{{ IMPORT_STATEMENT }}
 
 {{ USE_CASE_1_CODE }}
 \`\`\`
@@ -470,27 +476,29 @@ class {{ RELATED_CLASS }} {
 {{ USE_CASE_1_OUTPUT }}
 \`\`\`
 
-### 示例 2：{{ USE_CASE_2_TITLE }}
+### 示例 2：{{ USE_CASE_2_TITLE }}（条件：模块复杂度 ≥ 中等或公开接口 ≥ 3 个）
 
 **场景**：{{ USE_CASE_2_SCENARIO }}
 
 \`\`\`{{ LANG }}
-<IMPORT_MODULE>
+{{ IMPORT_STATEMENT }}
 
 {{ USE_CASE_2_CODE }}
 \`\`\`
 
-### 示例 3：错误处理
+### 示例 3：错误处理（条件：模块的函数/方法会抛出异常或返回错误类型）
 
 \`\`\`{{ LANG }}
-<IMPORT_MODULE>
+{{ IMPORT_STATEMENT }}
 
 {{ EXAMPLE_ERROR_HANDLING }}
 \`\`\`
 
 ---
 
-## 依赖关系
+## 依赖关系（条件：模块有内部依赖或被其他模块依赖）
+
+> 若模块为纯独立模块（无项目内依赖），用一句话说明："本模块无项目内依赖，仅依赖外部库 {{ EXTERNAL_DEPS }}。"
 
 \`\`\`mermaid
 flowchart LR
@@ -515,7 +523,7 @@ flowchart LR
 
 ---
 
-## 错误处理
+## 错误处理（条件：模块定义了自定义错误类型、或函数签名包含错误返回值如 Result/Error）
 
 | 错误 | 触发条件 | 推荐修复方式 |
 |------|---------|-------------|
@@ -542,12 +550,13 @@ flowchart LR
 
 [<- 返回模块列表](_index.md) | [API 参考 ->](../api/{{ MODULE_NAME }}.md)
 
-*由 [DeepWiki v{{ DEEP_WIKI_VERSION }}](https://github.com/trsoliu/deepwiki) 自动生成 | {{ GENERATED_AT }}*
 ```
 
 ---
 
 ## API 参考模板
+
+> **条件章节规则**：与模块模板相同，标注 `（条件：…）` 的章节仅在条件满足时生成。
 
 ```markdown
 # API 参考：{{ MODULE_NAME }}
@@ -562,14 +571,14 @@ flowchart LR
 
 ### 导入
 
-> 导入语句请使用项目的主要编程语言。
+> 将 `{{ IMPORT_STATEMENT }}` 替换为项目主要语言的惯用导入语句。
 
 \`\`\`{{ LANG }}
-# 导入特定项（使用该语言惯用的导入方式）
-<IMPORT_NAMED> from {{ PACKAGE_PATH }}
+# 导入特定项
+{{ IMPORT_STATEMENT }}
 
 # 或导入整个模块
-<IMPORT_ALL> from {{ PACKAGE_PATH }}
+{{ IMPORT_ALL_STATEMENT }}
 \`\`\`
 
 ### 快速示例
@@ -588,7 +597,7 @@ flowchart LR
 
 ---
 
-## 类型定义
+## 类型定义（条件：模块导出自定义类型、interface、type alias 或 struct）
 
 ### `{{ TYPE_NAME }}`
 
@@ -610,7 +619,7 @@ flowchart LR
 
 ---
 
-## 函数
+## 函数（条件：模块导出函数/方法）
 
 ### `{{ FUNCTION_NAME }}` [源码](file:///{{ SOURCE_PATH }}#L{{ LINE }})
 
@@ -634,9 +643,9 @@ flowchart LR
 
 | 类型 | 描述 |
 |------|-------------|
-| `{{ RETURN_TYPE }}` | {{ RETURN_DETAILED_DESC }} |
+| `{{ RETURN_TYPE }}` | {{ RETURN_DETAILED_DESC }}
 
-**异常**
+**异常**（条件：函数签名包含 throws/throws/Result/Echo 的错误返回）
 
 | 异常 | 触发条件 | 处理方式 |
 |------|---------|---------|
@@ -651,7 +660,7 @@ flowchart LR
 # 完整选项用法
 {{ EXAMPLE_2 }}
 
-# 错误处理
+# 错误处理（条件：函数会抛出异常或返回错误类型）
 {{ EXAMPLE_3 }}
 \`\`\`
 
@@ -663,7 +672,7 @@ flowchart LR
 
 ---
 
-## 类
+## 类（条件：模块导出 class/struct/enum）
 
 ### `{{ CLASS_NAME }}` [源码](file:///{{ CLASS_SOURCE_PATH }}#L{{ CLASS_LINE }})
 
@@ -716,7 +725,9 @@ classDiagram
 
 ---
 
-## 使用模式
+## 使用模式（条件：模块复杂度 ≥ 中等或公开接口 ≥ 3 个）
+
+> 若模块仅包含 1-2 个简单工具函数，跳过本章节，"函数"章节中的示例已足够。
 
 ### 模式 1：{{ PATTERN_1_TITLE }}
 
@@ -732,7 +743,9 @@ classDiagram
 
 ---
 
-## 常见问题
+## 常见问题（条件：模块有非显而易见的使用注意事项或易混淆点）
+
+> 若模块接口清晰且用法简单，跳过本章节。
 
 ### 问：{{ FAQ_1_QUESTION }}
 
@@ -748,14 +761,13 @@ classDiagram
 
 | 文档 | 描述 |
 |------|------|
-| [模块文档](../modules/{{ MODULE_NAME }}.md) | 模块概述 |
+| [模块文档](../modules/{{ MODULE_NAME }}.md) | 模块概述与设计理念 |
 | [架构](../architecture.md) | 系统架构 |
 
 ---
 
 [<- 返回 API 列表](_index.md) | [模块文档 ->](../modules/{{ MODULE_NAME }}.md)
 
-*由 [DeepWiki v{{ DEEP_WIKI_VERSION }}](https://github.com/trsoliu/deepwiki) 自动生成 | {{ GENERATED_AT }}*
 ```
 
 ---
@@ -887,7 +899,6 @@ cp {{ CONFIG_TEMPLATE }} {{ CONFIG_FILE }}
 
 [<- 返回首页](index.md) | [架构文档 ->](architecture.md)
 
-*由 [DeepWiki v{{ DEEP_WIKI_VERSION }}](https://github.com/trsoliu/deepwiki) 自动生成 | {{ GENERATED_AT }}*
 ```
 
 ---
@@ -985,5 +996,10 @@ flowchart TB
 
 [<- 返回首页](index.md)
 
-*由 [DeepWiki v{{ DEEP_WIKI_VERSION }}](https://github.com/trsoliu/deepwiki) 自动生成 | {{ GENERATED_AT }}*
 ```
+
+
+
+
+
+

@@ -1,9 +1,6 @@
 ---
 name: deepwiki
-description: >-
-  Use when user requests "生成 wiki"、"创建文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、
-  "检查 wiki 质量"、"升级文档".
-  Also use when a project needs automated documentation generation from source code.
+description: 通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档。Use when user requests "生成 wiki"、"创建文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、"检查 wiki 质量"、"升级文档". Also use when a project needs automated documentation generation from source code.
 ---
 
 # DeepWiki
@@ -119,6 +116,7 @@ description: >-
     ├── architecture.md
     ├── getting-started.md
     ├── doc-map.md
+    ├── menu.json
     ├── modules/
     │   ├── _index.md
     │   └── <module-name>.md
@@ -131,11 +129,12 @@ description: >-
 - `meta.json` -- 生成器版本、时间戳、每个模块的元数据（质量等级、章节数、最后更新时间）
 - `cache/checksums.json` -- 文件哈希值，用于增量变更检测
 - `cache/structure.json` -- 解析后的项目结构（模块、入口点、技术栈）
-- `cache/progress.json` -- 大型项目的批次处理状态
+- `cache/progress.json` -- 分阶段任务状态机（overview/menu/details 三阶段，每模块 pending/in_progress/completed/failed，含 subagent/serial 模式标记）
 - `wiki/index.md` -- 项目首页，含概述、徽章、导航、快速开始
 - `wiki/architecture.md` -- 系统架构图、技术栈、模块依赖
 - `wiki/getting-started.md` -- 前置条件、安装、第一个示例
-- `wiki/doc-map.md` -- 文档关系图、阅读路径、依赖矩阵
+- `wiki/doc-map.md` -- 文档关系图、阅读路径、依赖矩阵（第 7 步基于 menu.json 生成）
+- `wiki/menu.json` -- 层级化导航菜单（概览 → 模块 → 更多），自动由 `generate_menu.py` 生成
 - `wiki/modules/` -- 每个项目模块一个文件，含深度分析
 - `wiki/api/` -- 每个模块的 API 参考，含签名、类型和示例
 
@@ -163,36 +162,74 @@ description: >-
 
 > 插件是内置功能，不支持用户手动安装或升级。开发新插件请参考 `references/plugin-template.md` 中的格式规范。
 
-## 5 步工作流
+## 脚本位置说明
+
+> **重要**：本技能中所有 `scripts/` 脚本均位于 **DeepWiki 技能目录**（即本 `SKILL.md` 所在目录），而非当前项目目录。Agent 运行任何脚本时，需以**技能目录为工作目录**，并将**项目目录的绝对路径**作为参数传入。
+>
+> 技能目录可通过本文件加载时的路径推断（例如 `~/.agents/skills/deepwiki/`，实际以加载本 SKILL.md 的路径为准）。
+>
+> 调用示例（`$SKILL_DIR` = 技能目录，`$PROJECT_DIR` = 目标项目目录绝对路径）：
+> ```bash
+> cd $SKILL_DIR
+> python scripts/init_wiki.py $PROJECT_DIR
+> python scripts/analyze_project.py $PROJECT_DIR
+> python scripts/detect_changes.py $PROJECT_DIR
+> python scripts/check_quality.py $PROJECT_DIR/.deepwiki
+> ```
+
+## 工作流（8 步）
 
 ### 第 1 步：初始化
 
-- 检查 `.deepwiki/` 是否存在。
-  - **不存在**：运行 `scripts/init_wiki.py` 创建目录结构（`config.yaml`、`cache/`、`wiki/`）。
-  - **已存在**：读取 `config.yaml` 和 `cache/structure.json` 获取增量更新上下文。检查 `meta.json` 的版本兼容性。
-- 从 `plugins/_registry.yaml` 加载已启用的插件，读取每个插件的 `PLUGIN.md`，注册钩子。
+- 检查项目目录下 `.deepwiki/` 是否存在。
+  - **不存在**：从**技能目录**运行 `python scripts/init_wiki.py <项目目录绝对路径>` 创建目录结构（`config.yaml`、`cache/`、`wiki/`）。
+  - **已存在**：读取项目目录下的 `config.yaml` 和 `cache/structure.json` 获取增量更新上下文。检查 `meta.json` 的版本兼容性。
+- 从技能目录的 `plugins/_registry.yaml` 加载已启用的插件，读取每个插件的 `PLUGIN.md`，注册钩子。对比每个插件的 `min_version` 与 `meta.json` 的 `version` 字段，跳过不兼容的插件并记录警告。
 - 应用 `on_init` 钩子指引。
 
 ### 第 2 步：分析
 
-- 运行 `scripts/analyze_project.py` 检测：
+- 从**技能目录**运行 `python scripts/analyze_project.py <项目目录绝对路径>` 检测：
   - **技术栈**：从清单文件（package.json、go.mod、Cargo.toml 等）检测语言、框架和库
   - **模块**：目录结构、逻辑分组、入口点
   - **入口文件**：`src/index.ts`、`main.py`、`cmd/`、`lib/` 等
   - **现有文档**：`README.md`、`CHANGELOG.md`、内联文档注释、已有的 wiki 文件
+- 脚本运行后会**自动**将分析结果写入 `<项目目录>/.deepwiki/cache/structure.json`（如目录不存在会自动创建）。**运行完成后，必须读取该文件确认内容已成功保存**，再继续下一步。
 - 应用 `after_analyze` 插件钩子（纯文本指引）优化分析结果。
-- 将分析结果保存到 `cache/structure.json`。
 - **扁平结构项目**：`analyze_project.py` 会自动跳过 `scripts/`、`plugins/`、`docs/`、`tests/` 等非业务目录。如仍有误识别，可在 `.deepwiki/config.yaml` 的 `exclude` 中手动补充。
 
-### 第 3 步：深度阅读源码
+### 第 3 步：变更检测
+
+> 此步骤在分析之后、深度阅读之前执行。通过对比文件校验和确定哪些模块发生了变更，避免在未变更的模块上浪费 Token，使增量更新真正生效。
+
+- 从**技能目录**运行 `python scripts/detect_changes.py <项目目录绝对路径>` 对比当前文件校验和与 `cache/checksums.json`。脚本运行后会**自动保存**当前校验和。
+- 文件分类：
+  - **新增文件** -> 排入完整文档生成队列
+  - **修改文件** -> 排入文档更新队列
+  - **删除文件** -> 将现有文档标记为废弃
+- 根据 `cache/structure.json` 中的模块与文件映射，将变更文件关联到具体模块，确定**需要深度阅读的模块列表**。
+- **首次生成**：`cache/checksums.json` 为空时，所有模块都排入完整文档生成队列，等效于全量生成。
+- **增量更新**：仅对有文件变更的模块执行深度阅读和文档更新，显著节省大型项目的处理时间。
+- **反向依赖传播**：脚本自动分析模块间的导入关系，当模块 A 变更时，将依赖 A 的其他模块也排入更新队列。输出 `affected_modules` 和 `reverse_affected_modules` 字段。
+
+### 第 4 步：深度阅读源码
 
 **首先读取 `cache/structure.json`**，获取第 2 步分析结果中的核心数据：
+
+**插件缓存优先**：若 `.deepwiki/cache/api-analysis.json` 存在（由 `api-doc-enhancer` 插件在 `after_analyze` 阶段生成），优先读取其 `exports` 字段作为接口提取的基础，再进行语义补充，避免重复分析。
 
 - **`core_files`**：所有 `importance_score >= 0.5` 的文件列表（已按评分降序排列）。这些是最值得分析的源文件。
 - **`high_priority_files`**：所有 `importance_score >= 0.6` 的文件列表，用于关系分析和深度分析的精确过滤。
 - **`modules`**：每个模块的 `importance_score`、`core_files` 列表和 `core_files_count`。
 - **`file_types`**：扩展名 → 文件数，用于构建项目概览。
 - **`directories`**：目录结构和重要性评分，用于理解项目布局。
+
+**根据第 3 步变更检测结果，筛选待处理文件**：
+
+- 首次生成（无变更记录）：处理所有模块的核心文件。
+- 增量更新：仅处理变更文件所属模块的核心文件。对于被其他变更模块依赖的模块（反向依赖），也应纳入处理范围。
+
+**预提取文档注释**：对每个待处理的核心文件，从**技能目录**运行 `python scripts/extract_docs.py <文件绝对路径>` 预提取结构化注释（函数签名、参数、返回值、类定义）。将提取结果作为语义分析的起点注入 `{{ EXTRACTED_DOCS }}` 变量，减少重复提取工作。若文件无文档注释则跳过。
 
 #### 文件角色分类（双层分类）
 
@@ -258,13 +295,13 @@ description: >-
    - 代码语义分析 → 使用"代码深度分析"模板
    - 准备生成模块文档时 → 使用"模块文档"模板
    - 生成 `index.md`/`getting-started.md` 时 → 直接参考 `references/templates.md` 对应模板
-6. 为每个模块输出结构化分析结果，供第 3.5 步和第 5 步使用。
+6. 为每个模块输出结构化分析结果，供第 5 步和第 8 步使用。
 
 **技巧**：从模块的入口文件或桶文件（如 `index.ts`、`__init__.py`）开始了解公共接口，然后读取实现文件了解内部逻辑。对于大文件，先关注导出的符号（`important_lines`），再根据需要读取上下文。
 
-### 第 3.5 步：依赖关系综合
+### 第 5 步：依赖关系综合
 
-> 此步骤在深度阅读源码之后、变更检测之前执行。它将孤立的文件分析转化为连贯的依赖图，供 `architecture.md` 和各模块文档的依赖章节使用。
+> 此步骤在深度阅读源码之后执行。它将孤立的文件分析转化为连贯的依赖图，供 `architecture.md` 和各模块文档的依赖章节使用。
 
 **输入选择（三阶段漏斗）**：
 
@@ -274,7 +311,7 @@ description: >-
 
 **依赖提取（静态层）**：
 
-从第 3 步的语义分析结果中，提取每个文件已识别的 `import`/`use`/`require` 声明，构建有向依赖边：
+从第 4 步的语义分析结果中，提取每个文件已识别的 `import`/`use`/`require` 声明，构建有向依赖边：
 
 | 依赖类型 | 语义含义 | 典型静态证据 |
 |---------|---------|------------|
@@ -299,34 +336,216 @@ description: >-
 - `key_insights`：架构观察与循环依赖警告
 
 此输出直接用于：
-- `architecture.md` 的"模块依赖图"章节（Mermaid `flowchart LR`）
-- 各模块 `modules/<name>.md` 的"依赖关系"章节
+- `architecture.md`（第 6 步）的"模块依赖图"章节（Mermaid `flowchart LR`）
+- `doc-map.md`（第 7 步）的"依赖矩阵"章节
+- 各模块 `modules/<name>.md`（第 8 步）的"依赖关系"章节
 
-### 第 4 步：变更检测
+### 第 6 步：生成概览文档
 
-- 运行 `scripts/detect_changes.py` 对比当前文件校验和与 `cache/checksums.json`。
-- 文件分类：
-  - **新增文件** -> 排入完整文档生成队列
-  - **修改文件** -> 排入文档更新队列
-  - **删除文件** -> 将现有文档标记为废弃
-- 此步骤实现增量更新，仅重新生成变更的模块，为大型项目节省时间。
+应用 `before_generate` 钩子，先生成全局概览文档。这些文档不依赖具体模块的详细文档，基于第 2-5 步的分析结果即可产出：
 
-### 第 5 步：生成与保存
+| 文档 | 模板参考 | 内容要点 |
+|------|---------|---------|
+| `index.md` | `references/templates.md` → 首页 | 项目概述、技术栈徽章、快速导航、模块列表 |
+| `architecture.md` | `references/templates.md` → 架构 | 系统架构图（Mermaid）、技术栈、模块依赖关系、架构分层（来自第 5 步输出） |
+| `getting-started.md` | `references/templates.md` → 快速开始 | 前置条件、安装步骤、第一个示例、常见问题 |
 
-应用 `before_generate` 钩子，然后生成以下文档类型：
+> **概要上下文提取**：概览文档生成完毕后，从中提取一份精简的"项目上下文摘要"（约 1-3KB），包含：
+> - 项目定位和技术栈（1-2 句）
+> - 架构分层和各层职责（一句话/层）
+> - 每个模块在架构中的角色和一句话描述
+> 这份摘要将在第 8 步作为 subagent 的共享上下文注入，避免每个 subagent 重复读取完整概览文档。
 
-#### 文档格式
+每生成完一个文档即更新 `cache/progress.json` 的 `phases.overview.documents` 中对应文件的状态为 `completed` 或 `failed`，确保中断后可从断点恢复。阶段 6 完成后，更新 `phases.overview.status` 为 `completed`。
 
-参考 `references/templates.md` 中的模板生成各类文档：
-`index.md`、`architecture.md`、`modules/<name>.md`、`api/<name>.md`、`getting-started.md`、`doc-map.md`。
+### 第 7 步：生成导航菜单与文档地图
 
+基于第 6 步的概览文档和 `structure.json` 的模块列表，由 **AI 直接生成** `menu.json`（因为模块文档尚未生成，脚本无法扫描到不存在的文件）。
+
+#### 7.1：AI 生成 menu.json
+
+读取 `cache/structure.json` 中的模块列表（`modules` 字段），结合第 6 步概览文档中的架构分层，直接生成 `wiki/menu.json`， 参考如下（不可简单照搬）：
+
+```json
+{
+  "title": "项目名称",
+  "version": "1.0",
+  "generated_at": "2026-04-20T10:00:00Z",
+  "planned": true,
+  "menu": [
+    {"title": "概览", "items": [
+      {"title": "首页", "path": "index.md"},
+      {"title": "快速开始", "path": "getting-started.md"},
+      {"title": "架构文档", "path": "architecture.md"}
+    ]},
+    {"title": "核心", "items": [
+      {"title": "core", "items": [
+        {"title": "模块文档", "path": "modules/core.md", "planned": true},
+        {"title": "API 参考", "path": "api/core.md", "planned": true}
+      ]}
+    ]},
+    {"title": "功能", "items": [
+      {"title": "auth", "items": [
+        {"title": "模块文档", "path": "modules/auth.md", "planned": true},
+        {"title": "API 参考", "path": "api/auth.md", "planned": true}
+      ]}
+    ]},
+    {"title": "更多", "items": [
+      {"title": "文档地图", "path": "doc-map.md", "planned": true}
+    ]}
+  ]
+}
+```
+
+**AI 生成菜单时的规则**：
+
+1. **分组依据架构分层**：参考第 5 步输出的 `architecture_layers`，将模块按架构层次（核心层、业务层、数据层、基础设施层）分组，而非简单地放在一个"模块"组里。每组的 `title` 应体现层次含义（如"核心"、"服务层"、"数据访问"、"基础设施"）。
+2. **组内按重要性排序**：同组内模块按 `importance_score` 降序排列。
+3. **每个模块条目预设路径**：`modules/<name>.md` + `api/<name>.md`，标记 `"planned": true` 表示文件尚未生成。
+4. **跳过不生成文档的模块**：如果 `config.yaml` 中有排除规则或模块类型为 `test`/`config` 且无代码文件，不放入菜单。
+5. **`"planned": true` 标记**：顶部 `planned: true` 表示这是规划阶段菜单，步骤 8 完成后由脚本校验并移除此标记。
+
+#### 7.2：AI 生成 doc-map.md
+
+基于 `menu.json` 的导航结构和 `architecture.md` 的架构信息，生成 `wiki/doc-map.md`：
+
+| 内容 | 数据来源 |
+|------|---------|
+| 文档关系图（Mermaid flowchart） | `menu.json` 层级结构 |
+| 推荐阅读路径 | 按读者角色（新手/架构师/API 使用者） |
+| 完整文档索引 | `structure.json` 模块列表 + `menu.json` |
+| 模块间依赖矩阵 | 第 5 步 `core_dependencies` 输出 |
+
+模板参考：`references/templates.md` → 文档地图。
+
+更新 `cache/progress.json` 的 `phases.menu.status` 为 `completed`。
+
+> **为什么要先于详细文档生成菜单**：菜单定义了每个模块文档在导航层级中的位置（所属分组、前后顺序）。详细文档生成时可以引用自身在菜单中的位置来生成精确的面包屑导航和前后文档链接，使文档网络更加连贯。
+
+#### 7.2：生成 doc-map.md
+
+基于 `menu.json` 的导航结构和 `architecture.md` 的架构信息，生成 `wiki/doc-map.md`：
+
+| 内容 | 数据来源 |
+|------|---------|
+| 文档关系图（Mermaid flowchart） | `menu.json` 层级结构 |
+| 推荐阅读路径 | 按读者角色（新手/架构师/API 使用者） |
+| 完整文档索引 | `structure.json` 模块列表 + `menu.json` |
+| 模块间依赖矩阵 | 第 5 步 `core_dependencies` 输出 |
+
+模板参考：`references/templates.md` → 文档地图。
+
+更新 `cache/progress.json` 的 `phases.menu.status` 为 `completed`。
+
+> **为什么要先于详细文档生成菜单**：菜单定义了每个模块文档在导航层级中的位置（所属分组、前后顺序）。详细文档生成时可以引用自身在菜单中的位置来生成精确的面包屑导航和前后文档链接，使文档网络更加连贯。
+
+### 第 8 步：生成详细文档
+
+参考 `references/templates.md` 中的模板，为每个模块生成详细文档：
+
+| 文档 | 模板参考 | 内容要点 |
+|------|---------|---------|
+| `modules/<name>.md` | `references/templates.md` → 模块 | 模块职责、核心接口、设计模式、依赖关系、代码示例 |
+| `api/<name>.md` | `references/templates.md` → API 参考 | 函数签名、类型定义、参数说明、返回值、使用示例 |
+
+**模块生成顺序**：按第 2 步分析结果的 `importance_score` 降序排列，高优先级模块优先处理。
+
+**增量更新**：仅重新生成第 3 步检测到有变更的模块文档（含反向依赖传播的模块）。未变更模块的现有文档保持不变。
+
+#### 每个 subagent 的输入上下文
+
+无论使用 subagent 并行还是主 Agent 串行，每个模块的生成任务都接收以下统一上下文：
+
+| 上下文 | 来源 | 用途 |
+|--------|------|------|
+| 项目上下文摘要 | 第 6 步产出 | 理解项目定位和技术栈 |
+| 该模块的导航位置 | `menu.json` | 生成面包屑和前后导航链接 |
+| 该模块的源码分析数据 | 第 4 步深度阅读结果 | 生成接口文档和代码示例 |
+| 该模块的依赖关系 | 第 5 步输出 | 生成依赖关系章节 |
+| 配置要求 | `config.yaml` | 语言、图表开关、源码链接等 |
+
+#### 并行策略（subagent 可用时）
+
+当运行环境支持 subagent 时，按模块分派 subagent 并行生成详细文档：
+
+- **并行粒度**：每个 subagent 负责一个模块的 `modules/<name>.md` + `api/<name>.md`（同一模块的文档必须一起生成，保证交叉引用一致性）。
+- **批次控制**：同批次内启动的 subagent 数量不超过 3 个，避免并发过高导致输出质量下降。
+- **批次调度**：按模块优先级排序，每批从队列头部取 3 个无依赖关系的模块分派 subagent。同批次内所有 subagent 完成后，再启动下一批。
+- **进度追踪**：每个 subagent 的状态记录在 `cache/progress.json` 的 `phases.details.modules` 中。
+
+```json
+{
+  "phases": {
+    "details": {
+      "status": "in_progress",
+      "modules": {
+        "core": {"status": "completed", "agent": "main"},
+        "auth": {"status": "in_progress", "agent": "subagent-1"},
+        "utils": {"status": "in_progress", "agent": "subagent-2"},
+        "db": {"status": "pending"}
+      }
+    }
+  }
+}
+```
+
+`agent` 字段：`"main"` 表示主 Agent 生成，`"subagent-N"` 表示第 N 个 subagent 生成。
+
+#### 串行降级（subagent 不可用时）
+
+当运行环境不支持 subagent（如无 Agent 工具权限、上下文过小、或 subagent 启动失败）时，自动降级为主 Agent 串行处理：
+
+- **降级触发条件**：subagent 启动失败、subagent 输出质量不达标（生成的文档缺少源码追溯或章节数不足）、或运行环境不提供 subagent 能力。
+- **串行策略**：恢复原有的批次处理机制，每批 1-2 个模块，主 Agent 按优先级顺序依次处理。
+- **批次间保存进度**：每批完成后更新 `cache/progress.json`，确保中断后可从断点恢复。
+- **无需用户干预**：降级是自动的、静默的，用户无需配置。
+
+> **注意**：即使降级为串行，新的 8 步流程仍然优于原来的 7 步流程——因为概览文档和导航菜单在详细文档之前就已生成，详细文档可以引用精确的导航位置和架构上下文。
+
+#### 失败重试（带自动降级）
+
+无论并行还是串行，失败模块的处理策略一致：
+
+1. 将失败模块在 `cache/progress.json` 中的状态标记为 `failed`，记录 `error` 字段。
+2. 继续处理下一个模块，不中断流程。
+3. 所有模块处理完毕后，扫描 `failed` 状态的模块，进行一轮重试（最多重试 1 次）。
+4. **重试时自动降级读取深度**：
+   - 将该模块所有文件的读取深度降低一档（深度分析 → 标准分析 → 快速浏览）
+   - 生成简版文档：跳过条件章节，仅保留概述 + 公开接口 + 1 个基础示例
+5. 重试仍失败的模块记录到 `meta.json` 的 `failed_modules` 字段。
 
 #### 保存
 
 - 将所有 wiki 文件写入 `.deepwiki/wiki/`。
-- 更新 `cache/checksums.json` 为当前文件校验和。
 - 更新 `meta.json` 的时间戳和每个模块的元数据。
-- 应用 `after_generate` 插件钩子。
+
+#### 8.3：菜单校验（reconcile）
+
+所有详细文档生成完毕后，从**技能目录**运行：
+
+```bash
+python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项目名称] --reconcile
+```
+
+`--reconcile` 模式会：
+1. 读取已有的 `menu.json`（步骤 7 生成的规划菜单）
+2. 扫描 `wiki/` 目录下的实际文件
+3. **校验并修正**：
+   - 用实际文件的 H1 标题替换预设的模块名称
+   - 将 `"planned": true` 标记移除（文档已实际生成）
+   - 移除规划中存在但实际未生成文档的模块条目
+   - 补充实际生成但规划中遗漏的文件（如插件产出的额外文档）
+4. 输出校验报告：新增/移除/修改的条目数量
+
+```bash
+# 基本校验（仅当有差异时输出）
+python scripts/generate_menu.py /path/to/.deepwiki/wiki "项目名称" --reconcile
+
+# 详细输出
+python scripts/generate_menu.py /path/to/.deepwiki/wiki "项目名称" --reconcile --verbose
+```
+
+应用 `after_generate` 插件钩子。更新 `cache/progress.json` 的 `phases.details.status` 为 `completed`。
 
 ## 大型项目处理
 
@@ -345,22 +564,40 @@ description: >-
 | 5 | `config` | 配置、常量、环境设置 | 需要的上下文但非核心逻辑 |
 | 6（最低） | `test` | 测试基础设施、夹具、测试工具 | 理解测试是次要的 |
 
-### 自动批次处理
+### 自动批次处理（第 8 步详细展开）
 
-1. **自动逐批处理所有模块**，每批 1-2 个模块，以保持每个文档的深度和质量。
-2. **每批处理后将进度保存到 `cache/progress.json`**：
+1. **subagent 并行（首选）**：每批最多 3 个无依赖关系的模块，各由一个 subagent 独立生成。同批次全部完成后启动下一批。
+2. **串行降级（备选）**：subagent 不可用时，每批 1-2 个模块，主 Agent 依次处理。
+3. **进度保存**：每批完成后更新 `cache/progress.json`：
    ```json
    {
-     "total_modules": 25,
-     "completed_modules": ["core", "utils", "api"],
-     "pending_modules": ["auth", "db"],
-     "current_batch": 2,
-     "last_updated": "2026-04-20T10:00:00Z"
+     "last_updated": "2026-04-20T10:00:00Z",
+     "phases": {
+       "overview": {"status": "completed"},
+       "menu": {"status": "completed"},
+       "details": {
+         "status": "in_progress",
+         "mode": "subagent",
+         "modules": {
+           "core": {"status": "completed", "agent": "subagent-1"},
+           "utils": {"status": "completed", "agent": "subagent-1"},
+           "api": {"status": "completed", "agent": "subagent-2"},
+           "auth": {"status": "in_progress", "agent": "subagent-3"},
+           "db": {"status": "pending"}
+         }
+       }
+     }
    }
    ```
-3. **自动继续**下一批，不暂停，直到所有模块都有文档。
-4. **全部完成后**输出总结报告：已生成文档总数、质量检查结果、遇到的问题。
-5. **断点续传**：如果因上下文限制或错误中断，下次运行时自动读取 `cache/progress.json`，跳过已完成模块，从中断处继续。
+   每个模块的状态值：`pending` → `in_progress` → `completed` / `failed`。`mode` 字段标记当前批次模式：`"subagent"` 或 `"serial"`。
+   阶段级 `status` 汇总所有子项状态：全部 `completed` 时为 `completed`，存在 `in_progress` 时为 `in_progress`，存在 `failed` 且无 `in_progress` 时为 `failed`。
+4. **自动继续**下一批，不暂停，直到所有模块都有文档。
+5. **失败重试（带自动降级）**：全部模块处理完毕后，扫描 `failed` 状态的模块，进行一轮重试。重试时**自动降级读取深度**以提高成功率：
+   - 将失败模块的文件读取深度降低一档（深度分析 → 标准分析 → 快速浏览）
+   - 生成简版文档：跳过条件章节，仅保留概述 + 公开接口 + 1 个基础示例
+   - 重试仍失败的模块记录到 `meta.json` 的 `failed_modules` 字段，并在总结报告中说明原因
+6. **全部完成后**输出总结报告：已生成文档总数、质量检查结果、遇到的问题、使用模式（subagent/serial）。
+7. **断点续传**：如果因上下文限制或错误中断，下次运行时自动读取 `cache/progress.json`，跳过已完成模块，从中断处继续。
 
 ## 知识库导出
 
@@ -382,17 +619,20 @@ flowchart LR
 
 ## 质量检查
 
-运行 `scripts/check_quality.py` 验证生成的文档质量：
+从**技能目录**运行 `python scripts/check_quality.py` 验证生成的文档质量（需传入项目的 `.deepwiki` 目录绝对路径）：
 
 ```bash
+# 切换到技能目录（$SKILL_DIR 为本 SKILL.md 所在目录）
+cd $SKILL_DIR
+
 # 基本检查
-python scripts/check_quality.py /path/to/.deepwiki
+python scripts/check_quality.py /path/to/project/.deepwiki
 
 # 详细报告
-python scripts/check_quality.py /path/to/.deepwiki --verbose
+python scripts/check_quality.py /path/to/project/.deepwiki --verbose
 
 # 导出 JSON 报告
-python scripts/check_quality.py /path/to/.deepwiki --json report.json
+python scripts/check_quality.py /path/to/project/.deepwiki --json report.json
 ```
 
 检查项目：
@@ -419,6 +659,7 @@ python scripts/check_quality.py /path/to/.deepwiki --json report.json
 | 源码链接无法确定行号 | 仅链接到文件，不指定行号 | 使用 `file:///path/to/file.ts` 而非 `#L42` 形式 |
 | 模块依赖关系无法推断 | 仅记录静态导入，不推断语义 | 列出文件头部的 import 语句，标注"语义依赖关系待分析" |
 | 文档生成中途中断（大型项目） | 保存已完成部分，记录断点 | 写入 `cache/progress.json`，下次运行自动从断点继续 |
+| subagent 启动失败或输出质量不达标 | 降级为主 Agent 串行处理 | 自动切换到串行模式，进度文件记录 `mode: "serial"` |
 
 > **核心原则（参考 deepwiki-rs 的韧性设计）**：降级不是失败，而是保证流水线不崩溃的安全网。一个有占位内容的 `basic` 级文档，远比完全缺失的文档更有价值，因为它可以通过 `升级 <模块> 文档` 命令随时升级。
 
@@ -433,8 +674,8 @@ python scripts/check_quality.py /path/to/.deepwiki --json report.json
 | `检查 wiki 质量` | 运行质量检查并显示报告 |
 | `升级 <模块> 文档` | 重新生成特定模块的文档 |
 
-> 所有命令均执行完整的 5 步工作流；区别在于第 4 步变更检测的范围：
-> "生成/创建" = 全量处理所有模块；"更新/重建" = 仅处理变更模块。
+> 所有命令均执行完整的 8 步工作流；区别在于第 3 步变更检测的范围：
+> "生成/创建" = 首次生成，checksums 为空，等效全量处理所有模块；"更新/重建" = checksums 存在，仅处理变更模块（含反向依赖传播）。
 
 ## 配置
 
@@ -455,40 +696,44 @@ python scripts/check_quality.py /path/to/.deepwiki --json report.json
 
 ## 脚本参考
 
+> **注意**：所有脚本均位于 **DeepWiki 技能目录**（本 SKILL.md 所在目录）的 `scripts/` 子目录下，需从技能目录运行，项目路径作为参数传入。
+
 | 脚本 | 用途 |
 |------|------|
-| `scripts/init_wiki.py <path>` | 初始化 .deepwiki 目录 |
-| `scripts/analyze_project.py <path>` | 分析项目结构和技术栈 |
-| `scripts/detect_changes.py <path>` | 检测文件变更，用于增量更新 |
-| `scripts/extract_docs.py <file>` | 从源码提取文档注释 |
-| `scripts/generate_diagram.py <wiki_dir>` | 生成 Mermaid 图表 |
-| `scripts/generate_toc.py <wiki_dir>` | 生成目录 |
-| `scripts/check_quality.py <wiki_dir>` | 检查文档质量 |
+| `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
+| `scripts/analyze_project.py <项目路径>` | 分析项目结构和技术栈 |
+| `scripts/detect_changes.py <项目路径>` | 检测文件变更，用于增量更新（含反向依赖传播） |
+| `scripts/extract_docs.py <文件路径>` | 从源码提取文档注释 |
+| `scripts/check_quality.py <.deepwiki路径>` | 检查文档质量（含源码链接有效性验证） |
+| `scripts/generate_menu.py <wiki目录路径> [项目名称]` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
 | `scripts/plugin_manager.py` | 管理插件 |
 
-使用示例：
+使用示例（请将 `$SKILL_DIR` 替换为本 SKILL.md 所在的实际目录）：
 
 ```bash
-# 初始化新 wiki
-python scripts/init_wiki.py /path/to/project
+# 切换到技能目录
+cd $SKILL_DIR
+
+# 初始化新 wiki（$PROJECT_DIR 为目标项目的绝对路径）
+python scripts/init_wiki.py $PROJECT_DIR
 
 # 分析项目结构
-python scripts/analyze_project.py /path/to/project
+python scripts/analyze_project.py $PROJECT_DIR
 
 # 检测文件变更
-python scripts/detect_changes.py /path/to/project
+python scripts/detect_changes.py $PROJECT_DIR
 
 # 提取源码注释
 python scripts/extract_docs.py /path/to/src/utils.ts
 
-# 生成 Mermaid 图表
-python scripts/generate_diagram.py /path/to/.deepwiki
-
-# 生成目录
-python scripts/generate_toc.py /path/to/.deepwiki
-
 # 检查文档质量
-python scripts/check_quality.py /path/to/.deepwiki
+python scripts/check_quality.py $PROJECT_DIR/.deepwiki
+
+# 生成导航菜单
+python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称"
+
+# Reconcile 模式：步骤 8 完成后校验并修正菜单
+python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称" --reconcile --verbose
 
 # 列出已安装插件
 python scripts/plugin_manager.py list

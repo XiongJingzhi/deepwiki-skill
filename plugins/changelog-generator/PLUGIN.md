@@ -194,6 +194,10 @@ plugins:
 
 ## 命令 / Commands
 
+> ⚠️ **注意**：以下命令引用的 `scripts/changelog_generator.py` 是**独立的变更日志工具**，
+> 不包含在 DeepWiki 内置脚本中（`scripts/` 目录下的 8 个脚本不包含此文件）。
+> Agent 不得执行以下命令，仅供人工参考。
+
 ```bash
 # 生成完整变更日志
 python scripts/changelog_generator.py generate

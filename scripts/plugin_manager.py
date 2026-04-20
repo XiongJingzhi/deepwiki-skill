@@ -108,12 +108,6 @@ def install_plugin(project_root: str, source: str) -> Dict[str, Any]:
     result = {'success': False, 'message': '', 'name': None}
     
     try:
-        # Handle GitHub shorthand (owner/repo)
-        if re.match(r'^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$', source):
-            source = f"https://github.com/{source}/archive/refs/heads/main.zip"
-            # Fallback to master if main fails? For now let's assume main or let urllib fail.
-            # We could also try API but let's keep it simple.
-
         # Handle URL
         if source.startswith('http://') or source.startswith('https://'):
             # Download to temp file
@@ -145,7 +139,7 @@ def install_plugin(project_root: str, source: str) -> Dict[str, Any]:
                 if (temp_dir / 'PLUGIN.md').exists() or (temp_dir / 'SKILL.md').exists():
                     found_root = temp_dir
                 
-                # Check first level subdirs (common in github zips: repo-main/)
+                # Check first level subdirs (common in zip archives: e.g. repo-main/)
                 if not found_root:
                     for item in temp_dir.iterdir():
                         if item.is_dir():
@@ -252,13 +246,7 @@ hooks:
         source_origin = source
         source_branch = None
         
-        # Check if it was a GitHub shorthand
-        github_match = re.match(r'^([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)$', source)
-        if github_match:
-            source_type = 'github'
-            source_origin = github_match.group(1)
-            source_branch = 'main' # Default to main for now
-        elif source.startswith('http://') or source.startswith('https://'):
+        if source.startswith('http://') or source.startswith('https://'):
             source_type = 'url'
             source_origin = source
         
@@ -360,10 +348,7 @@ def update_plugin(project_root: str, name: str) -> Dict[str, Any]:
     # Handle legacy registry entries
     if isinstance(source_meta, str):
          # Try to guess
-         if re.match(r'^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$', source_meta):
-             source_type = 'github'
-             source_origin = source_meta
-         elif source_meta.startswith('http'):
+         if source_meta.startswith('http'):
              source_type = 'url'
              source_origin = source_meta
          else:
@@ -378,16 +363,9 @@ def update_plugin(project_root: str, name: str) -> Dict[str, Any]:
         
     print(f"Updating {name} from {source_type}: {source_origin}...")
     
-    # Re-install triggers the same download logic
-    install_source = source_origin
-    if source_type == 'github':
-        install_source = source_origin # install_plugin handles owner/repo
-    elif source_type == 'url':
-        install_source = source_origin
-        
     # We reuse install_plugin (it handles overwrite and registry update)
     # But we might want to backup first? For simplicity, we just overwrite.
-    return install_plugin(project_root, install_source)
+    return install_plugin(project_root, source_origin)
 
 
 def print_plugins(plugins: List[Dict[str, Any]]):

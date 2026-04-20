@@ -225,7 +225,6 @@ plugins:
     # 类型文档
     types:
       expand_complex: true     # 展开复杂类型
-      generate_diagrams: true  # 生成类型关系图
       include_internal: false  # 是否包含内部类型
     
     # 可见性控制

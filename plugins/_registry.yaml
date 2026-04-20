@@ -1,26 +1,25 @@
 plugins:
 - builtin: true
   enabled: true
+  min_version: "2.0.0"
   name: code-complexity
   priority: 10
   type: analyzer
 - builtin: true
   enabled: true
+  min_version: "2.0.0"
   name: repo-analytics
   priority: 20
   type: analyzer
 - builtin: true
   enabled: true
+  min_version: "2.0.0"
   name: api-doc-enhancer
   priority: 30
   type: generator
 - builtin: true
   enabled: true
+  min_version: "2.0.0"
   name: changelog-generator
   priority: 40
   type: generator
-- builtin: true
-  enabled: true
-  name: diagram-plus
-  priority: 50
-  type: enhancer

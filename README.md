@@ -90,7 +90,6 @@ DeepWiki 采用 **指令型插件系统**。当你运行任务时：
 - `repo-analytics`: 多维度 Git 分析与健康度评分
 - `api-doc-enhancer`: 深度语义 API 文档生成
 - `changelog-generator`: 从 Git 生成变更日志
-- `diagram-plus`: 增强型 Mermaid 图表
 
 ---
 
