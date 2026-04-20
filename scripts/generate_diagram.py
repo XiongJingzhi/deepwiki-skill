@@ -12,60 +12,57 @@ import re
 
 def generate_architecture_diagram(structure: Dict[str, Any]) -> str:
     """
-    生成项目架构图
-    
+    生成项目架构图 — 基于 module type 动态生成子图
+
     Args:
         structure: 项目结构数据 (来自 structure.json)
-    
+
     Returns:
         Mermaid 图表代码
     """
     modules = structure.get('modules', [])
-    project_type = structure.get('project_type', [])
-    
+
     lines = ['```mermaid', 'flowchart TB']
-    
-    # 添加子图
-    if 'nodejs' in project_type or 'typescript' in project_type:
-        lines.append('    subgraph Frontend["前端层"]')
-        frontend_modules = [m for m in modules if any(p in m.get('path', '') 
-                          for p in ['components', 'pages', 'views', 'ui'])]
-        for m in frontend_modules[:5]:
+
+    # 按 module type 分组
+    type_labels = {
+        'core': '核心模块',
+        'api': 'API / 服务层',
+        'ui': 'UI / 视图层',
+        'data': '数据层',
+        'utility': '工具模块',
+        'config': '配置',
+        'test': '测试',
+        'module': '业务模块',
+    }
+
+    grouped = {}
+    for m in modules:
+        mtype = m.get('type', 'module')
+        grouped.setdefault(mtype, []).append(m)
+
+    # 为每个 type 生成子图
+    type_order = ['ui', 'api', 'module', 'core', 'data', 'utility', 'config', 'test']
+    visible_groups = []
+
+    for mtype in type_order:
+        if mtype not in grouped:
+            continue
+        label = type_labels.get(mtype, mtype)
+        lines.append(f'    subgraph {mtype.capitalize()}["{label}"]')
+        for m in grouped[mtype][:8]:
             safe_name = re.sub(r'[^a-zA-Z0-9]', '', m['name'])
             lines.append(f'        {safe_name}["{m["name"]}"]')
-        if not frontend_modules:
-            lines.append('        UI["用户界面"]')
         lines.append('    end')
         lines.append('')
-    
-    lines.append('    subgraph Core["核心层"]')
-    core_modules = [m for m in modules if any(p in m.get('path', '') 
-                   for p in ['core', 'lib', 'services', 'api', 'src']) 
-                   and not any(p in m.get('path', '') 
-                   for p in ['components', 'pages', 'views', 'ui', 'utils'])]
-    for m in core_modules[:5]:
-        safe_name = re.sub(r'[^a-zA-Z0-9]', '', m['name'])
-        lines.append(f'        {safe_name}["{m["name"]}"]')
-    if not core_modules:
-        lines.append('        Logic["业务逻辑"]')
-    lines.append('    end')
-    lines.append('')
-    
-    lines.append('    subgraph Utils["工具层"]')
-    util_modules = [m for m in modules if any(p in m.get('path', '') 
-                   for p in ['utils', 'helpers', 'common', 'shared'])]
-    for m in util_modules[:3]:
-        safe_name = re.sub(r'[^a-zA-Z0-9]', '', m['name'])
-        lines.append(f'        {safe_name}["{m["name"]}"]')
-    if not util_modules:
-        lines.append('        Utilities["工具函数"]')
-    lines.append('    end')
-    lines.append('')
-    
-    # 添加连接
-    lines.append('    Frontend --> Core')
-    lines.append('    Core --> Utils')
-    
+        visible_groups.append(mtype)
+
+    # 生成层间连接（相邻 group 之间）
+    for i in range(len(visible_groups) - 1):
+        a = visible_groups[i].capitalize()
+        b = visible_groups[i + 1].capitalize()
+        lines.append(f'    {a} --> {b}')
+
     lines.append('```')
     return '\n'.join(lines)
 

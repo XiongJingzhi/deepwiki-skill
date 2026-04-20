@@ -24,16 +24,78 @@ generation:
   link_to_source: true           # 代码块链接到源码
   max_file_size: 100000          # 跳过大于此大小的文件（字节）
 
-# 排除规则
+# 排除规则（涵盖所有支持语言的依赖目录与构建产物）
 exclude:
-  - node_modules
+  # 通用
   - .git
+  - .deepwiki
+
+  # JavaScript / TypeScript / Node.js
+  - node_modules          # npm / yarn / pnpm / bun 依赖
+  - .pnpm-store
   - dist
   - build
+  - out
+  - .next                 # Next.js 构建产物
+  - .nuxt                 # Nuxt.js 构建产物
+  - .svelte-kit           # SvelteKit 构建产物
+  - .output               # Nuxt 3 输出
   - coverage
+  - .nyc_output
+  - .turbo                # Turborepo 缓存
+
+  # Python
   - __pycache__
+  - "*.pyc"
   - venv
   - .venv
+  - env
+  - .env
+  - eggs
+  - .eggs
+  - "*.egg-info"
+  - .tox
+  - .pytest_cache
+  - .mypy_cache
+  - .ruff_cache
+  - htmlcov               # pytest-cov 报告
+  - site-packages
+
+  # Go
+  - vendor                # go mod vendor
+
+  # Rust
+  - target                # cargo build 产物
+
+  # Java / Kotlin
+  - .gradle
+  - .gradle-home
+  - build                 # Gradle 构建产物（已含）
+  - out                   # IntelliJ IDEA 输出（已含）
+  - target                # Maven 构建产物（已含）
+  - .m2                   # Maven 本地仓库（项目内）
+  - classes
+  - "*.class"
+
+  # C# / .NET
+  - bin
+  - obj
+  - packages              # NuGet 本地包
+  - .vs                   # Visual Studio 缓存
+
+  # Ruby
+  - .bundle
+  - vendor/bundle         # Bundler 依赖
+
+  # PHP
+  - vendor                # Composer 依赖（已含）
+
+  # 通用构建 / 缓存
+  - .cache
+  - tmp
+  - temp
+  - logs
+  - "*.log"
 '''
 
 
@@ -91,9 +153,6 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
         ".deepwiki/wiki/modules",
         ".deepwiki/wiki/api",
         ".deepwiki/wiki/assets",
-        ".deepwiki/i18n",
-        ".deepwiki/i18n/en",
-        ".deepwiki/i18n/zh",
     ]
     
     for dir_path in directories:
@@ -121,10 +180,24 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
         "cache/checksums.json": {},
         "cache/structure.json": {
             "project_type": [],
+            "languages": [],
             "entry_points": [],
             "modules": [],
-            "docs_found": []
-        }
+            "core_files": [],
+            "directories": [],
+            "file_types": {},
+            "size_distribution": {},
+            "docs_found": [],
+            "stats": {
+                "total_files": 0,
+                "code_files": 0,
+                "core_files_count": 0,
+                "total_modules": 0,
+                "total_directories": 0,
+                "total_docs": 0
+            }
+        },
+        "cache/progress.json": {},
     }
     
     for cache_file, default_content in cache_files.items():

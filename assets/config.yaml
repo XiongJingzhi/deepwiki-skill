@@ -1,19 +1,79 @@
 # DeepWiki 配置文件
 
+# 生成选项
 generation:
-  language: zh          # zh / en / both
-  include_diagrams: true
-  include_examples: true
-  link_to_source: true
-  max_file_size: 100000
+  language: zh                   # zh / en / both
+  include_diagrams: true         # 生成 Mermaid 架构图
+  include_examples: true         # 包含代码使用示例
+  link_to_source: true           # 代码块链接到源码
+  max_file_size: 100000          # 跳过大于此大小的文件（字节）
 
+# 排除规则（涵盖所有支持语言的依赖目录与构建产物，可在末尾追加项目特有规则）
 exclude:
-  - node_modules
+  # 通用
   - .git
+  - .deepwiki
+
+  # JavaScript / TypeScript / Node.js
+  - node_modules          # npm / yarn / pnpm / bun 依赖
+  - .pnpm-store
   - dist
   - build
+  - out
+  - .next                 # Next.js 构建产物
+  - .nuxt                 # Nuxt.js 构建产物
+  - .svelte-kit           # SvelteKit 构建产物
+  - .output               # Nuxt 3 输出
   - coverage
+  - .nyc_output
+  - .turbo                # Turborepo 缓存
+
+  # Python
   - __pycache__
+  - "*.pyc"
   - venv
-  - "*.test.ts"
-  - "*.spec.js"
+  - .venv
+  - env
+  - eggs
+  - .eggs
+  - "*.egg-info"
+  - .tox
+  - .pytest_cache
+  - .mypy_cache
+  - .ruff_cache
+  - htmlcov               # pytest-cov 报告
+  - site-packages
+
+  # Go
+  - vendor                # go mod vendor
+
+  # Rust
+  - target                # cargo build 产物
+
+  # Java / Kotlin
+  - .gradle
+  - .gradle-home
+  - .m2                   # Maven 本地仓库（项目内）
+  - classes
+  - "*.class"
+
+  # C# / .NET
+  - bin
+  - obj
+  - packages              # NuGet 本地包
+  - .vs                   # Visual Studio 缓存
+
+  # Ruby
+  - .bundle
+  - vendor/bundle         # Bundler 依赖
+
+  # 通用构建 / 缓存
+  - .cache
+  - tmp
+  - temp
+  - logs
+  - "*.log"
+
+  # 自定义追加（在此处添加项目特有的排除规则）
+  # - "*.test.ts"
+  # - "*.spec.ts"

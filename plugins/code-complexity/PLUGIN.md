@@ -180,6 +180,11 @@ xychart-beta
 
 ## 命令 / Commands
 
+> ⚠️ **注意**：以下命令引用的 `scripts/complexity_analyzer.py` 是**独立的复杂度分析工具**，
+> 不包含在 DeepWiki 内置脚本中（`scripts/` 目录下的 8 个脚本不包含此文件）。
+> 如需使用，请自行安装对应的代码复杂度分析工具，或参考项目 README 获取安装说明。
+> Agent 不得执行以下命令，仅供人工参考。
+
 ```bash
 # 运行完整分析
 python scripts/complexity_analyzer.py analyze

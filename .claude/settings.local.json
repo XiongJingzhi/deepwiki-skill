@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(xargs sed:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(python scripts/analyze_project.py .)",
+      "Bash(PYTHONIOENCODING=utf-8 python scripts/analyze_project.py .)",
+      "Bash(rm -rf .deepwiki)",
+      "Bash(PYTHONIOENCODING=utf-8 python scripts/init_wiki.py .)",
+      "Bash(sed -i 's/^| Document | Description |$/| 文档 | 描述 |/' references/templates.md)",
+      "Bash(sed -i 's/^|----------|-------------|$/|------|------|/' references/templates.md)",
+      "Bash(sed -i 's/^| Parameter | Type | Required | Default | Description |$/| 参数 | 类型 | 必填 | 默认值 | 描述 |/' references/templates.md)",
+      "Bash(sed -i 's/^|-----------|------|----------|---------|-------------|$/|------|------|------|--------|------|/' references/templates.md)",
+      "Bash(sed -i 's/^## Document Relationship Diagram$/## 文档关系图/' references/templates.md)",
+      "Bash(sed -i 's/^## Recommended Reading Paths$/## 推荐阅读路径/' references/templates.md)",
+      "Bash(sed -i 's/^### New Users$/### 新手用户/' references/templates.md)",
+      "Bash(sed -i 's/^## Full Document Index$/## 完整文档索引/' references/templates.md)",
+      "Bash(sed -i 's/^### Entry Documents$/### 入口文档/' references/templates.md)"
     ]
   }
 }

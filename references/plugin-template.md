@@ -1,17 +1,17 @@
-# Plugin Template / 扩展模板
+# 插件模板
 
-This document describes the PLUGIN.md format for creating deepwiki plugins.
+本文档描述创建 DeepWiki 插件的 PLUGIN.md 格式。
 
-## Security Note / 安全说明
+## 安全说明
 
-Plugins are **instruction-only**. Do not include steps that require executing code, scripts, or external commands. Any CLI commands are for **manual** use only and must not be executed by the agent.
+插件是**纯指令模式**。不要包含需要执行代码、脚本或外部命令的步骤。任何 CLI 命令仅供**人工**使用，Agent 不得执行。
 
-## PLUGIN.md Format
+## PLUGIN.md 格式
 
 ```yaml
 ---
 name: plugin-name
-type: generator          # analyzer | generator | formatter | integrator | enhancer
+type: generator          # analyzer | generator | integrator | enhancer
 version: 1.0.0
 description: Short description of what this plugin does
 author: Your Name
@@ -50,17 +50,16 @@ What this hook adds to the analysis.
 Any configuration options.
 ```
 
-## Plugin Types / 扩展类型
+## 插件类型
 
 | Type | Description |
 |------|-------------|
 | `analyzer` | Enhance project analysis (e.g., code complexity) |
 | `generator` | Add new doc types (e.g., API docs) |
-| `formatter` | Output format adapters (e.g., Docusaurus) |
 | `integrator` | External integrations (e.g., GitHub) |
 | `enhancer` | Improve existing features |
 
-## Available Hooks / 可用钩子
+## 可用钩子
 
 | Hook | Timing | Use Case |
 |------|--------|----------|
@@ -70,7 +69,7 @@ Any configuration options.
 | `after_generate` | 生成后 | Post-process output |
 | `on_export` | 导出时 | Convert to other formats |
 
-## Directory Structure / 目录结构
+## 目录结构
 
 ```
 your-plugin/
@@ -80,3 +79,5 @@ your-plugin/
 ├── references/          # Reference docs (optional)
 └── assets/              # Assets (optional)
 ```
+
+> Plugins should focus on source code analysis and documentation quality. Output format conversion plugins are not recommended.

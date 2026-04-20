@@ -33,21 +33,11 @@ def generate_toc(wiki_dir: str, base_url: str = '') -> str:
     
     toc_lines = ['# 目录\n']
     
-    # 主要文档
-    main_docs = [
-        ('index.md', '首页'),
-        ('getting-started.md', '快速开始'),
-        ('architecture.md', '架构概览'),
-        ('configuration.md', '配置说明'),
-        ('changelog.md', '更新日志'),
-    ]
-    
-    for filename, default_title in main_docs:
-        file_path = wiki_path / filename
-        if file_path.exists():
-            title = extract_title_from_markdown(str(file_path)) or default_title
-            toc_lines.append(f'- [{title}]({base_url}{filename})')
-    
+    # 主要文档 — 动态扫描根目录下的 .md 文件
+    for md_file in sorted(wiki_path.glob('*.md')):
+        title = extract_title_from_markdown(str(md_file))
+        toc_lines.append(f'- [{title}]({base_url}{md_file.name})')
+
     toc_lines.append('')
     
     # 模块文档
@@ -94,14 +84,16 @@ def generate_sidebar(wiki_dir: str) -> str:
     """生成侧边栏导航 (适用于 GitHub Wiki 或 VuePress)"""
     wiki_path = Path(wiki_dir)
     
-    sidebar = {
-        '/': [
-            {'text': '首页', 'link': '/'},
-            {'text': '快速开始', 'link': '/getting-started'},
-            {'text': '架构概览', 'link': '/architecture'},
-        ]
-    }
-    
+    sidebar = {'/': []}
+
+    # 添加根目录文档到侧边栏
+    for md_file in sorted(wiki_path.glob('*.md')):
+        title = extract_title_from_markdown(str(md_file))
+        sidebar['/'].append({
+            'text': title,
+            'link': f'/{md_file.stem}'
+        })
+
     # 添加模块
     modules_dir = wiki_path / 'modules'
     if modules_dir.exists():

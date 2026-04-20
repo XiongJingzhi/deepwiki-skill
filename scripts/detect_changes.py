@@ -11,11 +11,13 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any
 from datetime import datetime, timezone
 
-# 默认排除规则
+# 默认排除规则（与 analyze_project.py 的 IGNORE_DIRS 保持一致）
 DEFAULT_EXCLUDES = {
     'node_modules', '.git', 'dist', 'build', '__pycache__',
     '.next', '.nuxt', 'coverage', '.nyc_output', 'vendor',
-    'venv', '.venv', 'env', '.deepwiki'
+    'venv', '.venv', 'env', '.env', 'eggs', '.eggs',
+    '.tox', '.cache', '.pytest_cache', '.mypy_cache',
+    '.deepwiki', '.agent'
 }
 
 # 支持的代码文件扩展名

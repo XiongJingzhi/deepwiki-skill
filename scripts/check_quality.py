@@ -112,61 +112,46 @@ def analyze_document(file_path: str) -> QualityMetrics:
 
 
 def evaluate_quality_level(m: QualityMetrics) -> str:
-    """评估质量等级"""
-    score = 0
-    
-    # 行数评分 (400+ 为专业级)
-    if m.line_count >= 400:
-        score += 3
-    elif m.line_count >= 250:
-        score += 2
-    elif m.line_count >= 150:
-        score += 1
-    
-    # 章节数评分
-    if m.section_count >= 12:
-        score += 3
-    elif m.section_count >= 8:
-        score += 2
-    elif m.section_count >= 5:
-        score += 1
-    
-    # 图表评分
-    if m.diagram_count >= 3:
-        score += 3
-    elif m.diagram_count >= 2:
-        score += 2
-    elif m.diagram_count >= 1:
-        score += 1
-    
-    # classDiagram 评分
-    if m.class_diagram_count >= 1:
-        score += 2
-    
-    # 代码示例评分
-    if m.code_example_count >= 5:
-        score += 3
-    elif m.code_example_count >= 3:
-        score += 2
-    elif m.code_example_count >= 1:
-        score += 1
-    
-    # 源码追溯评分
+    """基于语义检查清单评估质量等级"""
+    must_total = 3
+    must_met = 0
+
+    # 必须有
     if m.has_source_tracing:
-        score += 2
-    
-    # 关键章节评分
-    if m.has_best_practices:
-        score += 1
-    if m.has_performance:
-        score += 1
+        must_met += 1
+    if m.code_example_count >= 1:
+        must_met += 1
+    if m.section_count >= 3:
+        must_met += 1
+
+    should_total = 3
+    should_met = 0
+
+    # 建议有
+    if m.diagram_count >= 1:
+        should_met += 1
+    if m.cross_link_count >= 1:
+        should_met += 1
     if m.has_troubleshooting:
-        score += 1
-    
-    # 最终评级
-    if score >= 15:
+        should_met += 1
+
+    nice_total = 3
+    nice_met = 0
+
+    # 加分项
+    if m.has_best_practices:
+        nice_met += 1
+    if m.has_performance:
+        nice_met += 1
+    if m.class_diagram_count >= 1:
+        nice_met += 1
+
+    # 加权评分: must 50%, should 30%, nice 20%
+    score = (must_met / must_total) * 50 + (should_met / should_total) * 30 + (nice_met / nice_total) * 20
+
+    if score >= 80:
         return "professional"
-    elif score >= 8:
+    elif score >= 50:
         return "standard"
     else:
         return "basic"
@@ -238,18 +223,9 @@ def generate_issues(m: QualityMetrics) -> List[str]:
     if m.code_example_count < expected["min_examples"]:
         issues.append(f"代码示例不足: {m.code_example_count}/{expected['min_examples']}")
     
-    if not m.has_source_tracing and expected["min_lines"] >= 150:
-        issues.append("缺少源码追溯 (Section sources)")
-    
-    # 核心模块需要更多章节
-    if expected["min_sections"] >= 8:
-        if not m.has_best_practices:
-            issues.append("核心模块缺少「最佳实践」章节")
-        if not m.has_performance:
-            issues.append("核心模块缺少「性能优化」章节")
-        if not m.has_troubleshooting:
-            issues.append("核心模块缺少「错误处理」章节")
-    
+    if not m.has_source_tracing:
+        issues.append("缺少源码追溯 (file:// 链接)")
+
     if m.cross_link_count < 1:
         issues.append("缺少相关文档交叉链接")
     

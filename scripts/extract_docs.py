@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 文档提取脚本
-从代码文件中提取 JSDoc/TSDoc/DocString 注释
+从代码文件中提取 JSDoc/TSDoc/DocString/GoDoc/Javadoc 注释
+支持: JavaScript/TypeScript, Python, Go, Java/Kotlin, Rust
 """
 
 import re
@@ -159,21 +160,212 @@ def extract_python_docstring(content: str, file_path: str) -> List[DocEntry]:
 def extract_docs_from_file(file_path: str) -> List[DocEntry]:
     """从文件中提取文档"""
     path = Path(file_path)
-    
+
     if not path.exists():
         return []
-    
+
     with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         content = f.read()
-    
+
     suffix = path.suffix.lower()
-    
+
     if suffix in {'.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'}:
         return extract_jsdoc(content, file_path)
     elif suffix in {'.py', '.pyi'}:
         return extract_python_docstring(content, file_path)
-    
+    elif suffix == '.go':
+        return extract_go_docs(content, file_path)
+    elif suffix in {'.java', '.kt'}:
+        return extract_java_docs(content, file_path)
+    elif suffix == '.rs':
+        return extract_rust_docs(content, file_path)
+
     return []
+
+
+def extract_go_docs(content: str, file_path: str) -> List[DocEntry]:
+    """从 Go 文件中提取文档注释"""
+    entries = []
+
+    # Go doc: 注释紧邻声明之前
+    # 匹配 func, type, const, var 前面的注释块
+    pattern = r'(?:(?://\s*(.+)\n)+)\s*(?:func|type|const|var)\s+(\w+)'
+
+    for match in re.finditer(pattern, content):
+        comment_block = match.group(0)
+        lines = re.findall(r'//\s*(.+)', comment_block)
+        # 最后一行是声明行中的名称后面的内容，去掉
+        decl_match = re.search(r'(?:func|type|const|var)\s+(\w+)', comment_block)
+        if not decl_match:
+            continue
+        name = decl_match.group(1)
+        line_number = content[:match.start()].count('\n') + 1
+
+        # 提取描述（第一句是摘要）
+        description_lines = []
+        params = []
+        returns = None
+
+        for line in lines:
+            if line.startswith('@deprecated'):
+                description_lines.append('[Deprecated] ' + line[len('@deprecated'):].strip())
+            elif line.startswith('@param') or line.startswith('@param:'):
+                param_match = re.match(r'@param:?\s+(\w+)\s*-?\s*(.*)', line)
+                if param_match:
+                    params.append({
+                        'name': param_match.group(1),
+                        'type': 'any',
+                        'description': param_match.group(2)
+                    })
+            elif not line.startswith('@'):
+                description_lines.append(line)
+
+        description = ' '.join(description_lines).strip()
+
+        # 确定类型
+        if 'func ' in comment_block:
+            entry_type = 'function'
+        elif 'type ' in comment_block:
+            entry_type = 'type'
+        elif 'const ' in comment_block:
+            entry_type = 'constant'
+        else:
+            entry_type = 'variable'
+
+        entries.append(DocEntry(
+            name=name,
+            type=entry_type,
+            description=description,
+            params=params,
+            returns=returns,
+            examples=[],
+            line_number=line_number,
+            file_path=file_path
+        ))
+
+    return entries
+
+
+def extract_java_docs(content: str, file_path: str) -> List[DocEntry]:
+    """从 Java/Kotlin 文件中提取 Javadoc"""
+    entries = []
+
+    # Javadoc 模式: /** ... */ 紧邻 public/protected 声明之前
+    javadoc_pattern = r'/\*\*\s*([\s\S]*?)\*/\s*(?:(?:public|protected|private|static|final|abstract|open|sealed)\s+)*(?:class|interface|enum|record|object|fun|val|var)\s+(\w+)'
+
+    for match in re.finditer(javadoc_pattern, content):
+        doc_text = match.group(1)
+        name = match.group(2)
+        line_number = content[:match.start()].count('\n') + 1
+
+        description_lines = []
+        params = []
+        returns = None
+
+        for line in doc_text.split('\n'):
+            line = line.strip().lstrip('* ')
+
+            if line.startswith('@param'):
+                param_match = re.match(r'@param\s+(\w+)\s+-?\s*(.*)', line)
+                if param_match:
+                    params.append({
+                        'name': param_match.group(1),
+                        'type': 'any',
+                        'description': param_match.group(2)
+                    })
+            elif line.startswith('@return') or line.startswith('@returns'):
+                return_match = re.match(r'@returns?\s+(.*)', line)
+                if return_match:
+                    returns = return_match.group(1)
+            elif line.startswith('@throws') or line.startswith('@exception'):
+                pass  # 可以扩展
+            elif not line.startswith('@'):
+                description_lines.append(line)
+
+        description = ' '.join(description_lines).strip()
+
+        # 确定类型
+        decl = match.group(0).lower()
+        if 'class ' in decl or 'object ' in decl:
+            entry_type = 'class'
+        elif 'interface ' in decl:
+            entry_type = 'interface'
+        elif 'enum ' in decl:
+            entry_type = 'enum'
+        elif 'record ' in decl:
+            entry_type = 'type'
+        else:
+            entry_type = 'function'
+
+        entries.append(DocEntry(
+            name=name,
+            type=entry_type,
+            description=description,
+            params=params,
+            returns=returns,
+            examples=[],
+            line_number=line_number,
+            file_path=file_path
+        ))
+
+    return entries
+
+
+def extract_rust_docs(content: str, file_path: str) -> List[DocEntry]:
+    """从 Rust 文件中提取文档注释"""
+    entries = []
+
+    # Rust doc: /// 注释紧邻 pub 声明之前
+    pattern = r'(?:(?:///[ \t]*(.+)\n)+)\s*(?:pub\s+)?(?:async\s+)?(?:fn|struct|enum|trait|type|const|static)\s+(\w+)'
+
+    for match in re.finditer(pattern, content):
+        comment_block = match.group(0)
+        lines = re.findall(r'///[ \t]*(.+)', comment_block)
+        decl_match = re.search(r'(?:pub\s+)?(?:async\s+)?(?:fn|struct|enum|trait|type|const|static)\s+(\w+)', comment_block)
+        if not decl_match:
+            continue
+        name = decl_match.group(1)
+        line_number = content[:match.start()].count('\n') + 1
+
+        description_lines = []
+        params = []
+        returns = None
+
+        for line in lines:
+            if line.startswith('# '):
+                # Rust doc heading, skip section markers
+                description_lines.append(line[2:].strip())
+            elif not line.startswith('@'):
+                description_lines.append(line)
+
+        description = ' '.join(description_lines).strip()
+
+        # 确定类型
+        if 'fn ' in comment_block:
+            entry_type = 'function'
+        elif 'struct ' in comment_block:
+            entry_type = 'type'
+        elif 'enum ' in comment_block:
+            entry_type = 'enum'
+        elif 'trait ' in comment_block:
+            entry_type = 'interface'
+        elif 'type ' in comment_block:
+            entry_type = 'type'
+        else:
+            entry_type = 'constant'
+
+        entries.append(DocEntry(
+            name=name,
+            type=entry_type,
+            description=description,
+            params=params,
+            returns=returns,
+            examples=[],
+            line_number=line_number,
+            file_path=file_path
+        ))
+
+    return entries
 
 
 def docs_to_markdown(entries: List[DocEntry]) -> str:
