@@ -59,3 +59,71 @@
 4. **模块内读取顺序**：对每个模块，先读其 `core_files` 中的文件，再读其他文件。
 
 **技巧**：从模块的入口文件或桶文件（如 `index.ts`、`__init__.py`）开始了解公共接口，然后读取实现文件了解内部逻辑。对于大文件，先关注导出的符号（`important_lines`），再根据需要读取上下文。
+
+---
+
+## 读取 structure.json（第 2 步产出）
+
+首先读取 `cache/structure.json`，获取以下核心字段：
+
+| 字段 | 用途 |
+|------|------|
+| `core_files` | 所有 `importance_score >= 0.5` 的文件列表（按评分降序），是最值得分析的源文件 |
+| `high_priority_files` | 所有 `importance_score >= 0.6` 的文件列表，用于关系分析和深度分析的精确过滤 |
+| `modules` | 每个模块的 `importance_score`、`core_files` 列表和 `core_files_count` |
+| `file_types` | 扩展名 → 文件数，用于构建项目概览 |
+| `directories` | 目录结构和重要性评分，用于理解项目布局 |
+
+## 读取 code-structure.json（第 2.5 步产出）并应用
+
+同时读取 `cache/code-structure.json`，作为语义分析锚点：
+
+| 字段 | 如何应用 |
+|------|---------|
+| `archetype` | 决定分析侧重点：`spa-frontend`（组件树/状态流）/ `web-service`（请求链路/鉴权）/ `fullstack-framework`（SSR/API Routes）/ `cli-tool`（命令树/配置加载）/ `sdk-library`（公开 API 契约/扩展点）/ `ml-project`（数据管道/训练循环） |
+| `call_graph` | 每个函数的 `calls` 列表作为锚点，AI 只需补充语义（Why），而非重新推断结构（What） |
+| `patterns` | 对检测到模式的文件优先深度分析（如 `middleware_chain` → 重点分析各中间件职责与错误传递；`react_component` → 重点分析 Props/状态/生命周期） |
+| `key_sequences` | 验证或修正时序参与者顺序，补充每步业务语义；直接用于生成 `sequenceDiagram` |
+
+## 图表类型选择
+
+根据 `archetype` 和 `patterns` 选择合适的 Mermaid 图表类型：
+
+| 场景 | 推荐图表 |
+|------|---------|
+| 请求处理链 / 鉴权流程 / 时序 | `sequenceDiagram` |
+| 组件树 / 中间件堆叠 / 命令树 | `flowchart TB` |
+| 状态机 / 组件生命周期 | `stateDiagram-v2` |
+| 类继承 / 插件接口 | `classDiagram` |
+| 数据模型关系 | `erDiagram` |
+
+## 变更筛选（基于第 3 步结果）
+
+根据第 3 步变更检测结果，筛选待处理文件：
+
+- **首次生成**（无变更记录）：处理所有模块的核心文件。
+- **增量更新**：仅处理变更文件所属模块的核心文件。对于被其他变更模块依赖的模块（反向依赖），也应纳入处理范围。
+
+## 插件缓存优先
+
+若 `.deepwiki/cache/api-analysis.json` 存在（由 `api-doc-enhancer` 插件在 `after_analyze` 阶段生成），优先读取其 `exports` 字段作为接口提取的基础，再进行语义补充，避免重复分析。
+
+## 预提取文档注释
+
+对每个待处理的核心文件，从**技能目录**运行以下命令预提取结构化注释（函数签名、参数、返回值、类定义）：
+
+```bash
+python scripts/extract_docs.py <文件绝对路径>
+```
+
+将提取结果作为语义分析的起点注入 `{{ EXTRACTED_DOCS }}` 变量，减少重复提取工作。若文件无文档注释则跳过。
+
+## 语义分析流程
+
+对每个文件进行语义分析时，按以下步骤执行：
+
+1. 按双层分类规则确定文件角色（`Entry`/`Service`/`Api`/`Dao` 等）
+2. 理解语义：追踪函数调用、控制流、数据流、错误处理和设计模式
+3. 提取公共接口、内部逻辑和模块依赖
+4. 参考 `references/prompts.md` 获取分析提示词模板（代码深度分析 / 模块文档 / 依赖分析）
+5. 为每个模块输出结构化分析结果，供第 5 步和第 8 步使用

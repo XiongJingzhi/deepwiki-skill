@@ -106,3 +106,60 @@ flowchart LR
 
 <!-- 备选说明：Client 发送请求到 API Server，API Server 查询 Database。 -->
 ````
+
+---
+
+## 模块文档统一上下文（8.1）
+
+无论使用 subagent 并行还是主 Agent 串行，每个模块的生成任务都接收以下统一上下文：
+
+| 上下文 | 来源 | 用途 |
+|--------|------|------|
+| 项目上下文摘要 | 第 6 步产出 | 理解项目定位和技术栈 |
+| 该模块的导航位置 | `menu.json` | 生成面包屑和前后导航链接 |
+| 该模块的源码分析数据 | 第 4 步深度阅读结果 | 生成接口文档和代码示例 |
+| 该模块的依赖关系 | 第 5 步输出 | 生成依赖关系章节 |
+| 配置要求 | `config.yaml` | 语言、图表开关、源码链接等 |
+
+模板参考：`references/templates.md` → 模块 / API 参考。
+
+## 保存与 meta.json 更新（8.2）
+
+- 将所有 wiki 文件写入 `.deepwiki/wiki/`。
+- 更新 `meta.json` 的时间戳和每个模块的元数据。
+
+## 菜单校验（8.3）
+
+所有详细文档生成完毕后，从**技能目录**运行 `generate_menu.py --reconcile` 校验并修正 `menu.json`（详细行为规则见 [`references/system-reference.md`](references/system-reference.md) → reconcile 模式说明）：
+
+```bash
+python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项目名称] --reconcile
+```
+
+之后依次应用 `after_generate` 插件钩子和 `on_export` 插件钩子（用于知识库导出、格式转换等后处理）。更新 `cache/progress.json` 的 `phases.details.status` 为 `completed`。
+
+## 文档质量检查（8.4）
+
+从**技能目录**运行质量检查，确认生成的文档符合质量标准（源码链接、Mermaid 图表、章节完整性）：
+
+```bash
+python scripts/check_quality.py <项目目录绝对路径>/.deepwiki
+```
+
+### 质量等级说明
+
+| 退出码 | 等级 | 含义 | 处理方式 |
+|--------|------|------|----------|
+| 0 | 全部 Professional / Standard | 达标 | 流程正常结束 |
+| 1 | 存在 Basic 文档（占比 ≤50%） | 警告 | 告知用户；对 Basic 模块重新生成 |
+| 2 | Basic 文档超过 50% | 严重 | 必须对所有 Basic 模块重新执行第 4 步起的子流程 |
+
+### 退出码 1 / 2 时的重新生成策略
+
+无需重新初始化或分析，直接从第 4 步继续：
+
+1. 加 `--verbose` 查看具体 Basic 文档的缺失项（源码链接、图表、章节数不足等）
+2. 将这些模块在 `cache/progress.json` 中对应条目状态重置为 `pending`
+3. **跳过第 1-3 步**，直接从**第 4 步**（深度阅读）重新执行 → 第 8.1 步（生成），仅针对 Basic 模块
+4. 重新生成后再次运行 `check_quality.py` 确认达标
+5. 若二次生成仍为 Basic，记录到 `meta.json` 的 `quality_issues` 字段并告知用户，不再强制重试
