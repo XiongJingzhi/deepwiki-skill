@@ -14,31 +14,14 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any
 from datetime import datetime, timezone
 
-# 默认排除规则（与 analyze_project.py 的 IGNORE_DIRS 保持一致）
-DEFAULT_EXCLUDES = {
-    'node_modules', '.git', 'dist', 'build', '__pycache__',
-    '.next', '.nuxt', 'coverage', '.nyc_output', 'vendor',
-    'venv', '.venv', 'env', '.env', 'eggs', '.eggs',
-    '.tox', '.cache', '.pytest_cache', '.mypy_cache',
-    '.deepwiki', '.agent'
-}
+from common import (
+    IGNORE_DIRS as DEFAULT_EXCLUDES,
+    CODE_EXTENSIONS, DOC_EXTENSIONS,
+    GitignoreCache, should_ignore_path,
+)
 
-# 支持的代码文件扩展名
-CODE_EXTENSIONS = {
-    '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-    '.py', '.pyi',
-    '.go', '.rs', '.java', '.kt', '.scala',
-    '.rb', '.php', '.cs', '.fs',
-    '.vue', '.svelte', '.astro'
-}
-
-# 文档扩展名
-DOC_EXTENSIONS = {'.md', '.mdx', '.rst', '.txt'}
-
-# 模块级 .gitignore 缓存
-_gitignore_dirs: Set[str] = set()
-_gitignore_globs: Set[str] = set()
-_gitignore_loaded: bool = False
+# 模块级 gitignore 缓存实例
+_gitignore_cache = GitignoreCache()
 
 
 def load_config_excludes(project_root: Path) -> Set[str]:
@@ -54,10 +37,8 @@ def load_config_excludes(project_root: Path) -> Set[str]:
         for pattern in config.get("exclude", []):
             pattern = str(pattern).strip()
             if pattern:
-                # 纯名称规则（如 node_modules）直接加入
-                # 通配符规则（如 *.log）加入 glob 集合
                 if any(c in pattern for c in ('*', '?', '[')):
-                    _gitignore_globs.add(pattern.lstrip('*'))
+                    _gitignore_cache.globs.add(pattern.lstrip('*'))
                 else:
                     excludes.add(pattern)
         return excludes
@@ -65,55 +46,9 @@ def load_config_excludes(project_root: Path) -> Set[str]:
         return set()
 
 
-def load_gitignore(root_path: Path) -> Tuple[Set[str], Set[str]]:
-    """
-    解析项目根目录的 .gitignore 文件。
-
-    Returns:
-        (dir_patterns, glob_patterns)
-    """
-    gitignore_path = root_path / '.gitignore'
-    if not gitignore_path.exists():
-        return set(), set()
-
-    dir_patterns: Set[str] = set()
-    glob_patterns: Set[str] = set()
-
-    try:
-        with open(gitignore_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                line = line.rstrip('\n\r')
-                stripped = line.strip()
-                if not stripped or stripped.startswith('#'):
-                    continue
-                if ' #' in stripped:
-                    stripped = stripped[:stripped.index(' #')].strip()
-                if stripped.startswith('!'):
-                    continue
-                if stripped.startswith('**/'):
-                    stripped = stripped[3:]
-                elif stripped.endswith('/**'):
-                    stripped = stripped[:-3]
-                stripped = stripped.rstrip('/')
-                if not stripped:
-                    continue
-
-                if any(c in stripped for c in ('*', '?', '[')):
-                    glob_patterns.add(stripped)
-                else:
-                    dir_patterns.add(stripped)
-    except Exception:
-        pass
-
-    return dir_patterns, glob_patterns
-
-
 def _ensure_gitignore_loaded(root_path: Path):
     """加载 .gitignore（仅首次调用时执行）。"""
-    global _gitignore_dirs, _gitignore_globs, _gitignore_loaded
-    if not _gitignore_loaded:
-        _gitignore_dirs, _gitignore_globs = load_gitignore(root_path)
-        _gitignore_loaded = True
+    _gitignore_cache.ensure_loaded(root_path)
 
 
 def calculate_file_hash(file_path: str) -> str:
@@ -142,9 +77,9 @@ def should_include_file(file_path: Path, excludes: Set[str], config_excludes: Se
                 return False
 
     # 检查 .gitignore 规则
-    if _gitignore_dirs and any(part in _gitignore_dirs for part in file_path.parts):
+    if _gitignore_cache.dirs and any(part in _gitignore_cache.dirs for part in file_path.parts):
         return False
-    if _gitignore_globs and any(fnmatch.fnmatch(file_path.name, p) for p in _gitignore_globs):
+    if _gitignore_cache.globs and any(fnmatch.fnmatch(file_path.name, p) for p in _gitignore_cache.globs):
         return False
 
     # 只包含代码和文档文件
@@ -234,8 +169,8 @@ def propagate_reverse_dependencies(changed_modules: Set[str],
     # 反向依赖：查找哪些模块导入了变更模块的文件
     affected_modules: Set[str] = set()
     import_patterns = [
-        re.compile(r'''(?:from|import)\s+['"]([^'"]+)['"]'''),   # Python: from X import Y
-        re.compile(r'''import\s+['"]([^'"]+)['"]'''),              # Python: import X
+        re.compile(r'''(?:from|import)\s+['"]([^'"]+)['"]'''),   # Python quoted: from "X" import Y
+        re.compile(r'''(?:from|import)\s+([\w.]+)'''),           # Python bare: from X import Y, import X.Y
         re.compile(r'''(?:import|require)\s*\(?['"]([^'"]+)['"]'''),  # JS/TS
         re.compile(r'''use\s+['"]([^'"]+)['"]'''),                 # Rust
     ]
@@ -255,7 +190,7 @@ def propagate_reverse_dependencies(changed_modules: Set[str],
             else:
                 try:
                     # 从项目根目录读取文件
-                    project_root = str(Path(structure.get('project_root', '.')).parent) \
+                    project_root = str(structure.get('project_root', '.')) \
                         if structure.get('project_root') else '.'
                     full_path = os.path.join(project_root, file_rel_path)
                     with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -267,7 +202,7 @@ def propagate_reverse_dependencies(changed_modules: Set[str],
             # 检查是否导入了任何变更模块的文件
             for pattern in import_patterns:
                 for match in pattern.finditer(content):
-                    import_path = match.group(1).replace('\\', '/')
+                    import_path = match.group(1).replace('\\', '/').replace('.', '/')
                     for changed_prefix in changed_paths:
                         if import_path.startswith(changed_prefix) or changed_prefix.startswith(import_path):
                             affected_modules.add(mod_name)
@@ -282,7 +217,8 @@ def propagate_reverse_dependencies(changed_modules: Set[str],
     return affected_modules
 
 
-def detect_changes(project_root: str, excludes: Set[str] = None) -> Dict[str, Any]:
+def detect_changes(project_root: str, excludes: Set[str] = None,
+                    dry_run: bool = False) -> Dict[str, Any]:
     """
     检测项目变更
     
@@ -341,7 +277,8 @@ def detect_changes(project_root: str, excludes: Set[str] = None) -> Dict[str, An
         summary_parts.append("无变更")
     
     # 自动保存当前校验和到缓存，使下次检测能正确识别变更
-    update_checksums_cache(project_root, current_checksums)
+    if not dry_run:
+        update_checksums_cache(project_root, current_checksums)
 
     # ---- 反向依赖传播 ----
     # 将文件级变更映射到模块级，然后传播给依赖这些模块的其他模块

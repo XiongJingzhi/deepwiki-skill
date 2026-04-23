@@ -1,0 +1,85 @@
+# 系统参考
+
+> 本文档涵盖两部分：`.deepwiki/` 输出目录结构说明，以及 `scripts/` 辅助脚本的使用参考。
+
+## 输出目录结构（.deepwiki/）
+
+`.deepwiki/` 目录下各文件的用途说明：
+
+| 文件 | 说明 |
+|------|------|
+| `config.yaml` | 生成设置（语言、排除规则、功能开关） |
+| `meta.json` | 生成器版本、时间戳、每个模块的元数据（质量等级、章节数、最后更新时间） |
+| `cache/checksums.json` | 文件哈希值，用于增量变更检测 |
+| `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈） |
+| `cache/progress.json` | 分阶段任务状态机（overview/menu/details 三阶段，每模块 pending/in_progress/completed/failed，含 subagent/serial 模式标记） |
+| `wiki/index.md` | 项目首页，含概述、徽章、导航、快速开始 |
+| `wiki/architecture.md` | 系统架构图、技术栈、模块依赖 |
+| `wiki/getting-started.md` | 前置条件、安装、第一个示例 |
+| `wiki/doc-map.md` | 文档关系图、阅读路径、依赖矩阵（第 7 步基于 menu.json 生成） |
+| `wiki/menu.json` | 层级化导航菜单（概览 → 模块 → 更多），自动由 `generate_menu.py` 生成 |
+| `wiki/modules/` | 每个项目模块一个文件，含深度分析 |
+| `wiki/api/` | 每个模块的 API 参考，含签名、类型和示例 |
+
+## 脚本参考（scripts/）
+
+> **重要**：所有脚本均位于 **DeepWiki 技能目录**（本 SKILL.md 所在目录）的 `scripts/` 子目录下，需从技能目录运行，项目路径作为参数传入。
+
+### 脚本列表
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
+| `scripts/analyze_project.py <项目路径>` | 分析项目结构和技术栈 |
+| `scripts/detect_changes.py <项目路径>` | 检测文件变更，用于增量更新（含反向依赖传播） |
+| `scripts/extract_docs.py <文件路径>` | 从源码提取文档注释 |
+| `scripts/check_quality.py <.deepwiki路径>` | 检查文档质量（含源码链接有效性验证） |
+| `scripts/generate_menu.py <wiki目录路径> [项目名称]` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
+
+### 使用示例
+
+> 请将 `$SKILL_DIR` 替换为本 SKILL.md 所在的实际目录，`$PROJECT_DIR` 替换为目标项目的绝对路径。
+
+```bash
+# 切换到技能目录
+cd $SKILL_DIR
+
+# 初始化新 wiki
+python scripts/init_wiki.py $PROJECT_DIR
+
+# 强制重新初始化（覆盖已有 .deepwiki/ 目录的配置和缓存）
+python scripts/init_wiki.py $PROJECT_DIR --force
+
+# 分析项目结构
+python scripts/analyze_project.py $PROJECT_DIR
+
+# 检测文件变更
+python scripts/detect_changes.py $PROJECT_DIR
+
+# 提取源码注释
+python scripts/extract_docs.py /path/to/src/utils.ts
+
+# 检查文档质量（基本 / 详细报告 / 导出 JSON）
+python scripts/check_quality.py $PROJECT_DIR/.deepwiki
+python scripts/check_quality.py $PROJECT_DIR/.deepwiki --verbose
+python scripts/check_quality.py $PROJECT_DIR/.deepwiki --json report.json
+
+# 生成导航菜单
+python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称"
+
+# Reconcile 模式：步骤 8 完成后校验并修正菜单
+python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称" --reconcile --verbose
+```
+
+### generate_menu.py --reconcile 模式说明
+
+`--reconcile` 模式在第 8 步所有详细文档生成完毕后运行，执行以下操作：
+
+1. 读取已有的 `menu.json`（步骤 7 生成的规划菜单）
+2. 扫描 `wiki/` 目录下的实际文件
+3. **校验并修正**：
+   - 用实际文件的 H1 标题替换预设的模块名称
+   - 将 `"planned": true` 标记移除（文档已实际生成）
+   - 移除规划中存在但实际未生成文档的模块条目
+   - 补充实际生成但规划中遗漏的文件（如插件产出的额外文档）
+4. 输出校验报告：新增/移除/修改的条目数量

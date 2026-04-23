@@ -13,6 +13,7 @@ exclude:
   # 通用
   - .git
   - .deepwiki
+  - .agents
 
   # JavaScript / TypeScript / Node.js
   - node_modules          # npm / yarn / pnpm / bun 依赖

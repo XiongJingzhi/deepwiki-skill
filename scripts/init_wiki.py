@@ -139,14 +139,14 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
     """
     root = Path(project_root)
     wiki_dir = root / ".deepwiki"
-    
+
     result = {
         "success": True,
         "created": [],
         "skipped": [],
         "message": ""
     }
-    
+
     # 检查是否已存在
     if wiki_dir.exists():
         if not force:
@@ -160,94 +160,100 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
                 backup_path = wiki_dir / "config.yaml.bak"
                 shutil.copy(config_path, backup_path)
                 result["skipped"].append("config.yaml (已备份)")
-    
-    # 创建目录结构
-    directories = [
-        ".deepwiki",
-        ".deepwiki/cache",
-        ".deepwiki/wiki",
-        ".deepwiki/wiki/modules",
-        ".deepwiki/wiki/api",
-        ".deepwiki/wiki/assets",
-    ]
-    
-    for dir_path in directories:
-        full_path = root / dir_path
-        if not full_path.exists():
-            full_path.mkdir(parents=True, exist_ok=True)
-            result["created"].append(dir_path)
-    
-    # 创建配置文件
-    config_path = wiki_dir / "config.yaml"
-    if not config_path.exists() or force:
-        with open(config_path, 'w', encoding='utf-8') as f:
-            f.write(get_default_config())
-        result["created"].append("config.yaml")
-    
-    # 创建元数据文件
-    meta_path = wiki_dir / "meta.json"
-    if not meta_path.exists() or force:
-        with open(meta_path, 'w', encoding='utf-8') as f:
-            json.dump(get_default_meta(), f, indent=2, ensure_ascii=False)
-        result["created"].append("meta.json")
-    
-    # 创建空的缓存文件
-    cache_files = {
-        "cache/checksums.json": {},
-        "cache/structure.json": {
-            "project_name": "",
-            "project_type": [],
-            "languages": [],
-            "entry_points": [],
-            "modules": [],
-            "core_files": [],
-            "high_priority_files": [],
-            "directories": [],
-            "file_types": {},
-            "size_distribution": {},
-            "docs_found": [],
-            "stats": {
-                "total_files": 0,
-                "code_files": 0,
-                "core_files_count": 0,
-                "high_priority_files_count": 0,
-                "total_modules": 0,
-                "total_directories": 0,
-                "total_docs": 0
-            }
-        },
-        "cache/progress.json": {
-            "last_updated": None,
-            "phases": {
-                "overview": {
-                    "status": "pending",
-                    "documents": {
-                        "index.md": "pending",
-                        "architecture.md": "pending",
-                        "getting-started.md": "pending",
-                        "doc-map.md": "pending"
-                    }
-                },
-                "details": {"status": "pending", "modules": {}},
-                "menu": {"status": "pending"}
-            }
-        },
-    }
-    
-    for cache_file, default_content in cache_files.items():
-        cache_path = wiki_dir / cache_file
-        if not cache_path.exists():
-            with open(cache_path, 'w', encoding='utf-8') as f:
-                json.dump(default_content, f, indent=2, ensure_ascii=False)
-            result["created"].append(cache_file)
-    
-    # 创建 .gitignore
-    gitignore_path = wiki_dir / ".gitignore"
-    if not gitignore_path.exists():
-        with open(gitignore_path, 'w', encoding='utf-8') as f:
-            f.write("cache/\n*.bak\n")
-        result["created"].append(".gitignore")
-    
+
+    try:
+        # 创建目录结构
+        directories = [
+            ".deepwiki",
+            ".deepwiki/cache",
+            ".deepwiki/wiki",
+            ".deepwiki/wiki/modules",
+            ".deepwiki/wiki/api",
+            ".deepwiki/wiki/assets",
+        ]
+
+        for dir_path in directories:
+            full_path = root / dir_path
+            if not full_path.exists():
+                full_path.mkdir(parents=True, exist_ok=True)
+                result["created"].append(dir_path)
+
+        # 创建配置文件
+        config_path = wiki_dir / "config.yaml"
+        if not config_path.exists() or force:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(get_default_config())
+            result["created"].append("config.yaml")
+
+        # 创建元数据文件
+        meta_path = wiki_dir / "meta.json"
+        if not meta_path.exists() or force:
+            with open(meta_path, 'w', encoding='utf-8') as f:
+                json.dump(get_default_meta(), f, indent=2, ensure_ascii=False)
+            result["created"].append("meta.json")
+
+        # 创建空的缓存文件
+        cache_files = {
+            "cache/checksums.json": {},
+            "cache/structure.json": {
+                "project_name": "",
+                "project_type": [],
+                "languages": [],
+                "entry_points": [],
+                "modules": [],
+                "core_files": [],
+                "high_priority_files": [],
+                "directories": [],
+                "file_types": {},
+                "size_distribution": {},
+                "docs_found": [],
+                "stats": {
+                    "total_files": 0,
+                    "code_files": 0,
+                    "core_files_count": 0,
+                    "high_priority_files_count": 0,
+                    "total_modules": 0,
+                    "total_directories": 0,
+                    "total_docs": 0
+                }
+            },
+            "cache/progress.json": {
+                "last_updated": None,
+                "phases": {
+                    "overview": {
+                        "status": "pending",
+                        "documents": {
+                            "index.md": "pending",
+                            "architecture.md": "pending",
+                            "getting-started.md": "pending",
+                            "doc-map.md": "pending"
+                        }
+                    },
+                    "details": {"status": "pending", "modules": {}},
+                    "menu": {"status": "pending"}
+                }
+            },
+        }
+
+        for cache_file, default_content in cache_files.items():
+            cache_path = wiki_dir / cache_file
+            if not cache_path.exists():
+                with open(cache_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_content, f, indent=2, ensure_ascii=False)
+                result["created"].append(cache_file)
+
+        # 创建 .gitignore
+        gitignore_path = wiki_dir / ".gitignore"
+        if not gitignore_path.exists():
+            with open(gitignore_path, 'w', encoding='utf-8') as f:
+                f.write("cache/\n*.bak\n")
+            result["created"].append(".gitignore")
+
+    except (PermissionError, OSError) as e:
+        result["success"] = False
+        result["message"] = f"初始化失败: {e}"
+        return result
+
     result["message"] = f"成功初始化 .deepwiki 目录，创建了 {len(result['created'])} 个文件/目录"
     return result
 

@@ -8,89 +8,22 @@
 
 import os
 import json
-import fnmatch
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime, timezone
 
-# 忽略的目录
-IGNORE_DIRS = {
-    'node_modules', '.git', 'dist', 'build', '__pycache__',
-    '.next', '.nuxt', 'coverage', '.nyc_output', 'vendor',
-    'venv', '.venv', 'env', '.env', 'eggs', '.eggs',
-    '.tox', '.cache', '.pytest_cache', '.mypy_cache',
-    '.deepwiki', '.agent'
-}
+from common import (
+    IGNORE_DIRS, IGNORE_FILES, CODE_EXTENSIONS,
+    GitignoreCache, should_ignore_path, load_gitignore,
+)
 
-# 忽略的文件
-IGNORE_FILES = {
-    '.DS_Store', 'Thumbs.db', '.gitignore', '.gitattributes',
-    'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
-    'poetry.lock', 'Pipfile.lock', 'composer.lock'
-}
-
-# 模块级 .gitignore 缓存（analyze_project 运行时加载一次）
-_gitignore_dirs: Set[str] = set()
-_gitignore_globs: Set[str] = set()
-_gitignore_loaded: bool = False
-
-
-def load_gitignore(root_path: Path) -> Tuple[Set[str], Set[str]]:
-    """
-    解析项目根目录的 .gitignore 文件。
-
-    Returns:
-        (dir_patterns, glob_patterns)
-        - dir_patterns: 纯名称匹配（如 node_modules、.env）
-        - glob_patterns: 通配符模式（如 *.log、*.pyc）
-    """
-    gitignore_path = root_path / '.gitignore'
-    if not gitignore_path.exists():
-        return set(), set()
-
-    dir_patterns: Set[str] = set()
-    glob_patterns: Set[str] = set()
-
-    try:
-        with open(gitignore_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                line = line.rstrip('\n\r')
-                stripped = line.strip()
-                if not stripped or stripped.startswith('#'):
-                    continue
-                # 移除行内注释
-                if ' #' in stripped:
-                    stripped = stripped[:stripped.index(' #')].strip()
-                # 跳过取反规则（保留所有文件在排除列表中的极少见场景）
-                if stripped.startswith('!'):
-                    continue
-                # 处理 **/ 前缀（匹配任意深度）
-                if stripped.startswith('**/'):
-                    stripped = stripped[3:]
-                # 处理 /** 后缀（匹配目录及所有内容）
-                elif stripped.endswith('/**'):
-                    stripped = stripped[:-3]
-                # 移除末尾 /（目录标记）
-                stripped = stripped.rstrip('/')
-                if not stripped:
-                    continue
-
-                if any(c in stripped for c in ('*', '?', '[')):
-                    glob_patterns.add(stripped)
-                else:
-                    dir_patterns.add(stripped)
-    except Exception:
-        pass
-
-    return dir_patterns, glob_patterns
+# 模块级 gitignore 缓存实例
+_gitignore_cache = GitignoreCache()
 
 
 def _ensure_gitignore_loaded(root_path: Path):
     """加载 .gitignore（仅首次调用时执行）。"""
-    global _gitignore_dirs, _gitignore_globs, _gitignore_loaded
-    if not _gitignore_loaded:
-        _gitignore_dirs, _gitignore_globs = load_gitignore(root_path)
-        _gitignore_loaded = True
+    _gitignore_cache.ensure_loaded(root_path)
 
 # 项目类型检测规则
 PROJECT_INDICATORS = {
@@ -106,19 +39,6 @@ PROJECT_INDICATORS = {
     'react': ['package.json'],  # 需进一步检查依赖
     'vue': ['vue.config.js', 'vite.config.ts', 'nuxt.config.ts'],
     'nextjs': ['next.config.js', 'next.config.mjs', 'next.config.ts'],
-}
-
-# 代码文件扩展名
-CODE_EXTENSIONS = {
-    '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-    '.py', '.pyi',
-    '.go',
-    '.rs',
-    '.java', '.kt', '.scala',
-    '.rb',
-    '.php',
-    '.cs', '.fs',
-    '.vue', '.svelte', '.astro'
 }
 
 
@@ -524,13 +444,7 @@ LOCK_EXTENSIONS = {'.lock', '.lockb'}
 
 def _should_ignore_path(path: Path) -> bool:
     """检查路径是否应被忽略（硬编码规则 + .gitignore）"""
-    if any(part in IGNORE_DIRS for part in path.parts):
-        return True
-    if _gitignore_dirs and any(part in _gitignore_dirs for part in path.parts):
-        return True
-    if _gitignore_globs and any(fnmatch.fnmatch(path.name, p) for p in _gitignore_globs):
-        return True
-    return False
+    return should_ignore_path(path, _gitignore_cache, IGNORE_DIRS)
 
 
 def calculate_file_importance(file_path: Path, root_path: Path, size: int) -> float:
@@ -925,6 +839,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     code_file_count = sum(1 for f in all_files if f['is_code'])
 
     result = {
+        'project_root': str(root.resolve()),
         'project_name': root.name,
         'project_type': project_types,
         'languages': languages,

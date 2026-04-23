@@ -8,10 +8,35 @@
 """
 
 import json
+import yaml
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+# 多语言标签映射
+_LABELS = {
+    'zh': {'overview': '概览', 'modules': '模块', 'more': '更多',
+           'module_doc': '模块文档', 'api_ref': 'API 参考'},
+    'en': {'overview': 'Overview', 'modules': 'Modules', 'more': 'More',
+           'module_doc': 'Module Doc', 'api_ref': 'API Reference'},
+}
+
+
+def _labels(wiki_dir: str) -> Dict[str, str]:
+    """根据 config.yaml 的 language 设置返回标签字典。"""
+    config_path = Path(wiki_dir).parent / 'config.yaml'
+    lang = 'zh'
+    if config_path.exists():
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                cfg = yaml.safe_load(f) or {}
+            lang = cfg.get('generation', {}).get('language', 'zh')
+            if lang not in _LABELS:
+                lang = 'zh' if lang == 'both' else 'en'
+        except Exception:
+            pass
+    return _LABELS.get(lang, _LABELS['zh'])
 
 
 def extract_title(file_path: str) -> str:
@@ -45,26 +70,22 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
     if not wiki_path.exists():
         return _empty_menu(project_name)
 
+    L = _labels(wiki_dir)
     menu: List[Dict[str, Any]] = []
 
     # ---------- 顶层根文件（index.md 等概览类文档） ----------
-    overview_files = [
-        ('index.md', '首页'),
-        ('getting-started.md', '快速开始'),
-        ('architecture.md', '架构文档'),
-        ('doc-map.md', '文档地图'),
-    ]
     overview_items: List[Dict[str, str]] = []
-    for filename, label in overview_files:
+    for filename in ('index.md', 'getting-started.md', 'architecture.md', 'doc-map.md'):
         target = wiki_path / filename
         if target.exists():
+            title = extract_title(str(target))
             overview_items.append({
-                'title': label,
+                'title': title if title else target.stem,
                 'path': filename,
             })
 
     if overview_items:
-        menu.append({'title': '概览', 'items': overview_items})
+        menu.append({'title': L['overview'], 'items': overview_items})
 
     # ---------- 模块文档 + API 文档（按模块名配对） ----------
     modules_dir = wiki_path / 'modules'
@@ -84,14 +105,14 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
         title = extract_title(str(md_file))
 
         children: List[Dict[str, str]] = [
-            {'title': '模块文档', 'path': f'modules/{md_file.name}'},
+            {'title': L['module_doc'], 'path': f'modules/{md_file.name}'},
         ]
 
         # 查找对应的 API 文档
         api_file = api_dir / md_file.name if api_dir.exists() else None
         if api_file and api_file.exists():
             children.append({
-                'title': 'API 参考',
+                'title': L['api_ref'],
                 'path': f'api/{api_file.name}',
             })
 
@@ -101,10 +122,10 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
         })
 
     if module_items:
-        menu.append({'title': '模块', 'items': module_items})
+        menu.append({'title': L['modules'], 'items': module_items})
 
     # ---------- 其他顶层 .md 文件（changelog 等） ----------
-    known_top_files = {f for f, _ in overview_files}
+    known_top_files = {'index.md', 'getting-started.md', 'architecture.md', 'doc-map.md'}
     other_top: List[Dict[str, str]] = []
     for md_file in sorted(wiki_path.glob('*.md')):
         if md_file.name not in known_top_files:
@@ -142,7 +163,7 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
         if other_top:
             more_items.append({'title': '其他', 'items': other_top})
         more_items.extend(subdir_items)
-        menu.append({'title': '更多', 'items': more_items})
+        menu.append({'title': L['more'], 'items': more_items})
 
     return {
         'title': project_name or '',
@@ -241,9 +262,8 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
                             if verbose:
                                 print(f"  标题更新: {old_title} -> {display_title}")
                         item = {**item, 'title': display_title}
-
-                item = {**item, 'items': updated_children}
-                updated_items.append(item)
+                    item = {**item, 'items': updated_children}
+                    updated_items.append(item)
             else:
                 # 顶层条目（无子项）
                 item_path = item.get('path', '')
@@ -258,7 +278,7 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
                 item = {**item, 'items': []}
                 updated_items.append(item)
 
-        updated_menu.append(group)
+        updated_menu.append({**group, 'items': updated_items})
 
     # ---- 补充遗漏的文件 ----
     known_paths = set()
@@ -267,11 +287,6 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
             for child in item.get('items', []):
                 known_paths.add(child.get('path', ''))
             known_paths.add(item.get('path', ''))
-
-    overview_files = {'index.md', 'getting-started.md', 'architecture.md', 'doc-map.md'}
-    known_top = {f for f, _ in [
-        ('index.md', ''), ('getting-started.md', ''), ('architecture.md', ''), ('doc-map.md', ''),
-    ]}
 
     # 查找遗漏的模块文件
     modules_dir = wiki_path / 'modules'
@@ -294,13 +309,14 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
                     continue
 
         # 将遗漏的模块归入"模块"组
+        L = _labels(wiki_dir)
         extra_module_items = []
         for stem, (filename, title) in sorted(existing_modules.items()):
             display_title = title if title != stem.title() else stem
             api_path = f'api/{filename}'
-            children = [{'title': '模块文档', 'path': f'modules/{filename}'}]
+            children = [{'title': L['module_doc'], 'path': f'modules/{filename}'}]
             if (api_dir / filename).exists():
-                children.append({'title': 'API 参考', 'path': api_path})
+                children.append({'title': L['api_ref'], 'path': api_path})
             extra_module_items.append({
                 'title': display_title,
                 'items': children,
@@ -312,7 +328,7 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
         if extra_module_items:
             # 插入到第一个分组之后（概览组之后），或追加
             insert_idx = 1 if len(updated_menu) > 1 else len(updated_menu)
-            updated_menu.insert(insert_idx, {'title': '模块', 'items': extra_module_items})
+            updated_menu.insert(insert_idx, {'title': L['modules'], 'items': extra_module_items})
 
     # ---- 移除空的分组 ----
     final_menu = [g for g in updated_menu if g.get('items')]
@@ -384,14 +400,15 @@ def main():
 
     if args.reconcile:
         menu_data = reconcile_menu(wiki_dir, project_name, verbose=args.verbose)
-        total = sum(1 for _ in [
+        output = save_menu(wiki_dir, menu_data)
+        total = sum([
             menu_data.get('titles_updated', 0),
             menu_data.get('planned_removed', 0),
             menu_data.get('missing_removed', 0),
             menu_data.get('added', 0),
         ])
-        mode_label = "Reconcile" if args.verbose else "Reconcile"
-        print(f"[{mode_label}] 修正完成: {total} 处变更")
+        mode_label = "Reconcile"
+        print(f"[{mode_label}] 修正完成: {total} 处变更 -> {output}")
         if args.verbose:
             print(f"  - 标题更新: {menu_data.get('titles_updated', 0)}")
             print(f"  - 规划条目移除: {menu_data.get('planned_removed', 0)}")

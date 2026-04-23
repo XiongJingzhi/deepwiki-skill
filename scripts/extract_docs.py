@@ -44,7 +44,7 @@ def extract_jsdoc(content: str, file_path: str) -> List[DocEntry]:
         
         for line in doc_text.split('\n'):
             line = line.strip().lstrip('* ')
-            
+
             if line.startswith('@param'):
                 param_match = re.match(r'@param\s+{([^}]+)}\s+(\w+)\s*-?\s*(.*)', line)
                 if param_match:
@@ -58,9 +58,13 @@ def extract_jsdoc(content: str, file_path: str) -> List[DocEntry]:
                 if return_match:
                     returns = f"{return_match.group(1)}: {return_match.group(2)}"
             elif line.startswith('@example'):
-                # 收集示例代码直到下一个 @ 标签
+                examples.append(line[len('@example'):].strip())
+            elif line.startswith('@'):
                 continue
-            elif not line.startswith('@'):
+            elif examples:
+                # 追加到当前示例块
+                examples[-1] += '\n' + line if examples[-1] else line
+            else:
                 description_lines.append(line)
         
         description = ' '.join(description_lines).strip()
@@ -113,13 +117,13 @@ def extract_python_docstring(content: str, file_path: str) -> List[DocEntry]:
         for line in docstring.split('\n'):
             stripped = line.strip()
             
-            if stripped in ('Args:', 'Arguments:', 'Parameters:'):
+            if stripped in ('Args:', 'Arguments:', 'Parameters:', '参数:', '参数：'):
                 current_section = 'params'
                 continue
-            elif stripped in ('Returns:', 'Return:'):
+            elif stripped in ('Returns:', 'Return:', '返回:', '返回值：', '返回值:'):
                 current_section = 'returns'
                 continue
-            elif stripped in ('Example:', 'Examples:'):
+            elif stripped in ('Example:', 'Examples:', '示例:', '示例：'):
                 current_section = 'examples'
                 continue
             elif stripped.endswith(':') and not ':' in stripped[:-1]:
@@ -137,7 +141,8 @@ def extract_python_docstring(content: str, file_path: str) -> List[DocEntry]:
                         'description': param_match.group(3)
                     })
             elif current_section == 'returns':
-                returns = stripped
+                if stripped:
+                    returns = stripped
             elif current_section == 'examples':
                 examples.append(stripped)
         

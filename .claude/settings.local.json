@@ -20,7 +20,13 @@
       "Bash(python -c \"import py_compile; py_compile.compile\\(''scripts/check_quality.py'', doraise=True\\); print\\(''check_quality.py OK''\\)\")",
       "Bash(python -c \"import yaml; print\\(''yaml OK''\\)\")",
       "Bash(python -c \"import py_compile; py_compile.compile\\(''scripts/generate_menu.py'', doraise=True\\); print\\(''generate_menu.py OK''\\)\")",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -m pytest tests/test_generate_menu.py::TestReconcileMenu::test_removes_entries_for_missing_files -v --tb=long)",
+      "Bash(python -m pytest tests/test_detect_changes.py::TestPropagateReverseDependencies::test_propagation_detected tests/test_extract_docs.py::TestExtractPythonDocstring::test_returns_section tests/test_generate_menu.py::TestReconcileMenu::test_updates_titles_from_h1 tests/test_generate_menu.py::TestReconcileMenu::test_removes_empty_groups -v --tb=short)",
+      "Bash(python -m pytest tests/test_detect_changes.py::TestPropagateReverseDependencies::test_propagation_detected tests/test_generate_menu.py::TestReconcileMenu::test_removes_empty_groups -v --tb=short)",
+      "Bash(python -m pytest tests/test_init_wiki.py::TestGetDefaultConfig::test_returns_string -v --tb=long)",
+      "Bash(python -m pytest tests/ --tb=short)"
     ]
   }
 }
