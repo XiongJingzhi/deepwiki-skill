@@ -447,7 +447,7 @@ def _should_ignore_path(path: Path) -> bool:
     return should_ignore_path(path, _gitignore_cache, IGNORE_DIRS)
 
 
-def calculate_file_importance(file_path: Path, root_path: Path, size: int) -> float:
+def calculate_file_importance(file_path: Path, root_path: Path, size: int, return_breakdown: bool = False):
     """
     使用分组互斥加权模型计算文件重要性评分 (0.0 - 1.0)
 
@@ -466,6 +466,16 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int) -> fl
         配置(.yaml/.json等) → 0.4 | 样式/模板 → 0.3 | 锁文件 → 0.1
     - 大小组 (15%)：文件体积对重要性的贡献，互斥取最高
         1KB-50KB(适中) → 1.0 | 100B-1KB(小文件) → 0.5
+
+    Args:
+        file_path: 文件路径
+        root_path: 项目根路径
+        size: 文件大小（字节）
+        return_breakdown: 是否返回各组分数明细
+
+    Returns:
+        float: 总分（默认）
+        dict: 包含各组分数和总分（return_breakdown=True 时）
     """
     rel_path = str(file_path.relative_to(root_path)).replace('\\', '/')
     rel_lower = rel_path.lower()
@@ -542,7 +552,90 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int) -> fl
         lang_score     * 0.30 +
         size_score     * 0.15
     )
-    return round(min(score, 1.0), 4)
+    final_score = round(min(score, 1.0), 4)
+
+    if return_breakdown:
+        return {
+            'total': final_score,
+            'path_score': path_score,
+            'identity_score': identity_score,
+            'lang_score': lang_score,
+            'size_score': size_score,
+        }
+    return final_score
+
+
+def _percentile_to_score(percentile: float) -> float:
+    """将百分位排名转换为归一化分数"""
+    if percentile >= 0.90:
+        return 1.0
+    elif percentile >= 0.70:
+        return 0.8
+    elif percentile >= 0.50:
+        return 0.6
+    elif percentile >= 0.30:
+        return 0.4
+    else:
+        return 0.2
+
+
+def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    模块内百分位归一化 path_score，重新计算重要性评分。
+
+    解决问题：原 path_score 对所有 src/ 下的文件均为 1.0，
+    导致 constants.py 和 engine.py 无法区分。
+
+    方法：在每个模块内部，按 raw_path_score 计算百分位排名，
+    将百分位映射为归一化后的 path_score_normalized，
+    然后重新计算总重要性评分。
+
+    Args:
+        files: 文件列表（需包含 raw_path_score 字段）
+        modules: 模块列表（需包含 path 字段）
+
+    Returns:
+        更新后的文件列表（含 path_score_normalized 和重新计算的 importance_score）
+    """
+    if not files or not modules:
+        return files
+
+    # 按模块分组文件
+    for mod in modules:
+        mod_path = mod.get('path', '').replace('\\', '/')
+        if not mod_path:
+            continue
+
+        # 收集属于该模块的文件
+        mod_prefix = mod_path + '/'
+        mod_files = [f for f in files if f['path'].startswith(mod_prefix) or f['path'] == mod_path]
+
+        if len(mod_files) < 2:
+            # 模块内少于 2 个文件，跳过归一化
+            for f in mod_files:
+                f['path_score_normalized'] = f.get('raw_path_score', 1.0)
+            continue
+
+        # 计算百分位排名
+        path_scores = [f.get('raw_path_score', 0.5) for f in mod_files]
+        for f in mod_files:
+            raw_score = f.get('raw_path_score', 0.5)
+            # 计算百分位：比当前分数低的文件占比
+            percentile = sum(1 for s in path_scores if s < raw_score) / len(path_scores)
+            f['path_score_normalized'] = _percentile_to_score(percentile)
+
+            # 重新计算重要性评分（使用归一化后的 path_score）
+            new_score = (
+                f['path_score_normalized'] * 0.30 +
+                f.get('raw_identity_score', 0.0) * 0.25 +
+                f.get('raw_lang_score', 0.0) * 0.30 +
+                f.get('raw_size_score', 0.0) * 0.15
+            )
+            f['importance_score'] = round(min(new_score, 1.0), 2)
+            f['is_core'] = f['importance_score'] >= 0.5
+            f['is_high_priority'] = f['importance_score'] >= 0.6
+
+    return files
 
 
 def estimate_complexity(file_path: Path) -> int:
@@ -656,7 +749,11 @@ def scan_files(root_path: Path) -> List[Dict[str, Any]]:
 
         rel_path = str(f.relative_to(root_path)).replace('\\', '/')
         is_code = ext in CODE_EXTENSIONS
-        importance = calculate_file_importance(f, root_path, size)
+        
+        # 获取分数明细（用于后续归一化）
+        breakdown = calculate_file_importance(f, root_path, size, return_breakdown=True)
+        importance = breakdown['total']
+        
         complexity = estimate_complexity(f) if is_code else 0
         important_lines = count_important_lines(f) if is_code else 0
 
@@ -673,6 +770,11 @@ def scan_files(root_path: Path) -> List[Dict[str, Any]]:
             # 高优先级档位：score >= 0.6，用于关系分析和深度分析阶段的精确过滤
             # 参考 deepwiki-rs：关系分析阶段仅处理 importance_score >= 0.6 的文件
             'is_high_priority': importance >= 0.6,
+            # 原始分数（用于模块内归一化）
+            'raw_path_score': breakdown['path_score'],
+            'raw_identity_score': breakdown['identity_score'],
+            'raw_lang_score': breakdown['lang_score'],
+            'raw_size_score': breakdown['size_score'],
         })
 
     # 按重要性评分降序
@@ -817,14 +919,20 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     # 扫描所有文件（含重要性评分和复杂度估算）
     all_files = scan_files(root)
 
+    # 发现模块（传入文件数据用于计算模块重要性）
+    modules = discover_modules(root, all_files=all_files)
+
+    # 模块内归一化 path_score，重新计算重要性评分
+    all_files = normalize_path_scores(all_files, modules)
+
+    # 重新排序（归一化后分数可能变化）
+    all_files.sort(key=lambda x: x['importance_score'], reverse=True)
+
     # 核心文件: importance_score >= 0.5
     core_files = [f for f in all_files if f['is_core']]
 
     # 高优先级文件: importance_score >= 0.6（用于关系分析和深度分析的精确过滤）
     high_priority_files = [f for f in all_files if f.get('is_high_priority')]
-
-    # 发现模块（传入文件数据用于计算模块重要性）
-    modules = discover_modules(root, all_files=all_files)
 
     # 发现文档
     docs = find_documentation(root)
@@ -860,6 +968,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
             'total_directories': len(directories),
             'total_docs': len(docs),
         },
+        'context_budget': compute_context_budget(all_files, root),
         'analyzed_at': datetime.now(timezone.utc).isoformat()
     }
 
@@ -872,6 +981,90 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
             json.dump(result, f, indent=2, ensure_ascii=False)
 
     return result
+
+
+def estimate_token_cost(file_path: Path) -> int:
+    """
+    估算单个文件的 token 消耗。
+    
+    简化模型：字符数 / 4（经验值，适合大多数语言）
+    """
+    try:
+        size = file_path.stat().st_size
+        base_tokens = size // 4
+        return max(base_tokens, 100)
+    except Exception:
+        return 200
+
+
+def compute_context_budget(all_files: List[Dict[str, Any]], 
+                           project_root: Path,
+                           total_budget: int = 120000,
+                           reserved_for_generation: int = 40000) -> Dict[str, Any]:
+    """
+    计算 Context Budget 分配方案。
+    
+    三阶段漏斗：
+    1. 快速扫描：所有核心文件，仅元数据
+    2. 重点深入：Budget 允许范围内的高优先级文件
+    3. 按需补读：生成阶段发现缺口时回读
+    
+    Args:
+        all_files: 文件列表（含 importance_score）
+        project_root: 项目根路径
+        total_budget: 总 token 预算（默认 120K）
+        reserved_for_generation: 为生成阶段预留的预算（默认 40K）
+        
+    Returns:
+        Context Budget 分配方案
+    """
+    available_for_analysis = total_budget - reserved_for_generation
+    
+    # 估算每个文件的 token 消耗
+    file_costs = {}
+    for f in all_files:
+        fpath = project_root / f['path']
+        if fpath.exists():
+            file_costs[f['path']] = estimate_token_cost(fpath)
+        else:
+            file_costs[f['path']] = 200
+    
+    sorted_files = sorted(all_files, key=lambda x: x['importance_score'], reverse=True)
+    
+    # 阶段 1：快速扫描
+    quick_scan_files = [f for f in sorted_files if f['is_core']]
+    quick_scan_cost = sum(file_costs.get(f['path'], 200) // 10 for f in quick_scan_files)
+    
+    # 阶段 2：重点深入
+    remaining_budget = available_for_analysis - quick_scan_cost
+    deep_analysis_files = []
+    deep_analysis_cost = 0
+    
+    high_priority = [f for f in sorted_files if f.get('is_high_priority') and f not in quick_scan_files]
+    for f in high_priority:
+        cost = file_costs.get(f['path'], 200)
+        if deep_analysis_cost + cost <= remaining_budget:
+            deep_analysis_files.append(f['path'])
+            deep_analysis_cost += cost
+        else:
+            break
+    
+    return {
+        'total_budget': total_budget,
+        'reserved_for_generation': reserved_for_generation,
+        'available_for_analysis': available_for_analysis,
+        'quick_scan': {
+            'file_count': len(quick_scan_files),
+            'estimated_cost': quick_scan_cost,
+        },
+        'deep_analysis': {
+            'file_count': len(deep_analysis_files),
+            'estimated_cost': deep_analysis_cost,
+            'files': deep_analysis_files[:20],
+        },
+        'remaining_budget': remaining_budget - deep_analysis_cost,
+        'estimated_file_costs': {k: v for k, v in list(file_costs.items())[:50]},
+    }
 
 
 def print_analysis(result: Dict[str, Any]):

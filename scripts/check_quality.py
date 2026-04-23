@@ -32,6 +32,8 @@ class QualityMetrics:
     has_troubleshooting: bool = False  # 是否有错误处理/调试章节
     source_link_valid_count: int = 0  # 有效的源码链接数
     source_link_broken_count: int = 0  # 失效的源码链接数
+    source_link_invalid_lines: int = 0  # 行号超出文件范围的链接数
+    source_link_corrected: int = 0  # 可自动修正的链接数
     quality_level: str = "basic"  # basic / standard / professional
     issues: List[str] = field(default_factory=list)
 
@@ -112,6 +114,10 @@ def analyze_document(file_path: str, structure_path: str = None,
         valid, broken = validate_source_links(content, project_root)
         metrics.source_link_valid_count = valid
         metrics.source_link_broken_count = broken
+        # 行号有效性验证
+        line_result = validate_source_link_with_lines(content, project_root)
+        metrics.source_link_invalid_lines = line_result['invalid_lines']
+        metrics.source_link_corrected = line_result['corrected']
 
     # 评估质量等级
     metrics.quality_level = evaluate_quality_level(metrics)
@@ -160,6 +166,73 @@ def validate_source_links(content: str, project_root: str) -> Tuple[int, int]:
             broken += 1
 
     return valid, broken
+
+
+def validate_source_link_with_lines(content: str, project_root: str) -> Dict[str, int]:
+    """
+    验证文档中 file:// 链接的文件存在性和行号有效性。
+
+    从文档内容中提取所有 file:///path/to/file.ext#L行号 链接，
+    检查文件是否存在，以及行号是否在有效范围内。
+
+    Returns:
+        {
+            'valid': 有效链接数,
+            'broken': 文件不存在的链接数,
+            'invalid_lines': 行号超出范围的链接数,
+            'corrected': 可自动修正的链接数
+        }
+    """
+    link_pattern = re.compile(r'file:///([^)\s#]+)(?:#L(\d+)(?:-L(\d+))?)?')
+    matches = link_pattern.findall(content)
+    
+    if not matches:
+        return {'valid': 0, 'broken': 0, 'invalid_lines': 0, 'corrected': 0}
+    
+    result = {'valid': 0, 'broken': 0, 'invalid_lines': 0, 'corrected': 0}
+    seen = set()
+    
+    for link_path, line_start, line_end in matches:
+        normalized = link_path.replace('\\', '/')
+        cache_key = (normalized, line_start, line_end)
+        if cache_key in seen:
+            continue
+        seen.add(cache_key)
+        
+        full_path = os.path.normpath(os.path.join(project_root, normalized))
+        abs_path = os.path.normpath(normalized)
+        
+        actual_path = None
+        if os.path.isfile(full_path):
+            actual_path = full_path
+        elif os.path.isfile(abs_path):
+            actual_path = abs_path
+        
+        if not actual_path:
+            result['broken'] += 1
+            continue
+        
+        if not line_start:
+            result['valid'] += 1
+            continue
+        
+        try:
+            line_start_int = int(line_start)
+            line_end_int = int(line_end) if line_end else line_start_int
+            
+            with open(actual_path, 'r', encoding='utf-8', errors='ignore') as f:
+                total_lines = len(f.readlines())
+            
+            if line_start_int < 1 or line_end_int > total_lines:
+                result['invalid_lines'] += 1
+                if line_start_int >= 1 and line_start_int <= total_lines:
+                    result['corrected'] += 1
+            else:
+                result['valid'] += 1
+        except Exception:
+            result['invalid_lines'] += 1
+    
+    return result
 
 
 def evaluate_quality_level(m: QualityMetrics) -> str:
@@ -331,6 +404,12 @@ def generate_issues(m: QualityMetrics, structure_path: str = None) -> List[str]:
 
     if m.source_link_broken_count > 0:
         issues.append(f"失效的源码链接: {m.source_link_broken_count} 个 (有效: {m.source_link_valid_count})")
+
+    if m.source_link_invalid_lines > 0:
+        msg = f"行号超出范围的源码链接: {m.source_link_invalid_lines} 个"
+        if m.source_link_corrected > 0:
+            msg += f" (可自动修正: {m.source_link_corrected})"
+        issues.append(msg)
 
     if m.cross_link_count < 1:
         issues.append("缺少相关文档交叉链接")
