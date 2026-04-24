@@ -6,8 +6,7 @@
 
 | 文档 | 模板参考 | 内容要点 |
 |------|---------|---------|
-| `index.md` | `references/templates.md` → 首页 | 项目概述、技术栈徽章、快速导航、模块列表 |
-| `architecture.md` | `references/templates.md` → 架构 | 系统架构图（Mermaid）、技术栈、模块依赖关系、架构分层（来自第 5 步输出） |
+| `overview.md` | `references/templates.md` → 概览文档 | 项目定位、技术栈、系统架构图、分层说明、模块列表、依赖图（条件）、文档导航 |
 | `getting-started.md` | `references/templates.md` → 快速开始 | 前置条件、安装步骤、第一个示例、常见问题 |
 
 每生成完一个文档即更新 `cache/progress.json` 的 `phases.overview.documents` 中对应文件的状态为 `completed` 或 `failed`，确保中断后可从断点恢复。阶段 6 完成后，更新 `phases.overview.status` 为 `completed`。
