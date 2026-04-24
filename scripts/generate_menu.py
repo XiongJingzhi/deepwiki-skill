@@ -59,7 +59,7 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
     从 wiki 目录结构生成层级化导航菜单（默认模式）。
 
     目录布局:
-      wiki/index.md, wiki/architecture.md, wiki/getting-started.md, wiki/doc-map.md
+      wiki/overview.md, wiki/getting-started.md, wiki/doc-map.md
       wiki/modules/*.md
       wiki/api/*.md
       wiki/changelog.md, wiki/其他顶层文件.md
@@ -75,9 +75,9 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
     L = _labels(wiki_dir)
     menu: List[Dict[str, Any]] = []
 
-    # ---------- 顶层根文件（index.md 等概览类文档） ----------
+    # ---------- 顶层根文件（overview.md 等概览类文档） ----------
     overview_items: List[Dict[str, str]] = []
-    for filename in ('index.md', 'getting-started.md', 'architecture.md', 'doc-map.md'):
+    for filename in ('overview.md', 'getting-started.md', 'doc-map.md'):
         target = wiki_path / filename
         if target.exists():
             title = extract_title(str(target))
@@ -127,7 +127,7 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
         menu.append({'title': L['modules'], 'items': module_items})
 
     # ---------- 其他顶层 .md 文件（changelog 等） ----------
-    known_top_files = {'index.md', 'getting-started.md', 'architecture.md', 'doc-map.md'}
+    known_top_files = {'overview.md', 'getting-started.md', 'doc-map.md'}
     other_top: List[Dict[str, str]] = []
     for md_file in sorted(wiki_path.glob('*.md')):
         if md_file.name not in known_top_files:

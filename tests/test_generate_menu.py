@@ -97,35 +97,33 @@ class TestBuildMenu:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
-    def test_overview_section_with_index_and_getting_started(self, tmp_path):
-        """Overview section includes index.md and getting-started.md when present."""
+    def test_overview_section_with_overview_and_getting_started(self, tmp_path):
+        """Overview section includes overview.md and getting-started.md when present."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
         (wiki / "getting-started.md").write_text("# Getting Started\nInstall.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
         sections = {g["title"]: g for g in menu["menu"]}
         assert "概览" in sections
         paths = [item["path"] for item in sections["概览"]["items"]]
-        assert "index.md" in paths
+        assert "overview.md" in paths
         assert "getting-started.md" in paths
 
     def test_overview_labels(self, tmp_path):
         """Overview items use H1 titles from the files."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
         (wiki / "getting-started.md").write_text("# Getting Started\nInstall.", encoding="utf-8")
-        (wiki / "architecture.md").write_text("# Architecture\nDesign.", encoding="utf-8")
         (wiki / "doc-map.md").write_text("# Map\nIndex.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
         sections = {g["title"]: g for g in menu["menu"]}
         titles = {item["title"]: item["path"] for item in sections["概览"]["items"]}
-        assert titles["Home"] == "index.md"
+        assert titles["Overview"] == "overview.md"
         assert titles["Getting Started"] == "getting-started.md"
-        assert titles["Architecture"] == "architecture.md"
         assert titles["Map"] == "doc-map.md"
 
     def test_modules_section(self, tmp_path):
@@ -301,11 +299,48 @@ class TestBuildMenu:
         """When there are no extra files or custom subdirs, no '更多' section."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
         sections = [g["title"] for g in menu["menu"]]
         assert "更多" not in sections
+
+    def test_overview_md_in_overview_section(self, tmp_path):
+        """overview.md 应出现在概览组中"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
+        (wiki / "getting-started.md").write_text("# Getting Started\n", encoding="utf-8")
+        result = generate_menu.build_menu(str(wiki))
+        menu = result.get("menu", [])
+        assert menu, "menu 不应为空"
+        overview_group = menu[0]
+        paths = [item.get("path") for item in overview_group.get("items", [])]
+        assert "overview.md" in paths, "overview.md 应在概览组中"
+
+    def test_index_md_not_in_menu_when_absent(self, tmp_path):
+        """不再扫描 index.md，即使文件存在也不放入概览组"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "index.md").write_text("# Home\nOld homepage.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
+        result = generate_menu.build_menu(str(wiki))
+        for group in result.get("menu", []):
+            for item in group.get("items", []):
+                assert item.get("path") != "index.md", \
+                    "index.md 不应出现在任何菜单组中（已被 overview.md 替代）"
+
+    def test_architecture_md_not_in_menu(self, tmp_path):
+        """不再扫描 architecture.md，即使文件存在也不放入概览组"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "architecture.md").write_text("# Architecture\nOld arch doc.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
+        result = generate_menu.build_menu(str(wiki))
+        for group in result.get("menu", []):
+            for item in group.get("items", []):
+                assert item.get("path") != "architecture.md", \
+                    "architecture.md 不应出现在任何菜单组中（已被 overview.md 替代）"
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +359,7 @@ class TestReconcileMenu:
         """When menu.json does not exist, reconcile falls back to build_menu."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         menu = generate_menu.reconcile_menu(str(wiki), "Proj")
         assert menu["version"] == "1.0"
@@ -335,7 +370,7 @@ class TestReconcileMenu:
         """Entries with planned:true are stripped of the planned flag."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         existing_menu = {
             "title": "Proj",
@@ -377,7 +412,7 @@ class TestReconcileMenu:
         """
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         existing_menu = {
             "title": "Proj",
@@ -420,7 +455,7 @@ class TestReconcileMenu:
         """
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         existing_menu = {
             "title": "Proj",
@@ -495,7 +530,7 @@ class TestReconcileMenu:
         """Result has reconciled_at as a valid ISO timestamp."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         existing_menu = {
             "title": "Proj",
@@ -515,7 +550,7 @@ class TestReconcileMenu:
         """Groups with no items after reconciliation are removed."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         existing_menu = {
             "title": "Proj",
@@ -547,7 +582,7 @@ class TestReconcileMenu:
         """Top-level 'planned' key is removed from menu data."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         existing_menu = {
             "title": "Proj",
@@ -575,7 +610,7 @@ class TestReconcileMenu:
         """Existing project title in menu.json is preserved."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        (wiki / "index.md").write_text("# Home\nWelcome.", encoding="utf-8")
+        (wiki / "overview.md").write_text("# Overview\nWelcome.", encoding="utf-8")
 
         existing_menu = {
             "title": "ExistingProject",
@@ -676,7 +711,7 @@ class TestReconcileSemanticGroups:
         """有两个模块同属一个 semantic_group 时，hints 中应包含该分组"""
         wiki_dir = tmp_path / "wiki"
         wiki_dir.mkdir()
-        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
         (wiki_dir / "menu.json").write_text(
             json.dumps({"sections": []}), encoding="utf-8"
         )
@@ -705,7 +740,7 @@ class TestReconcileSemanticGroups:
         """不传 cache_dir 时，reconcile 仍然正常运行，hints 为空字典"""
         wiki_dir = tmp_path / "wiki"
         wiki_dir.mkdir()
-        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
         (wiki_dir / "menu.json").write_text(
             json.dumps({"sections": []}), encoding="utf-8"
         )
@@ -717,7 +752,7 @@ class TestReconcileSemanticGroups:
         """hints 中每个模块条目应包含 confidence 字段"""
         wiki_dir = tmp_path / "wiki"
         wiki_dir.mkdir()
-        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
         (wiki_dir / "menu.json").write_text(
             json.dumps({"sections": []}), encoding="utf-8"
         )
@@ -743,7 +778,7 @@ class TestReconcileSemanticGroups:
         """没有 semantic_group 字段的模块不应出现在 hints 中"""
         wiki_dir = tmp_path / "wiki"
         wiki_dir.mkdir()
-        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
         (wiki_dir / "menu.json").write_text(
             json.dumps({"sections": []}), encoding="utf-8"
         )
