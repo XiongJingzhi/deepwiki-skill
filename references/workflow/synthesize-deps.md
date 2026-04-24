@@ -47,6 +47,12 @@
 2. **阈值过滤** — 仅处理 `importance_score >= 0.6` 的文件进行关系分析，过滤低价值工具文件噪音。
 3. **数量截断** — 最多处理 150 个文件，每个文件最多展示前 20 个依赖项（防止超大型项目的 Token 溢出）。
 
+**Monorepo 特殊截断策略**：当 archetype == `monorepo` 时：
+- 以 package 为单位截断：每个 package 最多取 30 个高优先级文件（`importance_score >= 0.5`）
+- 跨包 import 关系（`cross_package: true`）全量保留，不截断
+- 优先保留各 package 的入口文件和对外公开的 API 文件
+- 若 package 总数 > 20，对低重要性 package（`importance_score < 0.3`）整体跳过，仅记录其对外接口声明
+
 ## 依赖提取（静态层）
 
 从extract-docs的语义分析结果中，提取每个文件已识别的 `import`/`use`/`require` 声明，构建有向依赖边：

@@ -147,6 +147,29 @@
 
 ---
 
+## monorepo（多包仓库类）
+
+**常见语义主题：**
+- 入门与工作区配置（Getting Started / Workspace Setup）
+- 共享基础设施（Shared / Common / Core packages）
+- 各业务域 package（按功能域聚合）
+- 工具链与脚本（Tooling & Scripts）
+- 扩展与插件（Extensions & Plugins）
+
+**粒度建议：** 以 package 为文档单元；共享 package 单独成区且排在前面；业务 package 按功能域聚合而非逐个列出；工具链和 CI 相关归入"基础设施"区
+
+**特殊处理：**
+- `overview.md` 需包含"工作区结构"章节，展示 package 间依赖拓扑图（Mermaid flowchart）
+- 各 package 文档通过 `nav-links` 指向共享依赖的文档
+- package 版本独立发布时，文档首部标注版本号
+
+**反模式：**
+- ❌ 把每个 package 都展开为顶层区块——packages 数量多时应按功能域聚合
+- ❌ 把共享工具 package 和业务 package 混在同一区块——共享包是基础设施，应独立成区
+- ❌ 按目录层级（`packages/a`、`packages/b`）直接翻译为菜单——应按语义功能分组
+
+---
+
 ## generic（通用 / 未分类项目）
 
 **策略：** 无法匹配以上原型时，回退到纯数据驱动分组，不参考任何预设主题。
