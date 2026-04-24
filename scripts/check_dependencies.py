@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """检查 DeepWiki skill 运行依赖。"""
 
-from typing import Dict, List
+from typing import Dict, List, Union
 
 
 REQUIRED_IMPORTS = [
@@ -17,7 +17,7 @@ REQUIRED_IMPORTS = [
 ]
 
 
-def check_dependencies() -> Dict[str, List[str] | bool]:
+def check_dependencies() -> Dict[str, Union[List[str], bool]]:
     missing: List[str] = []
     available: List[str] = []
     for module_name in REQUIRED_IMPORTS:
