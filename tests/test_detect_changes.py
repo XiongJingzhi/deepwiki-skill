@@ -284,6 +284,42 @@ class TestDetectChanges:
         assert "affected_modules" in result
         assert "core" in result["affected_modules"]
 
+    def test_affected_pages_from_generation_plan(self, fake_python_project):
+        """Changed modules are mapped to affected pages using generation-plan.json."""
+        cache_dir = self._setup_deepwiki_cache(fake_python_project)
+        structure = {
+            "project_root": str(fake_python_project),
+            "modules": [
+                {"name": "core", "path": "src", "core_files": ["src/main.py"]},
+            ],
+        }
+        generation_plan = {
+            "recompile_all": False,
+            "pages": [
+                {
+                    "page_id": "module:core",
+                    "affected_modules": ["src"],
+                    "output_path": "wiki/modules/core.md",
+                },
+                {
+                    "page_id": "overview",
+                    "affected_modules": [],
+                    "output_path": "wiki/overview.md",
+                },
+            ],
+        }
+        (cache_dir / "structure.json").write_text(json.dumps(structure), encoding="utf-8")
+        (cache_dir / "generation-plan.json").write_text(
+            json.dumps(generation_plan), encoding="utf-8"
+        )
+
+        detect_changes.detect_changes(str(fake_python_project))
+        (fake_python_project / "src" / "main.py").write_text("# changed\n", encoding="utf-8")
+
+        result = detect_changes.detect_changes(str(fake_python_project))
+        assert result["affected_pages"] == ["module:core"]
+        assert result["recompile_all"] is False
+
 
 # ---------------------------------------------------------------------------
 # update_checksums_cache

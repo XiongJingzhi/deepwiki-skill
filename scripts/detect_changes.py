@@ -263,6 +263,45 @@ def propagate_reverse_dependencies(changed_modules: Set[str],
     return affected_modules
 
 
+def _load_generation_plan(root: Path) -> Dict[str, Any]:
+    plan_path = cache_path(root, "generation-plan.json")
+    if not plan_path.exists():
+        return {}
+    try:
+        with open(plan_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _affected_pages_from_plan(
+    generation_plan: Dict[str, Any],
+    affected_modules: Set[str],
+    has_changes: bool,
+) -> Tuple[List[str], bool]:
+    if not has_changes or not generation_plan:
+        return [], False
+
+    pages = generation_plan.get("pages", [])
+    recompile_all = bool(generation_plan.get("recompile_all"))
+    if recompile_all:
+        return sorted(
+            page.get("page_id")
+            for page in pages
+            if isinstance(page, dict) and page.get("page_id")
+        ), True
+
+    affected_pages: Set[str] = set()
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        page_id = page.get("page_id")
+        page_modules = set(page.get("affected_modules", []))
+        if page_id and page_modules & affected_modules:
+            affected_pages.add(page_id)
+    return sorted(affected_pages), False
+
+
 def detect_changes(project_root: str, excludes: Set[str] = None,
                     dry_run: bool = False) -> Dict[str, Any]:
     """
@@ -336,6 +375,7 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
     changed_files = set(added + modified + deleted)
     affected_modules: Set[str] = set()
     reverse_affected: Set[str] = set()
+    affected_module_keys: Set[str] = set()
 
     # 尝试从 structure.json 加载模块信息
     structure_path = cache_path(root, "structure.json")
@@ -349,6 +389,10 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
 
     if structure:
         modules = structure.get('modules', [])
+        module_lookup: Dict[str, Dict[str, str]] = {}
+        for mod in modules:
+            if mod.get('name'):
+                module_lookup[mod['name']] = mod
         # 构建模块名 -> 文件路径前缀的映射
         for mod in modules:
             mod_path = mod.get('path', '').replace('\\', '/')
@@ -357,10 +401,25 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
                 cf = changed_file.replace('\\', '/')
                 if cf.startswith(mod_prefix) or cf == mod_path:
                     affected_modules.add(mod['name'])
+                    affected_module_keys.add(mod['name'])
+                    if mod_path:
+                        affected_module_keys.add(mod_path)
                     break
 
         # 反向依赖传播
         reverse_affected = propagate_reverse_dependencies(affected_modules, structure)
+        for mod_name in reverse_affected:
+            affected_module_keys.add(mod_name)
+            mod = module_lookup.get(mod_name, {})
+            mod_path = mod.get('path', '').replace('\\', '/')
+            if mod_path:
+                affected_module_keys.add(mod_path)
+
+    all_affected_modules = affected_modules | reverse_affected
+    generation_plan = _load_generation_plan(root)
+    affected_pages, recompile_all = _affected_pages_from_plan(
+        generation_plan, affected_module_keys or all_affected_modules, has_changes
+    )
 
     result = {
         "added": sorted(added),
@@ -370,17 +429,18 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
         "has_changes": has_changes,
         "summary": ", ".join(summary_parts),
         "current_checksums": current_checksums,
+        "affected_pages": affected_pages,
+        "recompile_all": recompile_all,
     }
 
     # 添加模块级变更信息
     if affected_modules or reverse_affected:
         result["affected_modules"] = sorted(affected_modules)
         result["reverse_affected_modules"] = sorted(reverse_affected)
-        all_affected = affected_modules | reverse_affected
         if reverse_affected:
             summary_parts.append(f"⇠{len(reverse_affected)} 反向传播")
             result["summary"] = ", ".join(summary_parts)
-            result["all_affected_modules"] = sorted(all_affected)
+            result["all_affected_modules"] = sorted(all_affected_modules)
 
     return result
 
@@ -445,6 +505,12 @@ def print_changes(changes: Dict[str, Any]):
     reverse_modules = changes.get("reverse_affected_modules", [])
     if reverse_modules:
         print(f"⇠ 反向依赖传播（需联动的模块）: {', '.join(reverse_modules)}")
+
+    affected_pages = changes.get("affected_pages", [])
+    if affected_pages:
+        print(f"\n📄 需重编译页面: {', '.join(affected_pages)}")
+    if changes.get("recompile_all"):
+        print("📄 generation-plan 要求全量页面重编译")
 
 
 if __name__ == '__main__':
