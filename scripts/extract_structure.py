@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-代码结构提取脚本 v1.0
-基于正则+启发式，从源码中提取调用图、代码模式和近似时序。
+代码结构提取脚本 v2.0
+
+基于 tree-sitter AST 解析，从源码中精确提取调用图、代码模式和近似时序。
 输出 .deepwiki/cache/code-structure.json，供 AI 深度阅读阶段使用。
 """
 
@@ -10,10 +11,25 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Set, Tuple
 
 from common import CODE_EXTENSIONS, CACHE_SCHEMA_VERSION
 from import_relations import extract_import_relations
+from parsers import get_manager, get_lang_for_ext
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 调用提取过滤集合
+# ══════════════════════════════════════════════════════════════════════
+
+_SKIP: frozenset = frozenset({
+    "if", "for", "while", "switch", "catch", "return", "await", "new",
+    "typeof", "instanceof", "console", "print", "len", "str", "int",
+    "float", "bool", "list", "dict", "set", "super", "self", "this",
+    "True", "False", "None", "require", "import", "export", "const",
+    "let", "var", "async", "function", "class", "extends", "implements",
+    "type", "interface", "enum", "namespace", "module", "from",
+})
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -39,7 +55,7 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
             )
 
     # 收集待分析文件：core_files + high_priority_files（去重）
-    seen_paths = set()
+    seen_paths: Set[str] = set()
     all_files: List[Path] = []
     for cf in structure.get("core_files", []) + structure.get("high_priority_files", []):
         p = project_path / cf["path"]
@@ -51,7 +67,7 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
     call_graph = extract_call_graph(all_files)
     patterns = detect_patterns(all_files)
 
-    # Import 关系（可信基线，供 Step 5 交叉验证）
+    # Import 关系（可信基线，供依赖综合阶段交叉验证）
     import_relations = extract_import_relations(all_files, project_path)
 
     # 构建入口点
@@ -82,17 +98,57 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
             "relations": import_relations,
         }, f, ensure_ascii=False, indent=2)
 
+    # 输出 parse-results.json（AST 摘要缓存，供后续步骤复用，避免重复 tree-sitter 解析）
+    parse_summaries = _collect_parse_summaries(all_files, project_path)
+    pr_path = project_path / ".deepwiki" / "cache" / "parse-results.json"
+    pr_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(pr_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "cache_schema_version": CACHE_SCHEMA_VERSION,
+            "files": parse_summaries,
+        }, f, ensure_ascii=False, indent=2)
+
     return result
 
 
 def _build_entry_points(structure: dict, call_graph: dict) -> List[Dict[str, str]]:
-    """从 structure.json 的 entry_points 字段构建入口点列表。"""
+    """从 structure.json 的 entry_points 字段构建入口点列表。
+
+    匹配优先级：
+    1. 精确匹配入口文件名（main.py → "main"）
+    2. 精确匹配入口文件名前缀（app.py → "app"）
+    3. 精确匹配常见入口函数名（main, run, start）
+    4. 子串匹配（兜底）
+    """
+    ENTRY_NAMES = {"main", "run", "start", "create_app", "serve"}
     eps = []
     for ep_path in structure.get("entry_points", []):
         stem = Path(ep_path).stem
-        # 找 call_graph 中匹配的函数名（main/run/start 等）
-        candidates = [k for k in call_graph if k.lower() in ("main", "run", "start", "app", "server")]
-        handler = candidates[0] if candidates else stem
+        handler = None
+
+        # 1. 精确匹配 stem
+        if stem in call_graph and call_graph[stem].get("calls"):
+            handler = stem
+        else:
+            # 2. 精确匹配 stem（即使 calls 为空也比子串匹配好）
+            if stem in call_graph:
+                handler = stem
+            else:
+                # 3. 精确匹配入口函数名（按优先级排序）
+                for name in ENTRY_NAMES:
+                    if name in call_graph and call_graph[name].get("calls"):
+                        handler = name
+                        break
+                if handler is None:
+                    # 4. 子串匹配（兜底，仅匹配 has calls 的 key）
+                    sub = [k for k in call_graph
+                            if stem.lower() in k.lower()
+                            and call_graph[k].get("calls")]
+                    if sub:
+                        handler = sub[0]
+                    else:
+                        handler = stem
+
         eps.append({"name": ep_path, "handler": handler})
     return eps
 
@@ -111,7 +167,7 @@ def detect_archetype(project_path: Path) -> str:
             ]
         )),
         ("agent-project", lambda p: (
-            _has_dep(p, {"langchain", "llamaindex", "crewai", "autogen", "semantic-kernel"})
+            _has_dep(p, {"langchain", "langgraph", "pi-mono", "llamaindex", "crewai", "autogen", "semantic-kernel"})
             or (p / "agents").is_dir()
         )),
         ("ml-project", lambda p: _has_dep(p, {
@@ -175,381 +231,311 @@ def detect_archetype(project_path: Path) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 2. 调用图提取
+# 2. 调用图提取 (tree-sitter)
 # ══════════════════════════════════════════════════════════════════════
 
-_CLASS_DECL = re.compile(r"^(?:export\s+)?(?:abstract\s+)?class\s+(\w+)", re.MULTILINE)
-_TS_METHOD  = re.compile(r"^[ \t]{1,}(?:(?:async|static|public|private|protected|override)\s+)*(\w+)\s*\(", re.MULTILINE)
-_GO_FN      = re.compile(r"^func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\(", re.MULTILINE)
-_RUST_FN    = re.compile(r"^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*[\(<]", re.MULTILINE)
-_CALL_OBJ   = re.compile(r"\b(\w+)\.(\w+)\s*\(")
-_CALL_FN    = re.compile(r"\b([A-Za-z_]\w{2,})\s*\(")
+def _parse_definitions(text: bytes, lang_name: str, fpath: str) -> List[Tuple[str, int, bytes]]:
+    """用 tree-sitter 提取函数/方法定义，返回 [(qualified_name, line_no, body_bytes)]。
 
-_SKIP = frozenset({
-    "if", "for", "while", "switch", "catch", "return", "await", "new",
-    "typeof", "instanceof", "console", "print", "len", "str", "int",
-    "float", "bool", "list", "dict", "set", "super", "self", "this",
-    "True", "False", "None", "require", "import", "export", "const",
-    "let", "var", "async", "function", "class", "extends", "implements",
-    "type", "interface", "enum", "namespace", "module", "from",
-})
+    每种语言使用统一策略：
+    1. 查询所有 function_definition 和 class_definition 节点
+    2. 通过父节点链判断是否在类/impl 内，生成限定名
+    3. 提取函数体字节用于后续调用分析
+    """
+    from tree_sitter import Language, Query, QueryCursor
 
-# 语言分发表：文件扩展名 -> 解析函数
-_PARSERS = {}
+    mgr = get_manager()
+    lang = mgr.get_language(lang_name)
+    parser = mgr.get_parser(lang_name)
+    tree = parser.parse(text)
+    root = tree.root_node
+
+    if root.has_error or root.child_count == 0:
+        return []
+
+    # 获取 func_class query 的所有 captures
+    captures = mgr.run_query(lang_name, "func_class", root)
+
+    # 提取类/impl 的范围用于限定名生成
+    class_ranges: List[Tuple[str, int, int]] = []  # (class_name, start_byte, end_byte)
+
+    # 按语言收集容器节点
+    if lang_name == "python":
+        for cls_node in captures.get("cls", []):
+            name_node = cls_node.child_by_field_name("name")
+            if name_node:
+                class_ranges.append((
+                    name_node.text.decode(),
+                    cls_node.start_byte,
+                    cls_node.end_byte,
+                ))
+    elif lang_name in ("javascript", "typescript", "tsx", "java", "kotlin"):
+        for cls_node in captures.get("cls", []):
+            name_node = cls_node.child_by_field_name("name")
+            if name_node:
+                class_ranges.append((
+                    name_node.text.decode(),
+                    cls_node.start_byte,
+                    cls_node.end_byte,
+                ))
+    elif lang_name == "rust":
+        for impl_node in captures.get("impl", []):
+            type_node = impl_node.child_by_field_name("type")
+            if type_node:
+                class_ranges.append((
+                    type_node.text.decode(),
+                    impl_node.start_byte,
+                    impl_node.end_byte,
+                ))
+
+    def get_qualifier(start_byte: int) -> Optional[str]:
+        """检查节点是否在某个类/impl 范围内，返回限定前缀。"""
+        for cname, s, e in class_ranges:
+            if s <= start_byte < e:
+                return cname
+        return None
+
+    # 提取函数/方法定义
+    results: List[Tuple[str, int, bytes]] = []
+    seen: Set[str] = set()
+
+    # 按语言获取函数节点和体节点
+    if lang_name == "python":
+        for fn_node in captures.get("fn", []):
+            name_node = fn_node.child_by_field_name("name")
+            body_node = fn_node.child_by_field_name("body")
+            if not name_node or not body_node:
+                continue
+            name = name_node.text.decode()
+            line_no = fn_node.start_point[0] + 1
+            qf = get_qualifier(fn_node.start_byte)
+            qname = f"{qf}.{name}" if qf else name
+            if qname not in seen:
+                seen.add(qname)
+                results.append((qname, line_no, body_node.text))
+
+    elif lang_name == "go":
+        # 普通函数
+        for fn_node in captures.get("fn", []):
+            name_node = fn_node.child_by_field_name("name")
+            if not name_node:
+                continue
+            name = name_node.text.decode()
+            line_no = fn_node.start_point[0] + 1
+            if name not in seen:
+                seen.add(name)
+                results.append((name, line_no, fn_node.text))
+        # 方法 (method_declaration)
+        for method_node in captures.get("method", []):
+            recv_list = method_node.child_by_field_name("receiver")
+            name_node = method_node.child_by_field_name("name")
+            if not recv_list or not name_node:
+                continue
+            # 提取 receiver type
+            recv_type = _extract_go_receiver_type(recv_list)
+            method_name = name_node.text.decode()
+            line_no = method_node.start_point[0] + 1
+            qname = f"{recv_type}.{method_name}" if recv_type else method_name
+            if qname not in seen:
+                seen.add(qname)
+                results.append((qname, line_no, method_node.text))
+
+    elif lang_name == "rust":
+        # 普通函数
+        for fn_node in captures.get("fn", []):
+            name_node = fn_node.child_by_field_name("name")
+            if not name_node:
+                continue
+            name = name_node.text.decode()
+            line_no = fn_node.start_point[0] + 1
+            qf = get_qualifier(fn_node.start_byte)
+            qname = f"{qf}.{name}" if qf else name
+            if qname not in seen:
+                seen.add(qname)
+                results.append((qname, line_no, fn_node.text))
+        # impl 内的函数通过 get_qualifier 已处理（fn 节点在 impl 范围内）
+
+    elif lang_name in ("java",):
+        # Java: method_declaration
+        for method_node in captures.get("method", []):
+            name_node = method_node.child_by_field_name("name")
+            body_node = method_node.child_by_field_name("body")
+            if not name_node:
+                continue
+            name = name_node.text.decode()
+            line_no = method_node.start_point[0] + 1
+            qf = get_qualifier(method_node.start_byte)
+            qname = f"{qf}.{name}" if qf else name
+            if qname not in seen:
+                seen.add(qname)
+                body = body_node.text if body_node else method_node.text
+                results.append((qname, line_no, body))
+
+    elif lang_name == "kotlin":
+        # Kotlin: function_declaration
+        for fn_node in captures.get("fn", []):
+            name_node = fn_node.child_by_field_name("name") if fn_node.type == "function_declaration" else None
+            if not name_node:
+                # Kotlin function_declaration 的 name 字段可能是 simple_identifier
+                for child in fn_node.named_children:
+                    if child.type == "simple_identifier":
+                        name_node = child
+                        break
+            if not name_node:
+                continue
+            name = name_node.text.decode()
+            line_no = fn_node.start_point[0] + 1
+            qf = get_qualifier(fn_node.start_byte)
+            qname = f"{qf}.{name}" if qf else name
+            if qname not in seen:
+                seen.add(qname)
+                results.append((qname, line_no, fn_node.text))
+
+    elif lang_name in ("javascript", "typescript", "tsx"):
+        # JS/TS: function_declaration
+        for fn_node in captures.get("fn", []):
+            name_node = fn_node.child_by_field_name("name")
+            body_node = fn_node.child_by_field_name("body")
+            if not name_node:
+                continue
+            name = name_node.text.decode()
+            line_no = fn_node.start_point[0] + 1
+            qf = get_qualifier(fn_node.start_byte)
+            qname = f"{qf}.{name}" if qf else name
+            if qname not in seen:
+                seen.add(qname)
+                body = body_node.text if body_node else fn_node.text
+                results.append((qname, line_no, body))
+
+        # JS/TS: method_definition（类方法）
+        for method_node in captures.get("method", []):
+            name_node = method_node.child_by_field_name("name")
+            body_node = method_node.child_by_field_name("body")
+            if not name_node:
+                continue
+            name = name_node.text.decode()
+            line_no = method_node.start_point[0] + 1
+            qf = get_qualifier(method_node.start_byte)
+            qname = f"{qf}.{name}" if qf else name
+            if qname not in seen:
+                seen.add(qname)
+                body = body_node.text if body_node else method_node.text
+                results.append((qname, line_no, body))
+
+        # 箭头函数（导出赋值）
+        for arrow_node in captures.get("arrow", []):
+            # arrow_node 是 lexical_declaration，取 variable_declarator
+            for child in arrow_node.named_children:
+                if child.type == "variable_declarator":
+                    name_node = child.child_by_field_name("name")
+                    value_node = child.child_by_field_name("value")
+                    if name_node and value_node and name_node.text.decode() not in _SKIP:
+                        name = name_node.text.decode()
+                        line_no = arrow_node.start_point[0] + 1
+                        if name not in seen:
+                            seen.add(name)
+                            results.append((name, line_no, value_node.text))
+                        break
+
+    # 按行号排序
+    results.sort(key=lambda x: x[1])
+    return results
 
 
-def _register_parser(*exts):
-    """装饰器：将函数注册为指定扩展名的解析器。"""
-    def decorator(fn):
-        for ext in exts:
-            _PARSERS[ext] = fn
-        return fn
-    return decorator
+def _extract_go_receiver_type(param_list_node) -> Optional[str]:
+    """从 Go method_declaration 的 receiver 参数列表提取类型名。"""
+    # receiver 是 parameter_list，内含 parameter_declaration
+    for child in param_list_node.named_children:
+        if child.type == "parameter_declaration":
+            type_node = child.child_by_field_name("type")
+            if type_node:
+                # 可能是指针类型 *Type，取最后一个标识符
+                if type_node.type == "pointer_type":
+                    for tc in type_node.named_children:
+                        if tc.type in ("type_identifier", "identifier"):
+                            return tc.text.decode()
+                elif type_node.type in ("type_identifier", "identifier"):
+                    return type_node.text.decode()
+    return None
 
 
-# ── 字符串/注释移除工具 ──
+def _extract_calls_from_body(body: bytes, func_name: str, lang_name: str) -> List[str]:
+    """用 tree-sitter 从函数体中提取函数调用，过滤关键字。"""
+    mgr = get_manager()
+    parser = mgr.get_parser(lang_name)
+    tree = parser.parse(body)
+    root = tree.root_node
 
-_PY_DOCSTRING = re.compile(r'("""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\')', re.MULTILINE)
-_PY_STRING = re.compile(
-    r'("""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|f"[^"]*"|f\'[^\']*\'|"[^"]*"|\'[^\']*\')'
-)
+    if root.has_error or root.child_count == 0:
+        return []
 
-_TS_STRING = re.compile(
-    r'(`[^`]*`|"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')'
-)
-
-
-def _extract_calls_from_body(body: str, func_name: str) -> List[str]:
-    """从函数体中提取调用，先移除字符串字面量避免误匹配。"""
-    clean = _TS_STRING.sub('""', body)
+    try:
+        captures = mgr.run_query(lang_name, "call", root)
+    except (ValueError, Exception):
+        return []
 
     calls: List[str] = []
-    seen: set = set()
+    seen: Set[str] = set()
 
-    for m in re.finditer(r'\b(\w+)\.(\w+)\s*\(', clean):
-        obj, meth = m.group(1), m.group(2)
-        if obj not in _SKIP and meth not in _SKIP:
-            c = f"{obj}.{meth}"
-            if c not in seen and c != func_name:
-                seen.add(c)
-                calls.append(c)
-
-    for m in re.finditer(r'\b([A-Za-z_]\w{2,})\s*\(', clean):
-        name = m.group(1)
-        if name not in _SKIP and name not in seen and name != func_name:
+    fn_calls = captures.get("call.fn", [])
+    for node in fn_calls:
+        name = node.text.decode()
+        if name not in _SKIP and name not in seen and len(name) > 1 and name != func_name:
             seen.add(name)
             calls.append(name)
+
+    obj_calls = captures.get("call.obj", [])
+    attr_calls = captures.get("call.attr", [])
+    for obj_node, attr_node in zip(obj_calls, attr_calls):
+        raw_obj = obj_node.text.decode("utf-8", errors="replace")
+        attr = attr_node.text.decode("utf-8", errors="replace")
+        if attr in _SKIP:
+            continue
+        # member_expression として捕捉された場合（例: this.userDao）
+        # "this." プレフィックスを除去して短い識別子として扱う
+        if obj_node.type == "member_expression":
+            obj = raw_obj
+            if obj.startswith("this."):
+                obj = obj[5:]
+        else:
+            obj = raw_obj
+        if obj in _SKIP or not obj:
+            continue
+        c = f"{obj}.{attr}"
+        if c not in seen and c != func_name:
+            seen.add(c)
+            calls.append(c)
 
     return calls[:20]
 
 
-# ── Python 解析器 ──
-
-_PY_DEF = re.compile(r'^\s*(?:async\s+)?def\s+(\w+)\s*\(', re.MULTILINE)
-_PY_CLASS = re.compile(r'^class\s+(\w+)', re.MULTILINE)
-
-
-@_register_parser('.py', '.pyi')
-def _parse_python_file(text: str, fpath: str) -> List[tuple]:
-    """解析 Python 文件，正确处理字符串中的 def 和缩进 class 范围。"""
-    lines_list = text.splitlines()
-
-    # 构建 class 范围：基于缩进判断 class 结束位置
-    class_ranges: List[list] = []
-    for m in _PY_CLASS.finditer(text):
-        cname = m.group(1)
-        start_ln = text[:m.start()].count("\n")
-        class_ranges.append([cname, start_ln, len(lines_list)])
-
-    # 用缩进判断 class 结束
-    for i in range(len(class_ranges)):
-        cname, start, _end = class_ranges[i]
-        next_start = class_ranges[i + 1][1] if i + 1 < len(class_ranges) else len(lines_list)
-        actual_end = start + 1
-        for ln_idx in range(start + 1, next_start):
-            line = lines_list[ln_idx] if ln_idx < len(lines_list) else ""
-            if line and not line[0].isspace() and line.strip():
-                actual_end = ln_idx
-                break
-        class_ranges[i][2] = max(actual_end, start + 2)
-
-    def get_class_at(ln: int) -> Optional[str]:
-        for cname, s, e in class_ranges:
-            if s <= ln < e:
-                return cname
-        return None
-
-    # 移除 docstring 后扫描 def（避免字符串中 "def " 误匹配）
-    clean = _PY_DOCSTRING.sub('""', text)
-
-    defined: List[tuple] = []
-    for m in _PY_DEF.finditer(clean):
-        name = m.group(1)
-        ln = clean[:m.start()].count("\n")
-        cls = get_class_at(ln)
-        qn = f"{cls}.{name}" if cls else name
-        defined.append((qn, ln + 1))
-
-    # 去重
-    seen_n: set = set()
-    unique: List[tuple] = []
-    for qn, ln in sorted(defined, key=lambda x: x[1]):
-        if qn not in seen_n:
-            seen_n.add(qn)
-            unique.append((qn, ln))
-
-    # 提取函数体（从原始文本获取，不是 clean）
-    result = []
-    for i, (func_name, line_no) in enumerate(unique):
-        s = line_no - 1
-        e = unique[i + 1][1] - 1 if i + 1 < len(unique) else len(lines_list)
-        body = "\n".join(lines_list[s:e])
-        result.append((func_name, line_no, body))
-
-    return result
-
-
-# ── TypeScript/JavaScript 解析器 ──
-
-_TS_CLASS = re.compile(r'^(?:export\s+)?(?:abstract\s+)?class\s+(\w+)', re.MULTILINE)
-_TS_METHOD = re.compile(
-    r'^[ \t]+(?:(?:async|static|public|private|protected|override|readonly|get|set|abstract)\s+)*(\w+)\s*[<\(]',
-    re.MULTILINE,
-)
-_TS_TOPLEVEL_FN = re.compile(r'^(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(', re.MULTILINE)
-_TS_ARROW_EXPORT = re.compile(r'(?:export\s+)?(?:const|let)\s+(\w+)\s*=\s*(?:async\s+)?\(', re.MULTILINE)
-
-
-@_register_parser('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs')
-def _parse_ts_file(text: str, fpath: str) -> List[tuple]:
-    """解析 TS/JS 文件，不过滤 PascalCase 方法名（保留构造函数等）。"""
-    lines_list = text.splitlines()
-
-    # 构建 class 范围
-    class_ranges: List[list] = []
-    for m in _TS_CLASS.finditer(text):
-        cname = m.group(1)
-        start_ln = text[:m.start()].count("\n")
-        class_ranges.append([cname, start_ln, len(lines_list)])
-    for i in range(len(class_ranges) - 1):
-        class_ranges[i][2] = class_ranges[i + 1][1]
-
-    def get_class_at(ln: int) -> Optional[str]:
-        for cname, s, e in class_ranges:
-            if s <= ln < e:
-                return cname
-        return None
-
-    defined: List[tuple] = []
-
-    # 顶层函数
-    for m in _TS_TOPLEVEL_FN.finditer(text):
-        ln = text[:m.start()].count("\n")
-        defined.append((m.group(1), ln + 1))
-
-    # 箭头函数导出
-    for m in _TS_ARROW_EXPORT.finditer(text):
-        name = m.group(1)
-        if name not in _SKIP:
-            ln = text[:m.start()].count("\n")
-            defined.append((name, ln + 1))
-
-    # 类方法（不过滤 PascalCase）
-    for m in _TS_METHOD.finditer(text):
-        name = m.group(1)
-        if name in _SKIP:
-            continue
-        ln = text[:m.start()].count("\n")
-        cls = get_class_at(ln)
-        if cls:
-            defined.append((f"{cls}.{name}", ln + 1))
-
-    # 去重
-    seen_n: set = set()
-    unique: List[tuple] = []
-    for qn, ln in sorted(defined, key=lambda x: x[1]):
-        if qn not in seen_n:
-            seen_n.add(qn)
-            unique.append((qn, ln))
-
-    # 提取函数体
-    result = []
-    for i, (func_name, line_no) in enumerate(unique):
-        s = line_no - 1
-        e = unique[i + 1][1] - 1 if i + 1 < len(unique) else len(lines_list)
-        body = "\n".join(lines_list[s:e])
-        result.append((func_name, line_no, body))
-
-    return result
-
-
-# ── Go 解析器 ──
-
-_GO_FN = re.compile(r'^func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\(', re.MULTILINE)
-
-
-_GO_METHOD = re.compile(
-    r'^func\s+\((\w+)\s+\*?\w+\)\s+(\w+)\s*\(', re.MULTILINE
-)
-
-
-@_register_parser('.go')
-def _parse_go_file(text: str, fpath: str) -> List[tuple]:
-    """解析 Go 文件，支持方法 receiver 限定名。"""
-    lines_list = text.splitlines()
-
-    defined: List[tuple] = []
-    # 匹配带 receiver 的方法：func (t *Type) Method(...)
-    for m in _GO_METHOD.finditer(text):
-        receiver = m.group(1)
-        name = m.group(2)
-        ln = text[:m.start()].count("\n")
-        defined.append((f"{receiver}.{name}", ln + 1))
-    # 匹配普通函数：func Name(...)
-    for m in _GO_FN.finditer(text):
-        name = m.group(1)
-        ln = text[:m.start()].count("\n")
-        # 跳过已被 _GO_METHOD 匹配的行（通过检查行号去重）
-        if not any(d[1] == ln + 1 for d in defined):
-            defined.append((name, ln + 1))
-
-    result = []
-    for i, (func_name, line_no) in enumerate(defined):
-        s = line_no - 1
-        e = defined[i + 1][1] - 1 if i + 1 < len(defined) else len(lines_list)
-        body = "\n".join(lines_list[s:e])
-        result.append((func_name, line_no, body))
-
-    return result
-
-
-# ── Rust 解析器 ──
-
-_RUST_FN = re.compile(r'^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*[\(<]', re.MULTILINE)
-
-
-_RUST_IMPL = re.compile(r'^impl\s+(\w+)', re.MULTILINE)
-
-
-@_register_parser('.rs')
-def _parse_rust_file(text: str, fpath: str) -> List[tuple]:
-    """解析 Rust 文件，追踪 impl 块为函数生成限定名。"""
-    lines_list = text.splitlines()
-
-    # 收集 impl 块范围
-    impl_ranges: List[tuple] = []  # [(impl_name, start_line), ...]
-    for m in _RUST_IMPL.finditer(text):
-        impl_name = m.group(1)
-        start_ln = text[:m.start()].count("\n")
-        impl_ranges.append((impl_name, start_ln))
-
-    defined: List[tuple] = []
-    for m in _RUST_FN.finditer(text):
-        name = m.group(1)
-        ln = text[:m.start()].count("\n")
-        # 查找最近的 impl 块
-        current_impl = None
-        for iname, start in impl_ranges:
-            if start <= ln:
-                current_impl = iname
-        if current_impl:
-            defined.append((f"{current_impl}.{name}", ln + 1))
-        else:
-            defined.append((name, ln + 1))
-
-    result = []
-    for i, (func_name, line_no) in enumerate(defined):
-        s = line_no - 1
-        e = defined[i + 1][1] - 1 if i + 1 < len(defined) else len(lines_list)
-        body = "\n".join(lines_list[s:e])
-        result.append((func_name, line_no, body))
-
-    return result
-
-
-# ── Java/Kotlin 解析器 ──
-
-_JAVA_CLASS = re.compile(r'^(?:public\s+|protected\s+|private\s+)?(?:abstract\s+|static\s+|final\s+)*class\s+(\w+)', re.MULTILINE)
-_JAVA_METHOD = re.compile(
-    r'^[ \t]+(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*(?:[\w<>\[\],\s]+\s+)?(\w+)\s*\(',
-    re.MULTILINE,
-)
-
-
-@_register_parser('.java', '.kt')
-def _parse_java_file(text: str, fpath: str) -> List[tuple]:
-    """解析 Java/Kotlin 文件。"""
-    lines_list = text.splitlines()
-
-    # 构建 class 范围
-    class_ranges: List[list] = []
-    for m in _JAVA_CLASS.finditer(text):
-        cname = m.group(1)
-        start_ln = text[:m.start()].count("\n")
-        class_ranges.append([cname, start_ln, len(lines_list)])
-    for i in range(len(class_ranges) - 1):
-        class_ranges[i][2] = class_ranges[i + 1][1]
-
-    def get_class_at(ln: int) -> Optional[str]:
-        for cname, s, e in class_ranges:
-            if s <= ln < e:
-                return cname
-        return None
-
-    defined: List[tuple] = []
-    seen_names: set = set()
-
-    # 类方法（缩进检测）
-    for m in _JAVA_METHOD.finditer(text):
-        name = m.group(1)
-        if name in _SKIP or name in ('class', 'interface', 'enum', 'void', 'if', 'for', 'while', 'try', 'switch', 'return'):
-            continue
-        ln = text[:m.start()].count("\n")
-        cls = get_class_at(ln)
-        if cls:
-            qn = f"{cls}.{name}"
-            if qn not in seen_names:
-                seen_names.add(qn)
-                defined.append((qn, ln + 1))
-
-    # 去重
-    unique: List[tuple] = sorted(defined, key=lambda x: x[1])
-
-    result = []
-    for i, (func_name, line_no) in enumerate(unique):
-        s = line_no - 1
-        e = unique[i + 1][1] - 1 if i + 1 < len(unique) else len(lines_list)
-        body = "\n".join(lines_list[s:e])
-        result.append((func_name, line_no, body))
-
-    return result
-
-
-# ── 主入口 ──
-
 def extract_call_graph(files: List[Path]) -> Dict[str, Any]:
-    """从源文件列表中提取调用图，按语言分发到独立解析器。"""
+    """从源文件列表中提取调用图，使用 tree-sitter AST 解析。"""
     graph: Dict[str, Any] = {}
 
     for fpath in files:
         if not fpath.exists():
             continue
         ext = fpath.suffix.lower()
-        parser = _PARSERS.get(ext)
-        if not parser:
+        lang_name = get_lang_for_ext(ext)
+        if not lang_name:
             continue
+
         try:
-            text = fpath.read_text(encoding="utf-8", errors="ignore")
+            source = fpath.read_bytes()
+            if not source.strip():
+                continue
         except Exception:
             continue
 
         try:
-            file_defs = parser(text, str(fpath))
+            file_defs = _parse_definitions(source, lang_name, str(fpath))
         except Exception:
             continue
 
-        for func_name, line_no, body in file_defs:
-            calls = _extract_calls_from_body(body, func_name)
+        for func_name, line_no, body_bytes in file_defs:
+            body_text = body_bytes.decode("utf-8", errors="replace")
+            calls = _extract_calls_from_body(body_bytes, func_name, lang_name)
             graph[func_name] = {
                 "calls": calls,
                 "file": str(fpath),
@@ -560,7 +546,104 @@ def extract_call_graph(files: List[Path]) -> Dict[str, Any]:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 3. 代码模式检测
+# 2.5 Parse Results 缓存（AST 摘要收集）
+# ══════════════════════════════════════════════════════════════════════
+
+def _collect_parse_summaries(
+    files: List[Path], project_path: Path
+) -> Dict[str, Dict[str, Any]]:
+    """收集每个文件的 tree-sitter AST 摘要，供后续步骤复用。
+
+    在 extract_call_graph 已解析过的文件上做一轮轻量补充收集，
+    提取 definitions / complexity_nodes / important_lines，
+    写入 cache/parse-results.json，避免后续步骤重复 tree-sitter 解析。
+
+    Returns:
+        {rel_path: {
+            "language": "python",
+            "definitions": [{"name": "func", "kind": "function", "line": 10, "end_line": 25}],
+            "complexity_nodes": 15,
+            "important_lines": [1, 3, 10],
+        }}
+    """
+    mgr = get_manager()
+    summaries: Dict[str, Dict[str, Any]] = {}
+
+    for fpath in files:
+        if not fpath.exists():
+            continue
+        ext = fpath.suffix.lower()
+        lang_name = get_lang_for_ext(ext)
+        if not lang_name:
+            continue
+
+        try:
+            source = fpath.read_bytes()
+            if not source.strip():
+                continue
+        except Exception:
+            continue
+
+        try:
+            parser = mgr.get_parser(lang_name)
+            tree = parser.parse(source)
+            root = tree.root_node
+
+            if root.has_error and root.child_count == 0:
+                continue
+
+            rel_path = str(fpath.relative_to(project_path)).replace("\\", "/")
+            summary: Dict[str, Any] = {"language": lang_name}
+
+            # 1. 提取定义列表（复用 _parse_definitions）
+            defs = _parse_definitions(source, lang_name, str(fpath))
+            summary["definitions"] = [
+                {
+                    "name": name,
+                    "kind": "method" if "." in name else "function",
+                    "line": line_no,
+                    "end_line": line_no + body_bytes.count(b"\n"),
+                }
+                for name, line_no, body_bytes in defs
+            ]
+
+            # 2. 复杂度节点计数
+            try:
+                caps = mgr.run_query(lang_name, "complexity", root)
+                summary["complexity_nodes"] = (
+                    len(caps.get("cf", [])) + len(caps.get("def", []))
+                )
+            except Exception:
+                summary["complexity_nodes"] = 0
+
+            # 3. 重要行号集合
+            try:
+                caps = mgr.run_query(lang_name, "important", root)
+                important_lines: set = set()
+                for category in ("imp", "exp", "decl"):
+                    for node in caps.get(category, []):
+                        important_lines.add(node.start_point[0])
+                # TODO/FIXME 标记
+                import re as _re
+                for i, line in enumerate(source.split(b"\n")):
+                    line_str = line.decode("utf-8", errors="replace")
+                    if _re.search(
+                        r"(?:TODO|FIXME|HACK|NOTE|WARN|XXX)\s*[:\(]", line_str
+                    ):
+                        important_lines.add(i)
+                summary["important_lines"] = sorted(important_lines)
+            except Exception:
+                summary["important_lines"] = []
+
+            summaries[rel_path] = summary
+        except Exception:
+            continue
+
+    return summaries
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 3. 代码模式检测（保留 regex，适合高层语义模式扫描）
 # ══════════════════════════════════════════════════════════════════════
 
 _PATTERN_RULES = [
@@ -577,7 +660,6 @@ _PATTERN_RULES = [
 
 def detect_patterns(files: List[Path]) -> List[Dict[str, Any]]:
     """检测代码模式，返回 [{type, files, evidence}] 列表。"""
-    # type -> {files, evidence}
     found: Dict[str, Dict[str, Any]] = {}
 
     for fpath in files:
@@ -637,7 +719,7 @@ def build_key_sequences(
                 if callee in call_graph and callee not in seen:
                     queue.append((callee, depth + 1))
 
-        if len(visited) < 2:
+        if len(visited) < 1:
             continue
 
         # 从限定名提取模块名作为参与者
@@ -673,15 +755,8 @@ def _has_manifest(project_path: Path) -> bool:
     return any((project_path / m).exists() for m in manifests)
 
 
-# 词边界匹配模式：依赖名作为完整 token 匹配，避免子字符串误匹配
-# 例如 "torch" 不会匹配 "torchaudio"，但会匹配 "torch>=2.0"
 def _has_dep(project_path: Path, names: set) -> bool:
-    """使用词边界匹配检测依赖名，避免子字符串误匹配。
-
-    - "torch" 不会匹配 "torchaudio"
-    - "gin"   不会匹配 "engine"
-    - "vue"   不会匹配 "vuepress"
-    """
+    """使用词边界匹配检测依赖名，避免子字符串误匹配。"""
     manifests = [
         project_path / "package.json",
         project_path / "requirements.txt",

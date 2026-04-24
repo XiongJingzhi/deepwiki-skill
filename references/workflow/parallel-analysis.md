@@ -1,6 +1,17 @@
-# 第 4 步：并行批次调度策略
+# parallel-analysis：并行批次调度策略
 
-> 本文档补充 `step4-source-analysis.md`，定义模块分析阶段的并行执行规则。
+> 本文档补充 `extract-docs.md`，定义模块分析阶段的并行执行规则。
+
+
+## 契約
+
+| 項 | 值 |
+|----|-----|
+| **脚本** | 无（调度策略文档，由 AI 执行） |
+| **输入** | `cache/structure.json`（模块列表+重要性评分） |
+| **输出** | `cache/module-analysis.json`（增量写入） |
+| **前置** | `detect-changes` |
+| **后置** | `check-analysis-quality` |
 
 ## 何时启用并行
 
@@ -12,8 +23,8 @@
 
 ## 模块独立性说明
 
-第 4 步语义分析每个模块**天然独立**——分析模块 A 不需要模块 B 已完成分析。
-（注：第 5 步依赖综合才需要等第 4 步全部完成）
+extract-docs 语义分析每个模块**天然独立**——分析模块 A 不需要模块 B 已完成分析。
+（注：synthesize-deps才需要等extract-docs全部完成）
 
 ## 批次控制
 
@@ -30,9 +41,9 @@
   - cache/structure.json（项目结构）
   - cache/code-structure.json（调用图、模式、时序）
 待分析文件：{core_files_list}
-输出要求：遵循 references/step4-source-analysis.md
+输出要求：遵循 workflow/extract-docs.md
   - 完成后以增量追加模式写入 cache/module-analysis.json
-  - 每个模块必须写入字段见 step4-source-analysis.md 表格
+  - 每个模块必须写入字段见 extract-docs.md 表格
 ```
 
 ## 进度追踪

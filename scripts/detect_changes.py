@@ -9,7 +9,6 @@ import json
 import hashlib
 import fnmatch
 import yaml
-import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any
 from datetime import datetime, timezone
@@ -141,6 +140,25 @@ def save_checksums(wiki_dir: str, checksums: Dict[str, Dict[str, str]]):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
+def _extract_import_paths_heuristic(file_rel_path: str, source: bytes) -> List[str]:
+    """用 tree-sitter 从文件中提取 import 路径，用于启发式反向依赖检测。
+
+    比 regex 更准确：不会匹配字符串或注释中的伪 import。
+    """
+    from parsers import get_lang_for_ext
+    from import_relations import _extract_imports_from_source
+
+    ext = Path(file_rel_path).suffix.lower()
+    lang_name = get_lang_for_ext(ext)
+    if not lang_name:
+        return []
+
+    try:
+        return _extract_imports_from_source(source, lang_name)
+    except Exception:
+        return []
+
+
 def propagate_reverse_dependencies(changed_modules: Set[str],
                                    structure: Dict[str, Any]) -> Set[str]:
     """
@@ -180,15 +198,9 @@ def propagate_reverse_dependencies(changed_modules: Set[str],
 
     # 反向依赖：查找哪些模块导入了变更模块的文件
     affected_modules: Set[str] = set()
-    import_patterns = [
-        re.compile(r'''(?:from|import)\s+['"]([^'"]+)['"]'''),   # Python quoted: from "X" import Y
-        re.compile(r'''(?:from|import)\s+([\w.]+)'''),           # Python bare: from X import Y, import X.Y
-        re.compile(r'''(?:import|require)\s*\(?['"]([^'"]+)['"]'''),  # JS/TS
-        re.compile(r'''use\s+['"]([^'"]+)['"]'''),                 # Rust
-    ]
 
     # 缓存已读取的文件内容
-    file_cache: Dict[str, str] = {}
+    file_cache: Dict[str, bytes] = {}
 
     for mod in modules:
         mod_name = mod['name']
@@ -198,28 +210,32 @@ def propagate_reverse_dependencies(changed_modules: Set[str],
         core_files = mod.get('core_files', [])[:10]  # 限制扫描文件数
         for file_rel_path in core_files:
             if file_rel_path in file_cache:
-                content = file_cache[file_rel_path]
+                source = file_cache[file_rel_path]
             else:
                 try:
-                    # 从项目根目录读取文件
                     project_root = str(structure.get('project_root', '.')) \
                         if structure.get('project_root') else '.'
                     full_path = os.path.join(project_root, file_rel_path)
-                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-                    file_cache[file_rel_path] = content
+                    with open(full_path, 'rb') as f:
+                        source = f.read()
+                    file_cache[file_rel_path] = source
                 except Exception:
                     continue
 
-            # 检查是否导入了任何变更模块的文件
-            for pattern in import_patterns:
-                for match in pattern.finditer(content):
-                    import_path = match.group(1).replace('\\', '/').replace('.', '/')
-                    for changed_prefix in changed_paths:
-                        if import_path.startswith(changed_prefix) or changed_prefix.startswith(import_path):
-                            affected_modules.add(mod_name)
-                            break
-                    if mod_name in affected_modules:
+            # 用 tree-sitter 提取 import 路径
+            import_paths = _extract_import_paths_heuristic(file_rel_path, source)
+            for import_path in import_paths:
+                # 将 Python 点路径（core.index）规范化为斜线路径（core/index）
+                # 以便与 changed_prefix（如 "core/"）进行前缀匹配
+                normalized = import_path.replace(".", "/")
+                if not normalized.endswith("/"):
+                    normalized += "/"
+                for changed_prefix in changed_paths:
+                    if (normalized.startswith(changed_prefix)
+                            or changed_prefix.startswith(normalized)
+                            or import_path.startswith(changed_prefix)
+                            or changed_prefix.startswith(import_path)):
+                        affected_modules.add(mod_name)
                         break
                 if mod_name in affected_modules:
                     break

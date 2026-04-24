@@ -1,6 +1,15 @@
 # 文件分析指南
 
-本文档定义第 4 步深度阅读源码中使用的文件角色分类规则和分档读取深度策略。
+
+## 契約
+
+| 項 | 值 |
+|----|-----|
+| **脚本** | `python scripts/extract_docs.py <文件绝对路径>`（预提取注释，逐文件） |
+| **输入** | `cache/structure.json`、`cache/code-structure.json`、`cache/architecture-skeleton.json`（可选） |
+| **输出** | `cache/module-analysis.json` |
+| **前置** | `detect-changes`，可选 `generate-skeleton` |
+| **后置** | `check-analysis-quality`；并行策略见 `parallel-analysis.md` |
 
 ## 文件角色分类（双层分类）
 
@@ -64,7 +73,9 @@
 
 ---
 
-## 读取 structure.json（第 2 步产出）
+## 读取 structure.json（analyze-project 产出）
+
+
 
 首先读取 `cache/structure.json`，获取以下核心字段：
 
@@ -76,7 +87,7 @@
 | `file_types` | 扩展名 → 文件数，用于构建项目概览 |
 | `directories` | 目录结构和重要性评分，用于理解项目布局 |
 
-## 读取 code-structure.json（第 2.5 步产出）并应用
+## 读取 code-structure.json（extract-structure 产出）并应用
 
 同时读取 `cache/code-structure.json`，作为语义分析锚点：
 
@@ -86,6 +97,27 @@
 | `call_graph` | 每个函数的 `calls` 列表作为锚点，AI 只需补充语义（Why），而非重新推断结构（What） |
 | `patterns` | 对检测到模式的文件优先深度分析（如 `middleware_chain` → 重点分析各中间件职责与错误传递；`react_component` → 重点分析 Props/状态/生命周期） |
 | `key_sequences` | 验证或修正时序参与者顺序，补充每步业务语义；直接用于生成 `sequenceDiagram` |
+
+## 读取 architecture-skeleton.json（generate-skeleton产出）并注入全局上下文
+
+若 `cache/architecture-skeleton.json` 存在（generate-skeleton 成功生成），在每个 subagent/批次的分析 prompt 中注入以下摘要（约 1K tokens）：
+
+```
+## 全局架构上下文（来自generate-skeleton骨架）
+
+项目类型：{{ skeleton.project_nature }}
+架构风格：{{ skeleton.architecture_style }}
+
+模块分组（请保持你分析的 semantic_group 与以下分组一致）：
+- {{ group.name }}：{{ group.modules }}（{{ group.role }}）
+  ...
+
+当前模块所属分组：{{ current_module_group_name }}
+```
+
+**作用**：使每个批次的分析具备全局视野，确保跨批次的 `semantic_group` 命名和依赖方向一致。
+
+**降级处理**：若 `architecture-skeleton.json` 不存在，跳过注入，以无全局上下文模式运行（不影响流程）。
 
 ## 图表类型选择
 
@@ -99,9 +131,9 @@
 | 类继承 / 插件接口 | `classDiagram` |
 | 数据模型关系 | `erDiagram` |
 
-## 变更筛选（基于第 3 步结果）
+## 变更筛选（基于detect-changes结果）
 
-根据第 3 步变更检测结果，筛选待处理文件：
+根据detect-changes结果，筛选待处理文件：
 
 - **首次生成**（无变更记录）：处理所有模块的核心文件。
 - **增量更新**：仅处理变更文件所属模块的核心文件。对于被其他变更模块依赖的模块（反向依赖），也应纳入处理范围。
@@ -127,8 +159,8 @@ python scripts/extract_docs.py <文件绝对路径>
 1. 按双层分类规则确定文件角色（`Entry`/`Service`/`Api`/`Dao` 等）
 2. 理解语义：追踪函数调用、控制流、数据流、错误处理和设计模式
 3. 提取公共接口、内部逻辑和模块依赖
-4. 参考 `references/prompts.md` 获取分析提示词模板（代码深度分析 / 模块文档 / 依赖分析）
-5. 为每个模块输出结构化分析结果，供第 5 步和第 8 步使用
+4. 参考 `../generation/module-page.md` 获取分析提示词模板（代码深度分析 / 模块文档 / 依赖分析）
+5. 为每个模块输出结构化分析结果，供 synthesize-deps 和 generate-module-docs 使用
 
 ---
 
@@ -144,7 +176,7 @@ python scripts/extract_docs.py <文件绝对路径>
 2. 更新（或新增）对应模块 key 的条目
 3. 写回文件
 
-增量更新时（步骤 3 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。
+增量更新时（步骤 4 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。
 
 ### 写入路径
 
@@ -160,7 +192,7 @@ python scripts/extract_docs.py <文件绝对路径>
 | `code_purpose` | 模块整体 CodePurpose（取该模块主要文件的角色） |
 | `analysis_depth` | 本次分析的最高深度（`deep` / `standard` / `quick`） |
 | `module_summary` | 1-2 句描述模块职责和架构角色 |
-| `selected_components` | 已选定的文档组件列表（第 8 步直接使用，无需重新决策） |
+| `selected_components` | 已选定的文档组件列表（generate-module-docs直接使用，无需重新决策） |
 | `dependency_hints.imports` | 本模块依赖的其他模块名列表 |
 | `dependency_hints.imported_by` | 依赖本模块的其他模块名列表（可从 import-relations.json 推断） |
 | `files[].path` | 文件相对路径 |
@@ -171,7 +203,7 @@ python scripts/extract_docs.py <文件绝对路径>
 | `files[].key_insights` | 2-5 条设计意图说明（解释 WHY，非 WHAT） |
 | `files[].confidence` | 分析置信度（`high` / `medium` / `low`） |
 | `semantic_group` | AI 对该模块的语义主题标注（**自由文字**，如"认证与鉴权"、"消息路由"、"Data Persistence"）——依据代码实际内容命名，不受 CodePurpose 枚举约束；命名面向读者理解，非文件路径 |
-| `semantic_group_confidence` | 语义分组置信度：`high`=模块有清晰的语义边界 / `low`=职责混杂或 AI 不确定；步骤 7 分组时对 `low` 的条目降低权重，优先以依赖数据为准 |
+| `semantic_group_confidence` | 语义分组置信度：`high`=模块有清晰的语义边界 / `low`=职责混杂或 AI 不确定；步骤 8 分组时对 `low` 的条目降低权重，优先以依赖数据为准 |
 
 ### semantic_group 命名指南
 
@@ -188,7 +220,7 @@ python scripts/extract_docs.py <文件绝对路径>
 **命名步骤：**
 1. 看模块的主要文件名 + 目录名，提取业务关键词
 2. 问：**"这个模块帮用户/系统做什么事？"**（回答就是 semantic_group 名称）
-3. 同一功能域的多个模块应使用**相同或相近的 semantic_group 名称**（为 step7 的聚合提供信号）
+3. 同一功能域的多个模块应使用**相同或相近的 semantic_group 名称**（为 step8 的聚合提供信号）
 4. 职责混杂或不确定时，设置 `semantic_group_confidence: "low"`
 
 **多模块同组示例：**
@@ -202,6 +234,6 @@ python scripts/extract_docs.py <文件绝对路径>
 写入操作失败时（权限问题、磁盘满等），**记录警告并继续分析**，不中断流程。警告格式：
 
 ```
-⚠️ [Step 4] 写入 module-analysis.json 失败（模块：<name>）：<错误信息>
-   步骤 5 和步骤 8 将降级为从上下文窗口读取分析结果。
+⚠️ [extract-docs] 写入 module-analysis.json 失败（模块：<name>）：<错误信息>
+   synthesize-deps 和 generate-module-docs 将降级为从上下文窗口读取分析结果。
 ```

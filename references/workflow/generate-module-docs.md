@@ -1,6 +1,18 @@
-# 第 8 步执行策略
+# generate-module-docs 执行策略
 
-> 本文档对应工作流第 8 步详细文档生成阶段，涵盖：模块优先级排序、并行/串行调度、失败重试、断点续传、内容降级策略和知识库导出。
+> 本文档对应工作流generate-module-docs详细文档生成阶段，涵盖：模块优先级排序、并行/串行调度、失败重试、断点续传、内容降级策略和知识库导出。
+
+
+## 契約
+
+| 項 | 値 |
+|----|-----|
+| **脚本** | `python scripts/generate_menu.py ... --reconcile`、`fix_mermaid.py`、`check_quality.py` |
+| **输入** | `cache/module-analysis.json`、`wiki/menu.json`、RelationshipSummary |
+| **输出** | `wiki/modules/*.md`、`wiki/api/*.md`、`wiki/menu.json`（校验后） |
+| **前置** | `generate-menu` |
+| **后置** | 完成 |
+| **生成规则** | 见 `../generation/module-page.md`、`../generation/api-page.md` |
 
 ## 模块优先级排序
 
@@ -109,30 +121,30 @@ flowchart LR
 
 ---
 
-## 模块文档统一上下文（8.1）
+## 模块文档统一上下文（9.1）
 
 无论使用 subagent 并行还是主 Agent 串行，每个模块的生成任务都接收以下统一上下文：
 
 | 上下文 | 来源 | 用途 |
 |--------|------|------|
-| 项目上下文摘要 | 第 6 步产出 | 理解项目定位和技术栈 |
+| 项目上下文摘要 | generate-overview 产出 | 理解项目定位和技术栈 |
 | 该模块的导航位置 | `menu.json` | 生成面包屑和前后导航链接 |
-| 该模块的源码分析数据 | `cache/module-analysis.json` 中对应模块的条目（第 4 步写入） | 直接使用 `public_interfaces`、`selected_components`、`key_insights`，无需重新读取源码 |
-| 该模块的依赖关系 | 第 5 步输出 | 生成依赖关系章节 |
+| 该模块的源码分析数据 | `cache/module-analysis.json` 中对应模块的条目（extract-docs 写入） | 直接使用 `public_interfaces`、`selected_components`、`key_insights`，无需重新读取源码 |
+| 该模块的依赖关系 | synthesize-deps输出 | 生成依赖关系章节 |
 | 配置要求 | `config.yaml` | 语言、图表开关、源码链接等 |
 
 > **降级说明**：若 `cache/module-analysis.json` 不存在，或当前模块的条目缺失，降级为重新读取该模块的源码文件进行分析，再生成文档。
 
-模板参考：`references/templates.md` → 模块 / API 参考。
+模板参考：`../generation/module-page.md` → 模块 / API 参考。
 
-## 保存与 meta.json 更新（8.2）
+## 保存与 meta.json 更新（9.2）
 
 - 将所有 wiki 文件写入 `.deepwiki/wiki/`。
 - 更新 `meta.json` 的时间戳和每个模块的元数据。
 
-## 菜单校验（8.3）
+## 菜单校验（9.3）
 
-所有详细文档生成完毕后，从**技能目录**运行 `generate_menu.py --reconcile` 校验并修正 `menu.json`（详细行为规则见 [`references/system-reference.md`](references/system-reference.md) → reconcile 模式说明）：
+所有详细文档生成完毕后，从**技能目录**运行 `generate_menu.py --reconcile` 校验并修正 `menu.json`（详细行为规则见 [`../system-reference.md`](../system-reference.md) → reconcile 模式说明）：
 
 ```bash
 python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项目名称] --reconcile
@@ -140,7 +152,7 @@ python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项�
 
 之后依次应用 `after_generate` 插件钩子和 `on_export` 插件钩子（用于知识库导出、格式转换等后处理）。更新 `cache/progress.json` 的 `phases.details.status` 为 `completed`。
 
-## Mermaid 语法修复（8.4）
+## Mermaid 语法修复（9.4）
 
 所有文档保存完毕后，**先**运行 Mermaid 语法修复脚本，自动修正 AI 生成的 Mermaid 图表中的常见语法问题：
 
@@ -162,7 +174,7 @@ python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report
 
 > **重要**：Mermaid 修复必须在质量检查之前运行，避免可修复的语法问题触发质量降级。
 
-## 文档质量检查（8.5）
+## 文档质量检查（9.5）
 
 从**技能目录**运行质量检查，确认生成的文档符合质量标准（源码链接、Mermaid 图表、章节完整性）：
 
@@ -176,14 +188,14 @@ python scripts/check_quality.py <项目目录绝对路径>/.deepwiki
 |--------|------|------|----------|
 | 0 | 全部 Professional / Standard | 达标 | 流程正常结束 |
 | 1 | 存在 Basic 文档（占比 ≤50%） | 警告 | 告知用户；对 Basic 模块重新生成 |
-| 2 | Basic 文档超过 50% | 严重 | 必须对所有 Basic 模块重新执行第 4 步起的子流程 |
+| 2 | Basic 文档超过 50% | 严重 | 必须对所有 Basic 模块重新执行extract-docs起的子流程 |
 
 ### 退出码 1 / 2 时的重新生成策略
 
-无需重新初始化或分析，直接从第 4 步继续：
+无需重新初始化或分析，直接从 detect-changes 继续：
 
 1. 加 `--verbose` 查看具体 Basic 文档的缺失项（源码链接、图表、章节数不足等）
 2. 将这些模块在 `cache/progress.json` 中对应条目状态重置为 `pending`
-3. **跳过第 1-3 步**，直接从**第 4 步**（深度阅读）重新执行 → 第 8.1 步（生成），仅针对 Basic 模块
+3. **跳过 init-wiki 到 extract-structure**，直接从 **extract-docs** 重新执行 → generate-module-docs（生成阶段），仅针对 Basic 模块
 4. 重新生成后再次运行 `check_quality.py` 确认达标
 5. 若二次生成仍为 Basic，记录到 `meta.json` 的 `quality_issues` 字段并告知用户，不再强制重试

@@ -767,3 +767,37 @@ def process(items):
 
 **改进**：预分配内存，性能提升 ~30%
 ```
+
+---
+
+## 组件选择流程
+
+> **重要**：在生成任何文档之前，必须先执行组件选择流程。
+>
+> **检测规则**：CodePurpose 检测信号和条件组件触发规则详见 [`codepurpose-detection.md`](codepurpose-detection.md)。
+>
+> **组件映射**：CodePurpose → 默认组件集详见 [`components.md`](components.md) 的"CodePurpose 组件映射"章节。
+
+### 选择流程
+
+1. **识别 CodePurpose**：根据文件路径和内容特征，参考 [`codepurpose-detection.md`](codepurpose-detection.md) 的检测信号表
+2. **选择默认组件集**：根据 CodePurpose 选择必需组件，参考 [`components.md`](components.md) 的映射表
+3. **添加条件组件**：根据模块特征（复杂度、依赖数、类定义等）添加条件组件
+4. **AI 补充推荐**：对于复杂模块，可让 AI 分析后推荐额外组件
+
+### AI 补充推荐 Prompt
+
+```
+分析以下模块，推荐额外需要的文档组件：
+
+模块：{module_name}
+CodePurpose：{code_purpose}
+复杂度：{complexity}
+已选组件：{selected_components}
+
+可选组件：[usage-patterns, decision-table, ...]
+
+返回 JSON：{ "add_components": [...], "reasoning": "..." }
+```
+
+---

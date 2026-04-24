@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+"""Task 6: Rewrite SKILL.md with digraph workflow."""
+import pathlib
+ROOT = pathlib.Path(__file__).parent.parent.parent
+
+CONTENT = """\
 ---
 name: deepwiki
 description: 通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档。Use when user requests "生成 wiki"、"创建文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、"检查 wiki 质量"、"升级文档". Also use when a project needs automated documentation generation from source code.
@@ -20,18 +26,44 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 
 ## 工作流
 
-**主路径（全量/增量）：**
+```dot
+digraph deepwiki {
+    rankdir=TB;
+    start    [label="用户意图",              shape=doublecircle];
+    done     [label="完成",                 shape=doublecircle];
+    init     [label="init-wiki",            shape=box];
+    analyze  [label="analyze-project",      shape=box];
+    extract  [label="extract-structure",    shape=box];
+    skeleton [label="generate-skeleton",    shape=box];
+    detect   [label="detect-changes",       shape=box];
+    docs     [label="extract-docs",         shape=box];
+    gate     [label="check-analysis-quality", shape=box, style=filled, fillcolor=lightyellow];
+    synth    [label="synthesize-deps",      shape=box];
+    overview [label="generate-overview",    shape=box];
+    menu     [label="generate-menu",        shape=box];
+    modules  [label="generate-module-docs", shape=box];
+    pass     [label="exit=0?",             shape=diamond];
+    fix      [label="增量补充分析",          shape=box];
 
-`init-wiki` → `analyze-project` → `extract-structure` → `generate-skeleton` → `detect-changes` → `extract-docs` → `check-analysis-quality`
-
-- **pass（exit=0）**：→ `synthesize-deps` → `generate-overview` → `generate-menu` → `generate-module-docs` → 完成
-- **fail（exit≠0）**：增量补充分析 → 重跑 `check-analysis-quality`
-
-**快捷路径：**
-
-- 仅质量检查：直接运行 `check_quality.py`，跳过所有生成步骤
-- 定向重生成：从 `extract-docs` 开始，跳过 `init-wiki` → `detect-changes`
-
+    start    -> init      [label="全量/增量"];
+    init     -> analyze;
+    analyze  -> extract;
+    extract  -> skeleton;
+    skeleton -> detect;
+    detect   -> docs;
+    docs     -> gate;
+    gate     -> pass;
+    pass     -> synth    [label="yes"];
+    pass     -> fix      [label="no"];
+    fix      -> gate;
+    synth    -> overview;
+    overview -> menu;
+    menu     -> modules;
+    modules  -> done;
+    start    -> modules  [label="仅质量检查", style=dashed];
+    start    -> docs     [label="定向重生成", style=dashed];
+}
+```
 
 ## 工具索引
 
@@ -89,3 +121,10 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 ## 插件协议
 
 > 完整协议说明（钩子类型、加载流程、安全约束）见 [`references/plugin.md`](references/plugin.md)。
+"""
+
+out = ROOT / "SKILL.md"
+out.write_text(CONTENT, encoding="utf-8")
+lines = CONTENT.count("\n")
+print(f"Written SKILL.md: {lines} lines")
+

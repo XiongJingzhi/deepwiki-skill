@@ -1,19 +1,31 @@
-# 第 7 步：生成导航菜单与文档地图
+# generate-menu：生成导航菜单与文档地图
 
-> 工作流第七步，由 AI 直接生成 `menu.json` 和 `doc-map.md`，定义文档导航结构（此时模块文档尚未生成，脚本无法扫描，需 AI 基于结构提前生成）。
+> generate-menu，由 AI 直接生成 `menu.json` 和 `doc-map.md`，定义文档导航结构（此时模块文档尚未生成，脚本无法扫描，需 AI 基于结构提前生成）。
 
-## 7.1：AI 生成 menu.json
+
+## 契約
+
+| 項 | 值 |
+|----|-----|
+| **脚本** | `python scripts/generate_menu.py <wiki目录> [项目名] [--reconcile]` |
+| **输入** | `cache/structure.json`、`cache/module-analysis.json`、`cache/architecture-skeleton.json`（可选） |
+| **输出** | `wiki/menu.json`、`wiki/doc-map.md` |
+| **前置** | `generate-overview` |
+| **后置** | `generate-module-docs` |
+| **生成规则** | 见 `../generation/docmap-page.md`、`../rules/menu-archetypes.md` |
+
+## 8.1：AI 生成 menu.json
 
 ### 输入数据（按优先级顺序读取）
 
 | 数据源 | 作用 | 优先级 |
 |--------|------|--------|
 | `cache/import-relations.json` | 模块间依赖强度，最客观的聚合信号 | **最高** |
-| `cache/module-analysis.json` → `dependency_hints` | 步骤 4 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
+| `cache/module-analysis.json` → `dependency_hints` | 步骤 5 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
 | `cache/module-analysis.json` → `semantic_group` | AI 的语义主题标注，验证并命名分组 | 中 |
 | `cache/code-structure.json` → `patterns` | 同类 pattern 的模块有结构亲缘，可辅助归组 | 中 |
 | `cache/structure.json` → 目录聚集度 | 同父目录的模块有弱亲缘关系，作为辅助信号 | 低 |
-| `references/menu-archetypes.md` | 当前 archetype 的分组思路（孤岛模块兜底） | 兜底 |
+| `../rules/menu-archetypes.md` | 当前 archetype 的分组思路（孤岛模块兜底） | 兜底 |
 
 > **降级**：若 `module-analysis.json` 不存在，直接使用 `import-relations.json` + `structure.json`，跳过语义分组层。
 
@@ -57,7 +69,7 @@
 **层3：孤岛兜底（按需）**
 
 对无强依赖关系的模块：
-1. 读取 `references/menu-archetypes.md` 中对应当前 `archetype` 的常见语义主题
+1. 读取 `../rules/menu-archetypes.md` 中对应当前 `archetype` 的常见语义主题
 2. 按模块的 `code_purpose` 和 `module_summary` 判断最接近的主题
 3. 将孤岛模块归入最近邻主题，或在该主题下新建子区块
 
@@ -71,7 +83,7 @@
 |------|------|
 | 某组模块数 < 2 | 考虑并入最相邻主题（除非该模块是项目核心且独立性高） |
 | 某组模块数 > 6 | 考虑拆出子分区（如"核心业务"拆为"订单流程"/"支付流程"） |
-| 顶层分区总数 > 7 | 合并语义相近的分区 |
+| 顶层分区总数 > 8 | 合并语义相近的分区 |
 | 顶层分区总数 < 3 | 检查是否过度合并，考虑拆分大组 |
 
 ---
@@ -84,13 +96,13 @@
 
 ---
 
-> `menu.json` 完整结构模板和 AI 生成菜单的 5 条格式规则见 [`references/templates.md`](references/templates.md) → **menu.json 模板** 章节。
+> `menu.json` 完整结构模板和 AI 生成菜单的 5 条格式规则见 [`../generation/docmap-page.md`](../generation/docmap-page.md) → **menu.json 模板** 章节。
 
 **为什么要先于详细文档生成菜单**：菜单定义了每个模块文档在导航层级中的位置（所属分组、前后顺序）。详细文档生成时可以引用自身在菜单中的位置来生成精确的面包屑导航和前后文档链接，使文档网络更加连贯。
 
 ---
 
-## 7.2：AI 生成 doc-map.md
+## 8.2：AI 生成 doc-map.md
 
 基于 `menu.json` 的导航结构和 `architecture.md` 的架构信息，生成 `wiki/doc-map.md`：
 
@@ -99,9 +111,9 @@
 | 文档关系图（Mermaid flowchart） | `menu.json` 层级结构 |
 | 推荐阅读路径 | 按读者角色（新手/架构师/API 使用者） |
 | 完整文档索引 | `structure.json` 模块列表 + `menu.json` |
-| 模块间依赖矩阵 | 第 5 步 `core_dependencies` 输出 |
+| 模块间依赖矩阵 | synthesize-deps `core_dependencies` 输出 |
 
-模板参考：`references/templates.md` → 文档地图。
+模板参考：`../generation/docmap-page.md` → 文档地图。
 
 完成后更新 `cache/progress.json` 的 `phases.menu.status` 为 `completed`。
 

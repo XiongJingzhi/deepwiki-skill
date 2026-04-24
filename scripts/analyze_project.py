@@ -700,82 +700,107 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
 
 def estimate_complexity(file_path: Path) -> int:
     """
-    估算代码复杂度（简化版圈复杂度）
+    估算代码复杂度（基于 tree-sitter AST 节点统计）
 
-    基于控制流关键字和定义数量：
-    - if/elif/else, while, for, match/switch/case, try/except/catch, &&, ||
-    - 函数/类/方法定义数量
-    返回一个相对值（不严格等于圈复杂度），用于判断文件分析深度。
+    统计控制流节点（if/for/while/try 等）和定义节点（function/class 等），
+    归一化到 0-100 的范围，用于判断文件分析深度。
     """
     try:
-        content = file_path.read_text(encoding='utf-8', errors='ignore')
+        source = file_path.read_bytes()
     except Exception:
         return 0
 
-    import re
-    lines = content.split('\n')
-    non_empty_lines = [l for l in lines if l.strip() and not l.strip().startswith(('#', '//', '/*', '*'))]
-    loc = len(non_empty_lines)
+    if not source.strip():
+        return 0
 
-    # 控制流关键字
-    control_flow_pattern = r'\b(if|elif|else|while|for|foreach|match|switch|case|try|except|catch|finally|\.and\(|\.or\()'
-    control_flow_count = len(re.findall(control_flow_pattern, content))
+    from parsers import get_lang_for_ext, get_manager
 
-    # 函数/方法/类定义
-    def_pattern = r'\b(?:def|func|fn|function|method|class|struct|enum|trait|interface|impl|type)\s+\w+'
-    def_count = len(re.findall(def_pattern, content))
+    ext = file_path.suffix.lower()
+    lang_name = get_lang_for_ext(ext)
+    if not lang_name:
+        return 0
 
-    # 简化复杂度: (控制流 * 2 + 定义数) 归一化到合理范围
-    raw = (control_flow_count * 2 + def_count)
-    if loc > 0:
-        complexity = min(int(raw * 100 / max(loc, 1)), 100)
-    else:
-        complexity = 0
+    try:
+        mgr = get_manager()
+        parser = mgr.get_parser(lang_name)
+        tree = parser.parse(source)
+        root = tree.root_node
 
-    return complexity
+        if root.has_error and root.child_count == 0:
+            return 0
+
+        caps = mgr.run_query(lang_name, "complexity", root)
+        cf_count = len(caps.get("cf", []))
+        def_count = len(caps.get("def", []))
+
+        # 统计有效代码行（排除空行和纯注释行）
+        lines = source.split(b"\n")
+        non_empty_lines = [l for l in lines if l.strip() and not l.strip().startswith((b"#", b"//", b"/*", b"*"))]
+        loc = len(non_empty_lines)
+
+        raw = (cf_count * 2 + def_count)
+        if loc > 0:
+            complexity = min(int(raw * 100 / max(loc, 1)), 100)
+        else:
+            complexity = 0
+        return complexity
+    except Exception:
+        return 0
 
 
 def count_important_lines(file_path: Path) -> int:
     """
-    统计文件中"重要代码行"数量。
+    统计文件中"重要代码行"数量（基于 tree-sitter AST）。
 
     重要代码行是指含有接口定义、导出声明、导入声明等对文档生成高价值的行。
-    参考 deepwiki-rs 的 is_important_line() 设计：这些行在内容截断时会被优先保留。
-
-    重要行关键字：
-    - 定义类: def, fn, func, function, class, struct, enum, trait, interface, impl, type
-    - 导出类: export, pub, public, module.exports
-    - 导入类: import, use, require, include, from ... import
-    - 注解类: @decorator, #[attr], TODO, FIXME, NOTE
+    使用 AST 节点统计而非 regex，避免字符串/注释中的误匹配。
     """
-    import re
     try:
-        lines = file_path.read_text(encoding='utf-8', errors='ignore').split('\n')
+        source = file_path.read_bytes()
     except Exception:
         return 0
 
-    # 重要行模式（多语言通用）
-    important_patterns = [
-        r'^\s*(?:export\s+)?(?:async\s+)?(?:def|fn|func|function)\s+\w+',  # 函数定义
-        r'^\s*(?:export\s+)?(?:abstract\s+)?class\s+\w+',                   # 类定义
-        r'^\s*(?:pub\s+)?(?:struct|enum|trait|interface|impl)\s+\w+',       # Rust/Go 类型
-        r'^\s*(?:export\s+)?type\s+\w+\s*[=<{(]',                          # 类型别名/定义
-        r'^\s*(?:export\s+)?(?:const|let|var)\s+\w+.*=',                    # 导出常量
-        r'^\s*(?:import|from|use|require|include)\b',                        # 导入语句
-        r'^\s*(?:export\s+default|module\.exports)',                         # 模块导出
-        r'^\s*@\w+',                                                         # 装饰器/注解
-        r'^\s*#\[',                                                           # Rust 属性
-        r'(?:TODO|FIXME|HACK|NOTE|WARN|XXX)\s*[:\(]',                       # 重要注释标记
-    ]
+    if not source.strip():
+        return 0
 
-    count = 0
-    for line in lines:
-        for pattern in important_patterns:
-            if re.search(pattern, line, re.IGNORECASE):
-                count += 1
-                break  # 一行只计一次
+    from parsers import get_lang_for_ext, get_manager
 
-    return count
+    ext = file_path.suffix.lower()
+    lang_name = get_lang_for_ext(ext)
+    if not lang_name:
+        # 无 tree-sitter 支持的语言，回退到行数统计
+        try:
+            lines = source.split(b"\n")
+            return len([l for l in lines if l.strip()])
+        except Exception:
+            return 0
+
+    try:
+        mgr = get_manager()
+        parser = mgr.get_parser(lang_name)
+        tree = parser.parse(source)
+        root = tree.root_node
+
+        if root.has_error and root.child_count == 0:
+            return 0
+
+        caps = mgr.run_query(lang_name, "important", root)
+        # 统计所有重要节点的行号（去重，一行只计一次）
+        important_lines: set = set()
+        for category in ("imp", "exp", "decl"):
+            for node in caps.get(category, []):
+                important_lines.add(node.start_point[0])
+
+        # 加上 TODO/FIXME 等标记（regex 仍适合行级扫描）
+        import re
+        for i, line in enumerate(source.split(b"\n")):
+            line_str = line.decode("utf-8", errors="replace")
+            if re.search(r'(?:TODO|FIXME|HACK|NOTE|WARN|XXX)\s*[:\(]', line_str):
+                important_lines.add(i)
+
+        return len(important_lines)
+    except Exception:
+        return 0
 
 
 def scan_files(root_path: Path) -> List[Dict[str, Any]]:
@@ -1058,7 +1083,82 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
         with open(cache_path, 'w', encoding='utf-8') as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
 
+        # 生成 project-digest.md（供 AI 步骤复用的项目概要，避免重复读取 structure.json）
+        _generate_project_digest(result, root)
+
     return result
+
+
+def _generate_project_digest(result: Dict[str, Any], project_root: Path):
+    """生成 cache/project-digest.md — 约 3K token 的精简项目概要摘要。
+
+    供后续 AI 步骤（第 5-9 步）复用，避免每个步骤重复读取和解析 structure.json。
+    包含项目基础信息、模块列表、架构信号和上下文预算。
+    """
+    lines = []
+    lines.append(f"# Project Digest: {result['project_name']}")
+    lines.append("")
+
+    # 基础信息
+    lines.append("## Basic Info")
+    lines.append(f"- Type: {', '.join(result['project_type']) or 'unknown'}")
+    lines.append(f"- Languages: {', '.join(result['languages']) or 'unknown'}")
+    stats = result['stats']
+    lines.append(
+        f"- Total files: {stats['total_files']} "
+        f"(code: {stats['code_files']}, modules: {stats['total_modules']})"
+    )
+    if result.get('entry_points'):
+        lines.append(f"- Entry points: {', '.join(result['entry_points'])}")
+    lines.append("")
+
+    # 模块列表
+    modules = result.get('modules', [])
+    if modules:
+        lines.append("## Modules")
+        for mod in modules:
+            score = mod.get('importance_score', 0)
+            core = mod.get('core_files_count', 0)
+            lines.append(
+                f"- **{mod['name']}** ({mod['type']}, "
+                f"{mod['files']} files, "
+                f"importance: {score}, core: {core})"
+            )
+        lines.append("")
+
+    # 核心文件（Top 20）
+    core_files = result.get('core_files', [])
+    if core_files:
+        lines.append("## Core Files (Top 20)")
+        for f in core_files[:20]:
+            lines.append(
+                f"- `{f['path']}` "
+                f"(score: {f['importance_score']}, "
+                f"complexity: {f['complexity_score']})"
+            )
+        lines.append("")
+
+    # 上下文预算
+    budget = result.get('context_budget', {})
+    if budget:
+        lines.append("## Context Budget")
+        lines.append(f"- Total budget: {budget.get('total_budget', 0):,} tokens")
+        lines.append(
+            f"- Available for analysis: "
+            f"{budget.get('available_for_analysis', 0):,} tokens"
+        )
+        lines.append(
+            f"- Reserved for generation: "
+            f"{budget.get('reserved_for_generation', 0):,} tokens"
+        )
+
+    content = "\n".join(lines)
+
+    wiki_dir = project_root / '.deepwiki'
+    digest_path = wiki_dir / 'cache' / 'project-digest.md'
+    digest_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(digest_path, 'w', encoding='utf-8') as f:
+        f.write(content)
 
 
 def estimate_token_cost(file_path: Path) -> int:
@@ -1075,27 +1175,35 @@ def estimate_token_cost(file_path: Path) -> int:
         return 200
 
 
-def compute_context_budget(all_files: List[Dict[str, Any]], 
-                           project_root: Path,
-                           total_budget: int = 120000,
-                           reserved_for_generation: int = 40000) -> Dict[str, Any]:
+def compute_context_budget(all_files: List[Dict[str, Any]],
+                           project_root: Path) -> Dict[str, Any]:
     """
-    计算 Context Budget 分配方案。
-    
+    计算 Context Budget 分配方案（动态计算，基于项目实际代码量）。
+
     三阶段漏斗：
     1. 快速扫描：所有核心文件，仅元数据
     2. 重点深入：Budget 允许范围内的高优先级文件
     3. 按需补读：生成阶段发现缺口时回读
-    
-    Args:
-        all_files: 文件列表（含 importance_score）
-        project_root: 项目根路径
-        total_budget: 总 token 预算（默认 120K）
-        reserved_for_generation: 为生成阶段预留的预算（默认 40K）
-        
-    Returns:
-        Context Budget 分配方案
+
+    预算根据项目代码总 token 量动态计算：
+    - 总预算 = max(80K, min(500K, total_tokens * 0.3))
+    - 生成预留 = 总预算 * 1/3
     """
+    # 估算项目代码总 token 量
+    total_code_tokens = 0
+    code_files = [f for f in all_files
+                  if f.get("path", "").split(".")[-1].lower() in
+                  {e.lstrip(".") for e in CODE_EXTENSIONS}]
+    for f in code_files:
+        fpath = project_root / f["path"]
+        if fpath.exists():
+            total_code_tokens += estimate_token_cost(fpath)
+
+    # 动态计算预算
+    analysis_ratio = 0.3
+    total_budget = max(80000, min(500000, int(total_code_tokens * analysis_ratio)))
+    reserved_ratio = 0.33
+    reserved_for_generation = int(total_budget * reserved_ratio)
     available_for_analysis = total_budget - reserved_for_generation
     
     # 估算每个文件的 token 消耗

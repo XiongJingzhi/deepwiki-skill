@@ -40,7 +40,21 @@
       "Bash(python scripts/fix_mermaid.py .deepwiki --dry-run)",
       "Bash(python -m pytest tests/ -v)",
       "Bash(python -m pytest tests/ --tb=no -q)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(head -5 grep -rl \"class.*:\\\\|class.*\\\\\\(\" E:/Python/foreign-strategy-agent/app/ --include=\"*.py\")",
+      "Bash(head -10 grep -rl \"jwt\\\\|bearer\\\\|login\\\\|auth\" E:/Python/foreign-strategy-agent/app/ --include=\"*.py\")",
+      "Bash(ls /e/Python/foreign-strategy-agent/*.py)",
+      "WebSearch",
+      "mcp__web-reader__webReader",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(pip install:*)",
+      "Skill(glm-plan-usage:usage-query-skill)",
+      "Bash(mv step3-change-detection.md step4-change-detection.md)",
+      "Bash(mv step4-source-analysis.md step5-source-analysis.md)",
+      "Bash(mv step5-dependency-synthesis.md step6-dependency-synthesis.md)",
+      "Bash(mv step6-overview.md step7-overview.md)",
+      "Bash(mv step7-menu-and-docmap.md step8-menu-and-docmap.md)"
     ]
   }
 }

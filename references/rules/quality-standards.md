@@ -103,3 +103,47 @@ Professional 级文档建议包含置信度标注（>= 3 个），每个标注 +
 | 低 | 🔴 | 断言从命名约定或常见模式推断 |
 
 > 插件内部的 API 文档质量评级与此独立，可能出现不同结果，属正常情况。
+
+---
+
+## 模板设计原则
+
+### 组件化组装
+
+```
+文档 = 骨架 + 组件集合
+
+骨架：定义文档的基本结构（标题、分隔线、必需章节）
+组件：根据 CodePurpose 和模块特征动态选择
+```
+
+### 条件章节规则
+
+标注 `（条件：…）` 的章节，仅当条件满足时生成。条件不满足时直接跳过，不要生成空壳内容。
+
+### 语言适配
+
+所有代码示例使用**项目的主要编程语言**。将通用占位符替换为目标项目的实际语法。
+
+### 组件引用
+
+所有组件定义详见 [`components.md`](components.md)。关键组件：
+
+| 组件 | 用途 | 优先级 |
+|------|------|:------:|
+| `overview` | 模块概述 | P0 |
+| `api-table` | 接口总览 | P0 |
+| `nav-links` | 导航链接 | P0 |
+| `sequence-diagram` | 时序图 | P1 |
+| `code-walkthrough` | 核心代码讲解 | P1 |
+| `architecture-diagram` | 架构图 | P1 |
+| `class-diagram` | 类图 | P2 |
+| `state-diagram` | 状态图 | P2 |
+| `dependency-diagram` | 依赖图 | P2 |
+| `decision-table` | 决策表 | P2 |
+| `code-example` | 代码示例 | P2 |
+| `error-table` | 错误处理表 | P3 |
+| `file-structure` | 文件结构 | P3 |
+| `usage-patterns` | 使用模式 | P3 |
+
+---

@@ -1,6 +1,17 @@
-# 第 1 步：初始化
+# init-wiki：初始化
 
-> 工作流第一步，检查并准备 `.deepwiki/` 目录结构，加载插件。
+> init-wiki，检查并准备 `.deepwiki/` 目录结构，加载插件。
+
+
+## 契約
+
+| 項 | 值 |
+|----|-----|
+| **脚本** | `python scripts/init_wiki.py <项目路径> [--force]` |
+| **输入** | 项目目录 |
+| **输出** | `.deepwiki/config.yaml`、`.deepwiki/meta.json` |
+| **前置** | 无 |
+| **后置** | `analyze-project` |
 
 ## 检查 `.deepwiki/` 目录
 

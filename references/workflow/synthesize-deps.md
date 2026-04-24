@@ -1,6 +1,17 @@
 # 依赖关系综合
 
-> 本文件描述工作流第 5 步的完整规则：从源码分析结果中综合提取模块依赖图。
+> 本文件描述工作流synthesize-deps的完整规则：从源码分析结果中综合提取模块依赖图。
+
+
+## 契約
+
+| 項 | 值 |
+|----|-----|
+| **脚本** | 无（AI 执行） |
+| **输入** | `cache/module-analysis.json`、`cache/import-relations.json`、`cache/architecture-skeleton.json`（可选） |
+| **输出** | RelationshipSummary（AI 上下文，供后续工具使用） |
+| **前置** | `check-analysis-quality`（exit=0） |
+| **后置** | `generate-overview` |
 
 ## 优先读取模块分析缓存
 
@@ -17,7 +28,15 @@
 
 ### 路径 B：缓存不存在（降级路径）
 
-若 `cache/module-analysis.json` 不存在（首次运行旧版本或写入失败），退回"三阶段漏斗"逻辑——从 AI 上下文窗口中读取步骤 4 的分析结果。
+若 `cache/module-analysis.json` 不存在（首次运行旧版本或写入失败），退回"三阶段漏斗"逻辑——从 AI 上下文窗口中读取步骤 5 的分析结果。
+
+### 路径 C：同时读取架构骨架（推荐与路径 A 叠加使用）
+
+若 `cache/architecture-skeleton.json` 存在（generate-skeleton 生成），将其作为**验证基线**叠加使用：
+
+- `cross_domain_dependencies`：AI 综合出的依赖边应与骨架方向一致，冲突时以 `import-relations.json` 为最终裁决
+- `architecture_layers`：作为分层分组的初始结构，AI 只需验证和补充细节，无需从零推断
+- **效果**：步骤 6 从"从零综合"变为"验证修正"，AI 工作量减少约 50%
 
 ---
 
@@ -30,7 +49,7 @@
 
 ## 依赖提取（静态层）
 
-从第 4 步的语义分析结果中，提取每个文件已识别的 `import`/`use`/`require` 声明，构建有向依赖边：
+从extract-docs的语义分析结果中，提取每个文件已识别的 `import`/`use`/`require` 声明，构建有向依赖边：
 
 | 依赖类型 | 语义含义 | 典型静态证据 |
 |---------|---------|------------|
@@ -43,7 +62,7 @@
 
 ## AI 综合分析
 
-在静态提取的基础上，参考 `references/prompts.md` 中的"依赖关系分析"模板，综合推断：
+在静态提取的基础上，参考 `../generation/module-page.md` 中的"依赖关系分析"模板，综合推断：
 
 - **核心模块间的依赖** → 生成有向依赖边列表
 - **关键数据流** → 标记 `DataFlow` 类型的边
@@ -60,13 +79,13 @@
 
 此输出直接用于：
 
-- `architecture.md`（第 6 步）的"模块依赖图"章节（Mermaid `flowchart LR`）
-- `doc-map.md`（第 7 步）的"依赖矩阵"章节
-- 各模块 `modules/<name>.md`（第 8 步）的"依赖关系"章节
+- `architecture.md`（generate-overview）的"模块依赖图"章节（Mermaid `flowchart LR`）
+- `doc-map.md`（generate-menu）的"依赖矩阵"章节
+- 各模块 `modules/<name>.md`（generate-module-docs）的"依赖关系"章节
 
 ## 可信基线验证
 
-第 2.5 步产出的 `cache/import-relations.json` 提供了基于静态分析的文件级导入关系。在 AI 综合分析时，应将此作为**可信基线**进行交叉验证：
+extract-structure 产出的 `cache/import-relations.json` 提供了基于 tree-sitter AST 精确解析的文件级导入关系。在 AI 综合分析时，应将此作为**可信基线**进行交叉验证：
 
 1. **导入一致性校验**：AI 推断的模块间 `Import` 类型依赖边，必须能在 `import-relations.json` 中找到对应的文件级 import 语句支持。找不到静态证据的依赖边应降低 `importance` 或标记为"推断依赖"。
 2. **遗漏补充**：如果 `import-relations.json` 中存在跨模块的 import 关系但 AI 未识别，应补充为依赖边（类型 `Import`，`importance` 2-3）。
