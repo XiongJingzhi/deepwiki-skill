@@ -100,3 +100,25 @@ class TestPipelineIntegration:
         assert "import_relations" in json.loads((cache / "code-structure.json").read_text())
         assert (cache / "checksums.json").exists()
         assert (cache / "progress.json").exists()
+
+    def test_cli_smoke_flow(self, fake_python_project):
+        """Unified CLI wraps deterministic workflow commands."""
+        import cli
+
+        assert cli.main(["init", str(fake_python_project)]) == 0
+        assert cli.main(["analyze", str(fake_python_project)]) == 0
+        assert cli.main(["extract-structure", str(fake_python_project)]) == 0
+        assert cli.main(["plan-doc-topology", str(fake_python_project)]) == 0
+        assert cli.main(["quality", str(fake_python_project / ".deepwiki")]) == 0
+
+        cache = fake_python_project / ".deepwiki" / "cache"
+        assert (cache / "doc-topology.json").exists()
+        assert (cache / "generation-plan.json").exists()
+
+    def test_dependency_self_check_module(self):
+        """Dependency self-check exposes a programmatic status."""
+        import check_dependencies
+
+        result = check_dependencies.check_dependencies()
+        assert "ok" in result
+        assert "missing" in result

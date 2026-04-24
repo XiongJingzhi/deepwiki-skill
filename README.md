@@ -116,12 +116,16 @@ deepwiki/
 
 | 脚本 | 说明 |
 |------|------|
+| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/plan-doc-topology/quality |
+| `scripts/check_dependencies.py` | 检查 tree-sitter 与语言绑定等运行依赖 |
 | `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
 | `scripts/analyze_project.py <项目路径>` | 分析结构和技术栈 |
 | `scripts/extract_structure.py <项目路径>` | 提取调用图、模式、导入关系 |
+| `scripts/plan_doc_topology.py <项目路径>` | 生成 `doc-topology.json` 与 `generation-plan.json` |
 | `scripts/detect_changes.py <项目路径>` | 增量变更检测 |
 | `scripts/extract_doc_comments.py <文件路径>` | 从源码提取文档注释（tree-sitter） |
 | `scripts/check_analysis_quality.py <项目路径>` | **Step 4.5**：分析质量门控 |
+| `scripts/build_evidence_index.py <项目路径>` | 从模块分析缓存生成 `evidence-index.json` |
 | `scripts/finalize.py quality <.deepwiki路径>` | 文档质量检查 |
 | `scripts/finalize.py consistency <.deepwiki路径>` | 跨模块一致性检查 |
 | `scripts/finalize.py mermaid <.deepwiki路径>` | 修复 Mermaid 语法错误 |
