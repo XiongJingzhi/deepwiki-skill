@@ -641,3 +641,130 @@ class TestSaveMenu:
 
         result = generate_menu.save_menu(str(wiki), data)
         assert isinstance(result, str)
+
+
+# =====================================================================
+# TestReconcileSemanticGroups
+# =====================================================================
+
+
+class TestReconcileSemanticGroups:
+    """验证 --reconcile 模式读取 semantic_group 并输出分组建议"""
+
+    def _make_analysis(self, modules_dict: dict) -> dict:
+        return {
+            "cache_schema_version": 1,
+            "generated_at": "2026-04-24T00:00:00Z",
+            "modules": modules_dict,
+        }
+
+    def _make_module(self, semantic_group: str, confidence: str = "high",
+                     module_path: str = "src/x", code_purpose: str = "Service") -> dict:
+        return {
+            "semantic_group": semantic_group,
+            "semantic_group_confidence": confidence,
+            "module_path": module_path,
+            "code_purpose": code_purpose,
+            "analysis_depth": "standard",
+            "module_summary": "summary",
+            "selected_components": [],
+            "dependency_hints": {"imports": [], "imported_by": []},
+            "files": [],
+        }
+
+    def test_reconcile_outputs_semantic_group_hints(self, tmp_path):
+        """有两个模块同属一个 semantic_group 时，hints 中应包含该分组"""
+        wiki_dir = tmp_path / "wiki"
+        wiki_dir.mkdir()
+        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "menu.json").write_text(
+            json.dumps({"sections": []}), encoding="utf-8"
+        )
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        analysis = self._make_analysis({
+            "auth": self._make_module("认证与鉴权", module_path="src/auth"),
+            "token": self._make_module("认证与鉴权", module_path="src/token",
+                                       code_purpose="Util"),
+        })
+        (cache_dir / "module-analysis.json").write_text(
+            json.dumps(analysis), encoding="utf-8"
+        )
+
+        report = generate_menu.reconcile_menu(
+            str(wiki_dir), "TestProject", cache_dir=str(cache_dir), verbose=False
+        )
+        assert "semantic_group_hints" in report, "report 应包含 semantic_group_hints"
+        hints = report["semantic_group_hints"]
+        assert "认证与鉴权" in hints, "hints 中应包含 '认证与鉴权' 分组"
+        assert len(hints["认证与鉴权"]) == 2, "分组内应有 2 个模块"
+        module_names = {m["module"] for m in hints["认证与鉴权"]}
+        assert module_names == {"auth", "token"}
+
+    def test_reconcile_without_cache_dir_still_works(self, tmp_path):
+        """不传 cache_dir 时，reconcile 仍然正常运行，hints 为空字典"""
+        wiki_dir = tmp_path / "wiki"
+        wiki_dir.mkdir()
+        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "menu.json").write_text(
+            json.dumps({"sections": []}), encoding="utf-8"
+        )
+        report = generate_menu.reconcile_menu(str(wiki_dir), "TestProject")
+        assert report is not None
+        assert report.get("semantic_group_hints", {}) == {}
+
+    def test_reconcile_hints_include_confidence(self, tmp_path):
+        """hints 中每个模块条目应包含 confidence 字段"""
+        wiki_dir = tmp_path / "wiki"
+        wiki_dir.mkdir()
+        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "menu.json").write_text(
+            json.dumps({"sections": []}), encoding="utf-8"
+        )
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        analysis = self._make_analysis({
+            "auth": self._make_module("认证与鉴权", confidence="high"),
+        })
+        (cache_dir / "module-analysis.json").write_text(
+            json.dumps(analysis), encoding="utf-8"
+        )
+
+        report = generate_menu.reconcile_menu(
+            str(wiki_dir), "TestProject", cache_dir=str(cache_dir)
+        )
+        hints = report.get("semantic_group_hints", {})
+        assert "认证与鉴权" in hints
+        entry = hints["认证与鉴权"][0]
+        assert "confidence" in entry, "每个模块条目应包含 confidence 字段"
+        assert entry["confidence"] == "high"
+
+    def test_reconcile_skips_modules_without_semantic_group(self, tmp_path):
+        """没有 semantic_group 字段的模块不应出现在 hints 中"""
+        wiki_dir = tmp_path / "wiki"
+        wiki_dir.mkdir()
+        (wiki_dir / "index.md").write_text("# Test\n", encoding="utf-8")
+        (wiki_dir / "menu.json").write_text(
+            json.dumps({"sections": []}), encoding="utf-8"
+        )
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        # 模块没有 semantic_group 字段
+        analysis = self._make_analysis({
+            "utils": {
+                "module_path": "src/utils", "code_purpose": "Util",
+                "analysis_depth": "quick", "module_summary": "utils",
+                "selected_components": [],
+                "dependency_hints": {"imports": [], "imported_by": []},
+                "files": [],
+            }
+        })
+        (cache_dir / "module-analysis.json").write_text(
+            json.dumps(analysis), encoding="utf-8"
+        )
+
+        report = generate_menu.reconcile_menu(
+            str(wiki_dir), "TestProject", cache_dir=str(cache_dir)
+        )
+        hints = report.get("semantic_group_hints", {})
+        assert hints == {}, f"无 semantic_group 的模块不应出现在 hints 中，实际 hints: {hints}"

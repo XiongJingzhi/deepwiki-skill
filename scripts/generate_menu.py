@@ -177,7 +177,8 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
 
 
 def reconcile_menu(wiki_dir: str, project_name: str = '',
-                   verbose: bool = False) -> Dict[str, Any]:
+                   verbose: bool = False,
+                   cache_dir: Optional[str] = None) -> Dict[str, Any]:
     """
     Reconcile 模式：读取已有 menu.json，与实际文件校验并修正。
 
@@ -187,8 +188,15 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
     - 移除规划中存在但实际未生成的条目
     - 补充实际生成但规划中遗漏的文件
 
+    Args:
+        wiki_dir: Wiki 目录路径
+        project_name: 项目名称
+        verbose: 是否显示详细变更信息
+        cache_dir: 可选，.deepwiki/cache 目录路径。若提供，读取
+                   module-analysis.json 并输出 semantic_group_hints。
+
     Returns:
-        修正后的 menu.json 数据
+        修正后的 menu.json 数据（含 semantic_group_hints 字段）
     """
     wiki_path = Path(wiki_dir)
     menu_path = wiki_path / 'menu.json'
@@ -341,6 +349,32 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
     menu_data['reconciled_at'] = datetime.now(timezone.utc).isoformat()
     menu_data.pop('planned', None)
 
+    # ── 读取 semantic_group 建议（来自 module-analysis.json）──────────────
+    semantic_group_hints: Dict[str, List[Dict[str, str]]] = {}
+    if cache_dir:
+        analysis_path = Path(cache_dir) / 'module-analysis.json'
+        if analysis_path.exists():
+            try:
+                analysis_data = json.loads(analysis_path.read_text(encoding='utf-8'))
+                for mod_name, mod_data in analysis_data.get('modules', {}).items():
+                    sg = mod_data.get('semantic_group')
+                    conf = mod_data.get('semantic_group_confidence', 'high')
+                    if sg:
+                        if sg not in semantic_group_hints:
+                            semantic_group_hints[sg] = []
+                        semantic_group_hints[sg].append(
+                            {'module': mod_name, 'confidence': conf}
+                        )
+            except (json.JSONDecodeError, OSError):
+                pass  # 静默降级，不中断 reconcile 流程
+    menu_data['semantic_group_hints'] = semantic_group_hints
+    if verbose and semantic_group_hints:
+        print("\n语义分组建议（来自 module-analysis.json）:")
+        for group, mods in semantic_group_hints.items():
+            mod_names = ', '.join(m['module'] for m in mods)
+            print(f"  [{group}]: {mod_names}")
+    # ────────────────────────────────────────────────────────────────────
+
     return menu_data
 
 
@@ -403,7 +437,11 @@ def main():
     project_name = args.project_name
 
     if args.reconcile:
-        menu_data = reconcile_menu(wiki_dir, project_name, verbose=args.verbose)
+        # 自动推断 cache_dir：wiki_dir 的父目录下的 cache/
+        inferred_cache = Path(wiki_dir).parent / 'cache'
+        cache_dir = str(inferred_cache) if inferred_cache.exists() else None
+        menu_data = reconcile_menu(wiki_dir, project_name, verbose=args.verbose,
+                                   cache_dir=cache_dir)
         output = save_menu(wiki_dir, menu_data)
         total = sum([
             menu_data.get('titles_updated', 0),
