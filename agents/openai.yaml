@@ -1,0 +1,8 @@
+interface:
+  display_name: "DeepWiki"
+  short_description: "从源码生成结构化架构文档"
+  brand_color: "#2563EB"
+  default_prompt: "Use $deepwiki to generate source-based project documentation for the current repository."
+
+policy:
+  allow_implicit_invocation: true
