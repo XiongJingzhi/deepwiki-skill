@@ -273,6 +273,10 @@ class TestRunExtractStructure:
         assert "call_graph" in data
         assert "patterns" in data
         assert "key_sequences" in data
+        assert "registration_points" in data
+        assert "state_access_paths" in data
+        assert "config_entry_points" in data
+        assert "cross_module_bridges" in data
 
     def test_missing_structure_json_raises(self, tmp_path):
         """Should raise FileNotFoundError if structure.json is missing."""

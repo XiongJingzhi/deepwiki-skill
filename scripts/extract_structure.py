@@ -78,6 +78,12 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
     # 构建入口点
     entry_points = _build_entry_points(structure, call_graph)
     key_sequences = build_key_sequences(call_graph, entry_points)
+    registration_points = _build_registration_points(patterns)
+    state_access_paths = _build_state_access_paths(patterns)
+    config_entry_points = _build_config_entry_points(structure, project_path)
+    cross_module_bridges = _build_cross_module_bridges(
+        structure.get("modules", []), import_relations, project_path
+    )
 
     result = {
         "cache_schema_version": CACHE_SCHEMA_VERSION,
@@ -88,6 +94,10 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
         "entry_points": entry_points,
         "import_relations": import_relations,
         "import_degrees": import_degrees,
+        "registration_points": registration_points,
+        "state_access_paths": state_access_paths,
+        "config_entry_points": config_entry_points,
+        "cross_module_bridges": cross_module_bridges,
     }
 
     out_path = cache_path(project_path, "code-structure.json")
@@ -164,6 +174,102 @@ def _build_entry_points(structure: dict, call_graph: dict) -> List[Dict[str, str
 
         eps.append({"name": ep_path, "handler": handler})
     return eps
+
+
+def _build_registration_points(patterns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """从高层模式中提取可视为注册点的候选事实。"""
+    registration_like = {"middleware_chain", "http_route", "event_system", "dependency_injection"}
+    points: List[Dict[str, Any]] = []
+    for pattern in patterns:
+        ptype = pattern.get("type")
+        if ptype not in registration_like:
+            continue
+        for file_path in pattern.get("files", []):
+            points.append({
+                "type": ptype,
+                "file": file_path,
+                "source": "pattern",
+            })
+    return points
+
+
+def _build_state_access_paths(patterns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """从模式检测中抽取状态访问候选路径。"""
+    state_like = {"state_management", "orm_usage"}
+    paths: List[Dict[str, Any]] = []
+    for pattern in patterns:
+        ptype = pattern.get("type")
+        if ptype not in state_like:
+            continue
+        for file_path in pattern.get("files", []):
+            paths.append({
+                "type": ptype,
+                "file": file_path,
+                "source": "pattern",
+            })
+    return paths
+
+
+def _build_config_entry_points(structure: Dict[str, Any], project_path: Path) -> List[str]:
+    """提取配置和入口候选文件。"""
+    config_like = {
+        "package.json", "pyproject.toml", "requirements.txt", "go.mod",
+        "Cargo.toml", "pom.xml", "build.gradle", "build.gradle.kts",
+        "serverless.yml", "serverless.yaml", "docker-compose.yml",
+        "docker-compose.yaml",
+    }
+    paths: List[str] = []
+    for ep in structure.get("entry_points", []):
+        if ep not in paths:
+            paths.append(ep)
+    for name in config_like:
+        if (project_path / name).exists() and name not in paths:
+            paths.append(name)
+    return paths
+
+
+def _build_cross_module_bridges(
+    modules: List[Dict[str, Any]],
+    import_relations: Dict[str, List[str]],
+    project_path: Path,
+) -> List[Dict[str, Any]]:
+    """从 import 关系构建跨模块桥接候选。"""
+    module_prefixes: List[Tuple[str, str]] = []
+    for mod in modules:
+        mod_name = mod.get("name")
+        mod_path = mod.get("path", "").replace("\\", "/").rstrip("/")
+        if mod_name and mod_path:
+            module_prefixes.append((mod_name, mod_path))
+
+    def _match_module(rel_path: str) -> Optional[str]:
+        normalized = rel_path.replace("\\", "/")
+        for mod_name, mod_path in module_prefixes:
+            if normalized == mod_path or normalized.startswith(mod_path + "/"):
+                return mod_name
+        return None
+
+    bridges: List[Dict[str, Any]] = []
+    seen: Set[Tuple[str, str, str, str]] = set()
+    for src_file, targets in import_relations.items():
+        src_module = _match_module(src_file)
+        if not src_module:
+            continue
+        for target in targets:
+            target_module = _match_module(target)
+            if not target_module or target_module == src_module:
+                continue
+            key = (src_module, target_module, src_file, target)
+            if key in seen:
+                continue
+            seen.add(key)
+            bridges.append({
+                "from_module": src_module,
+                "to_module": target_module,
+                "source_file": src_file,
+                "target_file": target,
+                "source": "import_relation",
+            })
+    return bridges
 
 
 # ══════════════════════════════════════════════════════════════════════
