@@ -71,6 +71,16 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 | `semantic_group` | 缺失或为空 | 菜单分组和跨模块一致性的基础 |
 | `selected_components` | 缺失、为空或不是列表 | generate-module-docs 直接使用，缺失则退化为重新决策 |
 
+### 模块级认知结构字段（缺失 → 该模块标记为"需补充"）
+
+| 字段 | 失败条件 | 原因 |
+|------|---------|------|
+| `module_role` | 缺失或为空 | 文档拓扑和 overview 需要明确模块在系统中的读者视角角色 |
+| `upstream_inputs` | 缺失、为空或不是列表 | 运行路径和依赖说明需要知道模块接收什么输入 |
+| `downstream_outputs` | 缺失、为空或不是列表 | 运行路径和副作用说明需要知道模块产出什么 |
+| `risk_points` | 缺失、为空或不是列表 | generate-module-docs 需要明确边界条件和维护风险 |
+| `extension_points` | 缺失、为空或不是列表 | 文档必须帮助读者定位可扩展入口 |
+
 ### 模块级推荐字段（缺失 → 警告，不影响门控结果）
 
 | 字段 | 缺失影响 |

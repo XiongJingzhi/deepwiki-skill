@@ -26,7 +26,21 @@
   "definitions": {
     "ModuleAnalysis": {
       "type": "object",
-      "required": ["module_path", "code_purpose", "analysis_depth", "files", "module_summary", "selected_components", "dependency_hints", "semantic_group"],
+      "required": [
+        "module_path",
+        "code_purpose",
+        "analysis_depth",
+        "files",
+        "module_summary",
+        "module_role",
+        "upstream_inputs",
+        "downstream_outputs",
+        "risk_points",
+        "extension_points",
+        "selected_components",
+        "dependency_hints",
+        "semantic_group"
+      ],
       "properties": {
         "module_path": {
           "type": "string",
@@ -45,6 +59,30 @@
         "module_summary": {
           "type": "string",
           "description": "1-2 sentence summary of module responsibility and architecture role"
+        },
+        "module_role": {
+          "type": "string",
+          "description": "Reader-facing role of this module in the system model"
+        },
+        "upstream_inputs": {
+          "type": "array",
+          "description": "External modules, runtime events, files, requests, or data sources that feed this module",
+          "items": { "type": "string" }
+        },
+        "downstream_outputs": {
+          "type": "array",
+          "description": "Outputs, side effects, calls, documents, or state changes produced by this module",
+          "items": { "type": "string" }
+        },
+        "risk_points": {
+          "type": "array",
+          "description": "Known risks, fragile assumptions, or boundary conditions relevant to maintenance",
+          "items": { "type": "string" }
+        },
+        "extension_points": {
+          "type": "array",
+          "description": "Stable places where future behavior can be extended or changed",
+          "items": { "type": "string" }
         },
         "selected_components": {
           "type": "array",
@@ -188,4 +226,3 @@
   },
   "additionalProperties": false
 }
-

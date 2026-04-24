@@ -6,6 +6,7 @@ import os
 import pytest
 
 import check_doc_quality
+import check_analysis_quality
 
 
 # ---------------------------------------------------------------------------
@@ -524,3 +525,58 @@ class TestSaveReportJson:
         assert doc["metrics"]["lines"] == 100
         assert doc["metrics"]["sections"] == 5
         assert doc["issues"] == ["some issue"]
+
+
+# ---------------------------------------------------------------------------
+# check_analysis_quality
+# ---------------------------------------------------------------------------
+
+
+class TestCheckAnalysisQuality:
+    """Tests for module-analysis cognitive structure gates."""
+
+    def _module(self, **overrides):
+        data = {
+            "module_path": "src/auth",
+            "module_summary": "Handles authentication.",
+            "semantic_group": "Authentication",
+            "selected_components": ["overview"],
+            "code_purpose": "Service",
+            "analysis_depth": "standard",
+            "dependency_hints": {"imports": [], "imported_by": []},
+            "files": [
+                {
+                    "path": "src/auth/service.py",
+                    "summary": "Authentication service.",
+                    "public_interfaces": [{"name": "login"}],
+                    "key_insights": ["Keeps credential handling isolated."],
+                }
+            ],
+        }
+        data.update(overrides)
+        return data
+
+    def test_missing_cognitive_fields_fails_module(self):
+        errors, warnings = check_analysis_quality.check_module_quality(
+            "auth", self._module()
+        )
+        assert warnings == []
+        assert any("module_role" in err for err in errors)
+        assert any("upstream_inputs" in err for err in errors)
+        assert any("downstream_outputs" in err for err in errors)
+        assert any("risk_points" in err for err in errors)
+        assert any("extension_points" in err for err in errors)
+
+    def test_cognitive_fields_allow_module_to_pass(self):
+        errors, warnings = check_analysis_quality.check_module_quality(
+            "auth",
+            self._module(
+                module_role="Owns authentication decisions.",
+                upstream_inputs=["HTTP credentials"],
+                downstream_outputs=["Session token"],
+                risk_points=["Password handling"],
+                extension_points=["Add SSO provider"],
+            ),
+        )
+        assert errors == []
+        assert warnings == []

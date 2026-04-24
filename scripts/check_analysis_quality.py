@@ -34,6 +34,16 @@ MODULE_REQUIRED_FIELDS = [
     "selected_components",
 ]
 
+# DeepWiki 级源码认知字段。缺失这些字段时，后续文档拓扑和证据校验
+# 会退回到目录/命名推断，因此作为门控错误处理。
+MODULE_COGNITIVE_FIELDS = [
+    "module_role",
+    "upstream_inputs",
+    "downstream_outputs",
+    "risk_points",
+    "extension_points",
+]
+
 # 模块级推荐字段（缺失时仅警告，不导致失败）
 MODULE_RECOMMENDED_FIELDS = [
     "code_purpose",
@@ -71,6 +81,16 @@ def check_module_quality(mod_name: str, data: dict) -> Tuple[List[str], List[str
         value = data.get(field)
         if not value:
             errors.append(f"缺少必需字段: {field}")
+
+    # ── DeepWiki 认知结构字段 ───────────────────────────────────────────────
+    for field in MODULE_COGNITIVE_FIELDS:
+        value = data.get(field)
+        if not value:
+            errors.append(f"缺少认知结构字段: {field}")
+        elif field != "module_role" and not isinstance(value, list):
+            errors.append(f"{field} 必须是列表")
+        elif isinstance(value, list) and len(value) == 0:
+            errors.append(f"{field} 不能为空列表")
 
     # selected_components 需要是非空列表
     sc = data.get("selected_components")
