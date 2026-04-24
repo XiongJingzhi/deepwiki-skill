@@ -38,7 +38,9 @@
       "Bash(python scripts/detect_changes.py .)",
       "Bash(python scripts/check_quality.py .deepwiki)",
       "Bash(python scripts/fix_mermaid.py .deepwiki --dry-run)",
-      "Bash(python -m pytest tests/ -v)"
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -m pytest tests/ --tb=no -q)",
+      "Bash(python:*)"
     ]
   }
 }

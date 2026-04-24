@@ -1,7 +1,7 @@
 ---
 name: code-complexity
 type: analyzer
-version: 1.0.0
+version: 2.0.0
 description: |
   分析代码复杂度指标，生成质量报告和可视化图表。
   Analyze code complexity metrics and generate quality reports with visualizations.

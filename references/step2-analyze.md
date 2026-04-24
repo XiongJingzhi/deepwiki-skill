@@ -42,7 +42,7 @@ python scripts/extract_structure.py <项目目录绝对路径>
 
 | 字段 | 内容 | 后续用途 |
 |------|------|---------|
-| `archetype` | 项目原型标签（`spa-frontend` / `web-service` / `cli-tool` / `sdk-library` / `ml-project` / `fullstack-framework` / `generic`） | 第 4 步决定分析侧重点与图表类型 |
+| `archetype` | 项目原型标签（`spa-frontend` / `web-service` / `cli-tool` / `sdk-library` / `ml-project` / `agent-project` / `fullstack-framework` / `generic`） | 第 4 步决定分析侧重点与图表类型 |
 | `call_graph` | `{ "Class.method": { calls, file, line } }` 跨文件调用图 | 第 4 步作为语义分析锚点，第 5 步增强依赖图 |
 | `patterns` | 检测到的代码模式（`middleware_chain` / `http_route` / `orm_usage` / `react_component` / `state_management` / `event_system` 等） | 第 4 步指导 AI 聚焦核心模式 |
 | `key_sequences` | 从入口点 BFS 生成的近似时序（`participants` / `steps`） | 第 6 步生成 `architecture.md` 时序图的原始数据 |

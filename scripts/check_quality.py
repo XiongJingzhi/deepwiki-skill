@@ -36,6 +36,10 @@ class QualityMetrics:
     source_link_corrected: int = 0  # 可自动修正的链接数
     quality_level: str = "basic"  # basic / standard / professional
     issues: List[str] = field(default_factory=list)
+    # 置信度标注计数
+    confidence_high_count: int = 0
+    confidence_medium_count: int = 0
+    confidence_low_count: int = 0
 
 
 @dataclass
@@ -96,6 +100,11 @@ def analyze_document(file_path: str, structure_path: str = None,
     metrics.has_source_tracing = bool(
         re.search(r'\*\*Section sources\*\*|\*\*Diagram sources\*\*|file://', content)
     )
+
+    # 统计置信度标注
+    metrics.confidence_high_count = len(re.findall(r'\U0001f7e2', content))
+    metrics.confidence_medium_count = len(re.findall(r'\U0001f7e1', content))
+    metrics.confidence_low_count = len(re.findall(r'\U0001f534', content))
 
     # 检查关键章节
     content_lower = content.lower()
@@ -284,6 +293,11 @@ def evaluate_quality_level(m: QualityMetrics) -> str:
     # 加权评分: must 50%, should 30%, nice 20%
     score = (must_met / must_total) * 50 + (should_met / should_total) * 30 + (nice_met / nice_total) * 20
 
+    # 置信度标注加分：至少 3 个标注可额外加 5 分
+    total_confidence = m.confidence_high_count + m.confidence_medium_count + m.confidence_low_count
+    if total_confidence >= 3:
+        score = min(score + 5, 100)
+
     if score >= 80:
         return "professional"
     elif score >= 50:
@@ -352,9 +366,7 @@ def calculate_expected_metrics(file_path: str, structure_path: str = None) -> Di
 
     # 核心模块检测（使用更精确的精确匹配，减少误判）
     core_keywords = ['core', 'agent', 'editor', 'main', 'client']
-    is_core = file_name.lower() in core_keywords or any(
-        file_name.lower() == kw for kw in core_keywords
-    )
+    is_core = file_name.lower() in core_keywords
 
     # 工具/配置模块检测
     util_keywords = ['util', 'helper', 'common', 'shared', 'constant', 'config', 'type']
@@ -413,7 +425,16 @@ def generate_issues(m: QualityMetrics, structure_path: str = None) -> List[str]:
 
     if m.cross_link_count < 1:
         issues.append("缺少相关文档交叉链接")
-    
+
+    if m.quality_level == "standard":
+        if not m.has_best_practices:
+            issues.append("[建议] 缺少最佳实践章节 (添加可提升至 Professional)")
+        if not m.has_performance:
+            issues.append("[建议] 缺少性能优化章节 (添加可提升至 Professional)")
+        total_confidence = m.confidence_high_count + m.confidence_medium_count + m.confidence_low_count
+        if total_confidence < 3:
+            issues.append("[建议] 文档缺少置信度标注 (添加可提升至 Professional)")
+
     return issues
 
 
@@ -612,7 +633,7 @@ def main():
     wiki_path = args.wiki_path
     if not os.path.exists(wiki_path):
         print(f"❌ 路径不存在: {wiki_path}")
-        return 1
+        return 128
     
     # 执行检查
     report = check_wiki_quality(wiki_path)

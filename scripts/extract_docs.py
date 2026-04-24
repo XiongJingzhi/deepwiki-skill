@@ -142,7 +142,7 @@ def extract_python_docstring(content: str, file_path: str) -> List[DocEntry]:
                     })
             elif current_section == 'returns':
                 if stripped:
-                    returns = stripped
+                    returns = (returns + ' ' + stripped) if returns else stripped
             elif current_section == 'examples':
                 examples.append(stripped)
         
@@ -412,42 +412,55 @@ def extract_rust_docs(content: str, file_path: str) -> List[DocEntry]:
     return entries
 
 
-def docs_to_markdown(entries: List[DocEntry]) -> str:
+_I18N_LABELS = {
+    'zh': {
+        'functions': '## 函数', 'classes': '## 类', 'types': '## 类型定义',
+        'params': '**参数:**', 'returns_prefix': '**返回值:**',
+    },
+    'en': {
+        'functions': '## Functions', 'classes': '## Classes', 'types': '## Type Definitions',
+        'params': '**Parameters:**', 'returns_prefix': '**Returns:**',
+    },
+}
+
+
+def docs_to_markdown(entries: List[DocEntry], language: str = 'zh') -> str:
     """将文档条目转换为 Markdown"""
+    labels = _I18N_LABELS.get(language, _I18N_LABELS['zh'])
     lines = []
-    
+
     # 按类型分组
     functions = [e for e in entries if e.type == 'function']
     classes = [e for e in entries if e.type == 'class']
     types = [e for e in entries if e.type in {'type', 'interface'}]
-    
+
     if functions:
-        lines.append('## 函数\n')
+        lines.append(f'{labels["functions"]}\n')
         for func in functions:
             lines.append(f'### `{func.name}`\n')
             lines.append(f'{func.description}\n')
-            
+
             if func.params:
-                lines.append('**参数:**\n')
+                lines.append(f'{labels["params"]}\n')
                 for param in func.params:
                     lines.append(f"- `{param['name']}` ({param['type']}): {param['description']}")
                 lines.append('')
-            
+
             if func.returns:
-                lines.append(f'**返回值:** {func.returns}\n')
-    
+                lines.append(f'{labels["returns_prefix"]} {func.returns}\n')
+
     if classes:
-        lines.append('## 类\n')
+        lines.append(f'{labels["classes"]}\n')
         for cls in classes:
             lines.append(f'### `{cls.name}`\n')
             lines.append(f'{cls.description}\n')
-    
+
     if types:
-        lines.append('## 类型定义\n')
+        lines.append(f'{labels["types"]}\n')
         for t in types:
             lines.append(f'### `{t.name}`\n')
             lines.append(f'{t.description}\n')
-    
+
     return '\n'.join(lines)
 
 

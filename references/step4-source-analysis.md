@@ -21,7 +21,9 @@
 | `Config` | 路径含 `/config/`、文件名含 `config`、扩展名为 `.toml/.yaml/.env` | `config/database.yaml` |
 | `Database` | 扩展名为 `.sql`、路径含 `/database/`、`/db/`、`/migrations/` | `migrations/001_init.sql` |
 | `Util` | 路径含 `/utils/`、`/helpers/`、文件名含 `util`、`helper` | `utils/format.ts` |
+| `Command` | 路径含 `/commands/`、`/cli/`、`/cmd/`、文件名含 `command`、`cli` | `commands/deploy.ts` |
 | `Test` | 文件名含 `.test.`、`.spec.`、路径含 `/__tests__/` | `user.test.ts` |
+| `Other` | 以上规则均不匹配时的兜底分类 | `misc/helpers.ts` |
 
 ### 第二层：语义推断（仅在第一层无法确定时使用）
 
@@ -80,7 +82,7 @@
 
 | 字段 | 如何应用 |
 |------|---------|
-| `archetype` | 决定分析侧重点：`spa-frontend`（组件树/状态流）/ `web-service`（请求链路/鉴权）/ `fullstack-framework`（SSR/API Routes）/ `cli-tool`（命令树/配置加载）/ `sdk-library`（公开 API 契约/扩展点）/ `ml-project`（数据管道/训练循环） |
+| `archetype` | 决定分析侧重点：`spa-frontend`（组件树/状态流）/ `web-service`（请求链路/鉴权）/ `fullstack-framework`（SSR/API Routes）/ `cli-tool`（命令树/配置加载）/ `sdk-library`（公开 API 契约/扩展点）/ `ml-project`（数据管道/训练循环）/ `agent-project`（Agent 调度链路/工具注册/记忆管理） |
 | `call_graph` | 每个函数的 `calls` 列表作为锚点，AI 只需补充语义（Why），而非重新推断结构（What） |
 | `patterns` | 对检测到模式的文件优先深度分析（如 `middleware_chain` → 重点分析各中间件职责与错误传递；`react_component` → 重点分析 Props/状态/生命周期） |
 | `key_sequences` | 验证或修正时序参与者顺序，补充每步业务语义；直接用于生成 `sequenceDiagram` |
@@ -127,3 +129,57 @@ python scripts/extract_docs.py <文件绝对路径>
 3. 提取公共接口、内部逻辑和模块依赖
 4. 参考 `references/prompts.md` 获取分析提示词模板（代码深度分析 / 模块文档 / 依赖分析）
 5. 为每个模块输出结构化分析结果，供第 5 步和第 8 步使用
+
+---
+
+## 分析结果持久化
+
+> **强制要求**：完成每个模块的语义分析后，必须立即将结构化结果写入 `cache/module-analysis.json`。不要等全部模块完成后再统一写入——中途中断将导致已分析数据全量丢失。
+
+### 写入时机
+
+每个模块分析完毕后**立即写入**，采用**增量追加模式**：
+
+1. 若 `module-analysis.json` 已存在，读取其内容
+2. 更新（或新增）对应模块 key 的条目
+3. 写回文件
+
+增量更新时（步骤 3 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。
+
+### 写入路径
+
+```
+<项目目录>/.deepwiki/cache/module-analysis.json
+```
+
+### 每个模块必须写入的字段
+
+| 字段 | 说明 |
+|------|------|
+| `module_path` | 模块相对路径（如 `src/auth`） |
+| `code_purpose` | 模块整体 CodePurpose（取该模块主要文件的角色） |
+| `analysis_depth` | 本次分析的最高深度（`deep` / `standard` / `quick`） |
+| `module_summary` | 1-2 句描述模块职责和架构角色 |
+| `selected_components` | 已选定的文档组件列表（第 8 步直接使用，无需重新决策） |
+| `dependency_hints.imports` | 本模块依赖的其他模块名列表 |
+| `dependency_hints.imported_by` | 依赖本模块的其他模块名列表（可从 import-relations.json 推断） |
+| `files[].path` | 文件相对路径 |
+| `files[].code_purpose` | 文件级 CodePurpose |
+| `files[].complexity_score` | 来自 structure.json 的复杂度评分 |
+| `files[].summary` | 文件职责一句话概述 |
+| `files[].public_interfaces` | 导出接口列表（名称、类型、签名、行号、描述） |
+| `files[].key_insights` | 2-5 条设计意图说明（解释 WHY，非 WHAT） |
+| `files[].confidence` | 分析置信度（`high` / `medium` / `low`） |
+| `semantic_group` | AI 对该模块的语义主题标注（**自由文字**，如"认证与鉴权"、"消息路由"、"Data Persistence"）——依据代码实际内容命名，不受 CodePurpose 枚举约束；命名面向读者理解，非文件路径 |
+| `semantic_group_confidence` | 语义分组置信度：`high`=模块有清晰的语义边界 / `low`=职责混杂或 AI 不确定；步骤 7 分组时对 `low` 的条目降低权重，优先以依赖数据为准 |
+
+> 完整字段格式见 [`schemas/module-analysis-schema.json`](../schemas/module-analysis-schema.json)。
+
+### 降级处理
+
+写入操作失败时（权限问题、磁盘满等），**记录警告并继续分析**，不中断流程。警告格式：
+
+```
+⚠️ [Step 4] 写入 module-analysis.json 失败（模块：<name>）：<错误信息>
+   步骤 5 和步骤 8 将降级为从上下文窗口读取分析结果。
+```

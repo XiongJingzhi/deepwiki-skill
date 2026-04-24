@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://deepwiki.sh/schemas/module-analysis-schema.json",
+  "title": "Module Analysis Cache",
+  "description": "Schema for AI-generated per-module analysis output (SKILL.md Step 4). Written incrementally after each module is analyzed; consumed by Steps 5 and 8.",
+  "type": "object",
+  "required": ["cache_schema_version", "generated_at", "modules"],
+  "properties": {
+    "cache_schema_version": {
+      "type": "integer",
+      "description": "Schema version, matches CACHE_SCHEMA_VERSION in common.py"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last write"
+    },
+    "modules": {
+      "type": "object",
+      "description": "Map of module-name -> ModuleAnalysis. Keys match the module names in structure.json.",
+      "additionalProperties": {
+        "$ref": "#/definitions/ModuleAnalysis"
+      }
+    }
+  },
+  "definitions": {
+    "ModuleAnalysis": {
+      "type": "object",
+      "required": ["module_path", "code_purpose", "analysis_depth", "files", "module_summary", "selected_components", "dependency_hints", "semantic_group"],
+      "properties": {
+        "module_path": {
+          "type": "string",
+          "description": "Relative path of the module root (e.g. 'src/auth')"
+        },
+        "code_purpose": {
+          "type": "string",
+          "enum": ["Entry", "Agent", "Page", "Widget", "Service", "Api", "Dao", "Model", "Config", "Database", "Util", "Command", "Other"],
+          "description": "CodePurpose determined for this module (dominant purpose across files)"
+        },
+        "analysis_depth": {
+          "type": "string",
+          "enum": ["deep", "standard", "quick"],
+          "description": "Highest analysis depth applied to any file in this module"
+        },
+        "module_summary": {
+          "type": "string",
+          "description": "1-2 sentence summary of module responsibility and architecture role"
+        },
+        "selected_components": {
+          "type": "array",
+          "description": "Document components selected for this module (from components.md). Step 8 uses this directly without re-deciding.",
+          "items": { "type": "string" },
+          "examples": [["overview", "api-table", "sequence-diagram", "code-walkthrough", "nav-links"]]
+        },
+        "dependency_hints": {
+          "type": "object",
+          "description": "Lightweight dependency summary extracted during Step 4, used as Step 5 base input",
+          "properties": {
+            "imports": {
+              "type": "array",
+              "description": "Module names this module imports/depends on",
+              "items": { "type": "string" }
+            },
+            "imported_by": {
+              "type": "array",
+              "description": "Module names that import this module (reverse deps)",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "semantic_group": {
+          "type": "string",
+          "description": "AI free-text annotation of this module's semantic theme, used as soft signal for menu grouping (e.g. '认证与鉴权', '消息路由', 'Data Persistence'). Named after reader-facing concepts, NOT CodePurpose enums."
+        },
+        "semantic_group_confidence": {
+          "type": "string",
+          "enum": ["high", "low"],
+          "description": "high = module has a clear, distinct semantic boundary; low = AI is uncertain (overlapping responsibilities or unclear scope). Step 7 reduces grouping weight for low-confidence entries.",
+          "default": "high"
+        },
+        "files": {
+          "type": "array",
+          "description": "Per-file analysis results for files in this module",
+          "items": { "$ref": "#/definitions/FileAnalysis" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "FileAnalysis": {
+      "type": "object",
+      "required": ["path", "code_purpose", "complexity_score", "summary", "public_interfaces", "key_insights", "confidence"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative file path from project root"
+        },
+        "code_purpose": {
+          "type": "string",
+          "enum": ["Entry", "Agent", "Page", "Widget", "Service", "Api", "Dao", "Model", "Config", "Database", "Util", "Command", "Test", "Other"],
+          "description": "CodePurpose for this specific file"
+        },
+        "complexity_score": {
+          "type": "number",
+          "description": "Complexity score from structure.json (used for analysis depth selection)"
+        },
+        "summary": {
+          "type": "string",
+          "description": "1-2 sentence description of what this file does and why it exists"
+        },
+        "public_interfaces": {
+          "type": "array",
+          "description": "Exported functions, classes, and types",
+          "items": { "$ref": "#/definitions/PublicInterface" }
+        },
+        "internal_dependencies": {
+          "type": "array",
+          "description": "Intra-module dependencies (other files in same module this file imports)",
+          "items": { "type": "string" }
+        },
+        "design_patterns": {
+          "type": "array",
+          "description": "Detected design patterns (e.g. singleton, strategy, observer)",
+          "items": { "type": "string" }
+        },
+        "key_insights": {
+          "type": "array",
+          "description": "2-5 bullet points explaining WHY the code is designed this way (design intent, trade-offs)",
+          "items": { "type": "string" },
+          "maxItems": 5
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Confidence level of the analysis. high=direct source evidence, medium=inferred from structure, low=inferred from naming"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PublicInterface": {
+      "type": "object",
+      "required": ["name", "type", "line", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Function, class, or type name"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["function", "class", "interface", "type", "enum", "constant", "method"],
+          "description": "Kind of exported symbol"
+        },
+        "signature": {
+          "type": "string",
+          "description": "Full signature string (e.g. 'def login(username: str, password: str) -> Token')"
+        },
+        "line": {
+          "type": "integer",
+          "description": "Line number in source file"
+        },
+        "description": {
+          "type": "string",
+          "description": "What this interface does and when to use it (min 1 sentence)"
+        },
+        "params": {
+          "type": "array",
+          "description": "Parameter descriptions (optional, for complex functions)",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "description"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "description": { "type": "string" },
+              "required": { "type": "boolean", "default": true }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+

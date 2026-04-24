@@ -4,11 +4,73 @@
 
 ## 7.1：AI 生成 menu.json
 
-读取 `cache/structure.json` 中的模块列表（`modules` 字段），结合第 6 步概览文档中的架构分层，直接生成 `wiki/menu.json`。
+### 输入数据（按优先级顺序读取）
 
-> `menu.json` 结构模板和 AI 生成菜单的 5 条规则见 [`references/templates.md`](references/templates.md) → **menu.json 模板** 章节。
+| 数据源 | 作用 | 优先级 |
+|--------|------|--------|
+| `cache/import-relations.json` | 模块间依赖强度，最客观的聚合信号 | **最高** |
+| `cache/module-analysis.json` → `dependency_hints` | 步骤 4 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
+| `cache/module-analysis.json` → `semantic_group` | AI 的语义主题标注，验证并命名分组 | 中 |
+| `cache/code-structure.json` → `patterns` | 同类 pattern 的模块有结构亲缘，可辅助归组 | 中 |
+| `cache/structure.json` → 目录聚集度 | 同父目录的模块有弱亲缘关系，作为辅助信号 | 低 |
+| `references/menu-archetypes.md` | 当前 archetype 的分组思路（孤岛模块兜底） | 兜底 |
+
+> **降级**：若 `module-analysis.json` 不存在，直接使用 `import-relations.json` + `structure.json`，跳过语义分组层。
+
+---
+
+### 三层分组算法
+
+**层1：依赖数据聚类（必做）**
+
+从 `import-relations.json`（或 `dependency_hints`）构建模块依赖图：
+1. 互相存在双向引用、或共同被第三个模块大量引用的模块 → 候选聚合组
+2. 同父目录且有共同依赖的模块 → 加强候选信号
+3. 按依赖强度从高到低排列候选组
+
+**层2：语义标注验证（推荐）**
+
+用 `semantic_group` 字段验证和命名候选组：
+- `semantic_group` **相同** 且有依赖关系 → 确认聚合，使用 `semantic_group` 值作为分区名
+- `semantic_group` **不同** 但依赖强度高 → 以依赖数据为准；重新为该组命名（可取两者语义的公共上位词）
+- `semantic_group` **相同** 但无依赖关系 → 平行列出（同主题但独立模块），不强行合并
+- `semantic_group_confidence` 为 `low` → 降低该标注权重，更多依赖层1数据决策
+
+**层3：孤岛兜底（按需）**
+
+对无强依赖关系的模块：
+1. 读取 `references/menu-archetypes.md` 中对应当前 `archetype` 的常见语义主题
+2. 按模块的 `code_purpose` 和 `module_summary` 判断最接近的主题
+3. 将孤岛模块归入最近邻主题，或在该主题下新建子区块
+
+---
+
+### 粒度收敛规则
+
+完成分组后做如下检查：
+
+| 情况 | 处理 |
+|------|------|
+| 某组模块数 < 2 | 考虑并入最相邻主题（除非该模块是项目核心且独立性高） |
+| 某组模块数 > 6 | 考虑拆出子分区（如"核心业务"拆为"订单流程"/"支付流程"） |
+| 顶层分区总数 > 7 | 合并语义相近的分区 |
+| 顶层分区总数 < 3 | 检查是否过度合并，考虑拆分大组 |
+
+---
+
+### 固定首尾区块
+
+所有菜单必须包含：
+- **首区块**：项目概览（Overview / 入门），指向 `overview.md`、`architecture.md`、`doc-map.md`
+- **尾区块**：贡献与扩展（Contributing），指向贡献指南或扩展接口文档
+
+---
+
+> `menu.json` 完整结构模板和 AI 生成菜单的 5 条格式规则见 [`references/templates.md`](references/templates.md) → **menu.json 模板** 章节。
 
 **为什么要先于详细文档生成菜单**：菜单定义了每个模块文档在导航层级中的位置（所属分组、前后顺序）。详细文档生成时可以引用自身在菜单中的位置来生成精确的面包屑导航和前后文档链接，使文档网络更加连贯。
+
+---
 
 ## 7.2：AI 生成 doc-map.md
 
@@ -24,3 +86,4 @@
 模板参考：`references/templates.md` → 文档地图。
 
 完成后更新 `cache/progress.json` 的 `phases.menu.status` 为 `completed`。
+

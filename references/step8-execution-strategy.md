@@ -117,9 +117,11 @@ flowchart LR
 |--------|------|------|
 | 项目上下文摘要 | 第 6 步产出 | 理解项目定位和技术栈 |
 | 该模块的导航位置 | `menu.json` | 生成面包屑和前后导航链接 |
-| 该模块的源码分析数据 | 第 4 步深度阅读结果 | 生成接口文档和代码示例 |
+| 该模块的源码分析数据 | `cache/module-analysis.json` 中对应模块的条目（第 4 步写入） | 直接使用 `public_interfaces`、`selected_components`、`key_insights`，无需重新读取源码 |
 | 该模块的依赖关系 | 第 5 步输出 | 生成依赖关系章节 |
 | 配置要求 | `config.yaml` | 语言、图表开关、源码链接等 |
+
+> **降级说明**：若 `cache/module-analysis.json` 不存在，或当前模块的条目缺失，降级为重新读取该模块的源码文件进行分析，再生成文档。
 
 模板参考：`references/templates.md` → 模块 / API 参考。
 
@@ -138,7 +140,29 @@ python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项�
 
 之后依次应用 `after_generate` 插件钩子和 `on_export` 插件钩子（用于知识库导出、格式转换等后处理）。更新 `cache/progress.json` 的 `phases.details.status` 为 `completed`。
 
-## 文档质量检查（8.4）
+## Mermaid 语法修复（8.4）
+
+所有文档保存完毕后，**先**运行 Mermaid 语法修复脚本，自动修正 AI 生成的 Mermaid 图表中的常见语法问题：
+
+```bash
+python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki
+```
+
+修复内容包括：
+- **flowchart**：标签含空格或中文未加引号、边标签含特殊字符未加引号、重复节点 ID 自动重命名
+- **classDiagram**：类名含特殊字符、成员名含空格、关系标签未加引号
+- **sequenceDiagram**：participant 别名含空格、消息标签含空格
+
+支持 `--dry-run`（仅报告不修改）和 `--json <file>`（输出修复报告）：
+
+```bash
+python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --dry-run
+python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report.json
+```
+
+> **重要**：Mermaid 修复必须在质量检查之前运行，避免可修复的语法问题触发质量降级。
+
+## 文档质量检查（8.5）
 
 从**技能目录**运行质量检查，确认生成的文档符合质量标准（源码链接、Mermaid 图表、章节完整性）：
 
@@ -163,23 +187,3 @@ python scripts/check_quality.py <项目目录绝对路径>/.deepwiki
 3. **跳过第 1-3 步**，直接从**第 4 步**（深度阅读）重新执行 → 第 8.1 步（生成），仅针对 Basic 模块
 4. 重新生成后再次运行 `check_quality.py` 确认达标
 5. 若二次生成仍为 Basic，记录到 `meta.json` 的 `quality_issues` 字段并告知用户，不再强制重试
-
-## Mermaid 语法修复（8.5）
-
-所有文档保存完毕且质量检查通过后，运行 Mermaid 语法修复脚本，自动修正 AI 生成的 Mermaid 图表中的常见语法问题：
-
-```bash
-python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki
-```
-
-修复内容包括：
-- **flowchart**：标签含空格或中文未加引号、边标签含特殊字符未加引号、重复节点 ID 自动重命名
-- **classDiagram**：类名含特殊字符、成员名含空格、关系标签未加引号
-- **sequenceDiagram**：participant 别名含空格、消息标签含空格
-
-支持 `--dry-run`（仅报告不修改）和 `--json <file>`（输出修复报告）：
-
-```bash
-python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --dry-run
-python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report.json
-```

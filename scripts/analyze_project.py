@@ -239,6 +239,51 @@ def find_entry_points(root_path: Path, project_types: List[str]) -> List[str]:
     return entries
 
 
+def _read_workspace_packages(root_path: Path) -> List[str]:
+    """读取 monorepo workspace 配置，返回包目录名列表。"""
+    packages = []
+
+    # pnpm-workspace.yaml
+    pnpm_ws = root_path / "pnpm-workspace.yaml"
+    if pnpm_ws.exists():
+        try:
+            import yaml
+            with open(pnpm_ws, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+            for pattern in data.get("packages", []):
+                if '/*' in pattern:
+                    base = pattern.replace('/*', '').strip()
+                    if base and (root_path / base).is_dir():
+                        packages.append(base)
+        except Exception:
+            pass
+
+    # package.json workspaces
+    pkg = root_path / "package.json"
+    if pkg.exists():
+        try:
+            with open(pkg, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            ws = data.get("workspaces", [])
+            if isinstance(ws, list):
+                for pattern in ws:
+                    if '/*' in pattern:
+                        base = pattern.replace('/*', '').strip()
+                        if base and (root_path / base).is_dir():
+                            packages.append(base)
+            elif isinstance(ws, dict):
+                # npm workspaces as { "packages": [...] }
+                for pattern in ws.get("packages", []):
+                    if '/*' in pattern:
+                        base = pattern.replace('/*', '').strip()
+                        if base and (root_path / base).is_dir():
+                            packages.append(base)
+        except Exception:
+            pass
+
+    return packages
+
+
 def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
                     all_files: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """发现项目模块，基于文件重要性计算模块优先级
@@ -272,6 +317,11 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
 
     modules = []
     src_dirs = ['src', 'lib', 'packages', 'apps', 'modules']
+
+    # ── 阶段 0：读取 monorepo workspace 配置 ─────────────────────────────────
+    workspace_dirs = _read_workspace_packages(root_path)
+    if workspace_dirs:
+        src_dirs = list(set(workspace_dirs + src_dirs))
 
     # ── 阶段一：扫描标准源码目录下的子目录 ──────────────────────────────────
     # 此阶段只用 exclude_dirs（技术排除目录），不使用 FLAT_ROOT_SKIP，

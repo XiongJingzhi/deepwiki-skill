@@ -14,6 +14,7 @@
 | `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈，含 `cache_schema_version` 版本控制） |
 | `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
 | `cache/import-relations.json` | 文件级导入关系图（作为 AI 依赖分析的可信基线） |
+| `cache/module-analysis.json` | 步骤 4 语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供步骤 5 和步骤 8 复用，避免重复分析 |
 | `cache/progress.json` | 分阶段任务状态机（overview/menu/details 三阶段，每模块 pending/in_progress/completed/failed，含 subagent/serial 模式标记） |
 | `wiki/index.md` | 项目首页，含概述、徽章、导航、快速开始 |
 | `wiki/architecture.md` | 系统架构图、技术栈、模块依赖 |

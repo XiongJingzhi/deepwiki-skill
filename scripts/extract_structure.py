@@ -5,8 +5,9 @@
 输出 .deepwiki/cache/code-structure.json，供 AI 深度阅读阶段使用。
 """
 
-import re
+from collections import deque
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -109,10 +110,28 @@ def detect_archetype(project_path: Path) -> str:
                 "nuxt.config.ts", "nuxt.config.js", "remix.config.js",
             ]
         )),
+        ("agent-project", lambda p: (
+            _has_dep(p, {"langchain", "llamaindex", "crewai", "autogen", "semantic-kernel"})
+            or (p / "agents").is_dir()
+        )),
         ("ml-project", lambda p: _has_dep(p, {
             "torch", "tensorflow", "keras", "scikit-learn", "sklearn",
             "transformers", "pytorch", "jax", "paddle",
         })),
+        ("data-pipeline", lambda p: (
+            _has_dep(p, {"airflow", "prefect", "dagster", "luigi", "pyspark",
+                         "apache-beam", "kafka", "pulsar"})
+            or (p / "dags").is_dir()
+        )),
+        ("microservice", lambda p: _has_dep(p, {
+            "spring-boot", "spring-cloud", "micronaut", "quarkus",
+            "dapr", "temporal", "grpc", "protobuf", "nestjs",
+        })),
+        ("serverless", lambda p: (
+            (p / "serverless.yml").exists() or (p / "serverless.yaml").exists()
+            or (p / "samconfig.toml").exists() or (p / "template.yaml").exists()
+            or _has_dep(p, {"@aws-lambda/core", "azure-functions", "vercel"})
+        )),
         ("cli-tool", lambda p: (
             _has_dep(p, {"commander", "yargs", "inquirer", "oclif", "clipanion",
                          "clap", "cobra", "click", "typer", "argparse-rs"})
@@ -123,6 +142,15 @@ def detect_archetype(project_path: Path) -> str:
             "fastapi", "flask", "django", "express", "koa", "fastify", "hono",
             "gin", "fiber", "axum", "actix-web", "spring", "rails",
         })),
+        ("desktop-app", lambda p: (
+            _has_dep(p, {"electron", "tauri", "wry", "flutter", "slint",
+                         "pyqt", "pyside", "tkinter", "kivy"})
+        )),
+        ("mobile-app", lambda p: (
+            _has_dep(p, {"react-native", "expo", "capacitor", "ionic",
+                         "swiftui", "jetpack-compose"})
+            or (p / "android").is_dir() or (p / "ios").is_dir()
+        )),
         ("spa-frontend", lambda p: (
             _has_dep(p, {"react", "vue", "svelte", "angular", "solid-js"})
             and not (p / "pages" / "api").is_dir()
@@ -152,7 +180,6 @@ def detect_archetype(project_path: Path) -> str:
 
 _CLASS_DECL = re.compile(r"^(?:export\s+)?(?:abstract\s+)?class\s+(\w+)", re.MULTILINE)
 _TS_METHOD  = re.compile(r"^[ \t]{1,}(?:(?:async|static|public|private|protected|override)\s+)*(\w+)\s*\(", re.MULTILINE)
-_PY_DEF     = re.compile(r"^(?:async\s+)?def\s+(\w+)\s*\(", re.MULTILINE)
 _GO_FN      = re.compile(r"^func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\(", re.MULTILINE)
 _RUST_FN    = re.compile(r"^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*[\(<]", re.MULTILINE)
 _CALL_OBJ   = re.compile(r"\b(\w+)\.(\w+)\s*\(")
@@ -361,16 +388,30 @@ def _parse_ts_file(text: str, fpath: str) -> List[tuple]:
 _GO_FN = re.compile(r'^func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\(', re.MULTILINE)
 
 
+_GO_METHOD = re.compile(
+    r'^func\s+\((\w+)\s+\*?\w+\)\s+(\w+)\s*\(', re.MULTILINE
+)
+
+
 @_register_parser('.go')
 def _parse_go_file(text: str, fpath: str) -> List[tuple]:
-    """解析 Go 文件。"""
+    """解析 Go 文件，支持方法 receiver 限定名。"""
     lines_list = text.splitlines()
 
     defined: List[tuple] = []
+    # 匹配带 receiver 的方法：func (t *Type) Method(...)
+    for m in _GO_METHOD.finditer(text):
+        receiver = m.group(1)
+        name = m.group(2)
+        ln = text[:m.start()].count("\n")
+        defined.append((f"{receiver}.{name}", ln + 1))
+    # 匹配普通函数：func Name(...)
     for m in _GO_FN.finditer(text):
         name = m.group(1)
         ln = text[:m.start()].count("\n")
-        defined.append((name, ln + 1))
+        # 跳过已被 _GO_METHOD 匹配的行（通过检查行号去重）
+        if not any(d[1] == ln + 1 for d in defined):
+            defined.append((name, ln + 1))
 
     result = []
     for i, (func_name, line_no) in enumerate(defined):
@@ -387,16 +428,34 @@ def _parse_go_file(text: str, fpath: str) -> List[tuple]:
 _RUST_FN = re.compile(r'^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*[\(<]', re.MULTILINE)
 
 
+_RUST_IMPL = re.compile(r'^impl\s+(\w+)', re.MULTILINE)
+
+
 @_register_parser('.rs')
 def _parse_rust_file(text: str, fpath: str) -> List[tuple]:
-    """解析 Rust 文件。"""
+    """解析 Rust 文件，追踪 impl 块为函数生成限定名。"""
     lines_list = text.splitlines()
+
+    # 收集 impl 块范围
+    impl_ranges: List[tuple] = []  # [(impl_name, start_line), ...]
+    for m in _RUST_IMPL.finditer(text):
+        impl_name = m.group(1)
+        start_ln = text[:m.start()].count("\n")
+        impl_ranges.append((impl_name, start_ln))
 
     defined: List[tuple] = []
     for m in _RUST_FN.finditer(text):
         name = m.group(1)
         ln = text[:m.start()].count("\n")
-        defined.append((name, ln + 1))
+        # 查找最近的 impl 块
+        current_impl = None
+        for iname, start in impl_ranges:
+            if start <= ln:
+                current_impl = iname
+        if current_impl:
+            defined.append((f"{current_impl}.{name}", ln + 1))
+        else:
+            defined.append((name, ln + 1))
 
     result = []
     for i, (func_name, line_no) in enumerate(defined):
@@ -566,10 +625,10 @@ def build_key_sequences(
         # BFS
         visited: List[str] = []
         seen: set = set()
-        queue = [(handler, 0)]
+        queue = deque([(handler, 0)])
 
         while queue:
-            node, depth = queue.pop(0)
+            node, depth = queue.popleft()
             if node in seen or depth > max_depth:
                 continue
             seen.add(node)

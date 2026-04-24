@@ -315,6 +315,41 @@ output_example: |
 
 ---
 
+#### er-diagram
+
+```yaml
+name: er-diagram
+purpose: 展示实体关系、表结构和外键约束
+format: Mermaid erDiagram
+trigger:
+  - CodePurpose == Database
+  - OR 模块定义了 ORM 模型 / SQL 表 / Prisma schema
+fallback:
+  - 实体超过 8 个时仅展示核心实体
+  - 无外键时使用简单的表结构列表
+  - 复杂关系用 Markdown 表格替代
+required_context:
+  - 实体/模型定义
+  - 外键关系
+  - 字段/列定义
+output_example: |
+  erDiagram
+    User ||--o{ Order : places
+    Order ||--|{ LineItem : contains
+    User {
+      int id PK
+      string name
+      string email
+    }
+    Order {
+      int id PK
+      int user_id FK
+      decimal total
+    }
+```
+
+---
+
 #### decision-table
 
 ```yaml
@@ -471,6 +506,8 @@ output_example: |
 | **Util** | overview → api-table → code-example → nav-links | - | 可选 |
 | **Command** | overview → architecture-diagram → api-table → code-example → nav-links | 可选 | 可选 |
 | **Other** | overview → api-table → nav-links | AI 推荐 | AI 推荐 |
+
+> 完整 CodePurpose 类型列表：Entry, Agent, Page, Widget, Service, Api, Dao, Model, Config, Database, Util, Command, Other。详见 [`codepurpose-detection.md`](codepurpose-detection.md)。
 
 ### 图例
 

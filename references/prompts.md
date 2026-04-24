@@ -382,7 +382,7 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 ## 输出格式
 
-严格按 JSON 结构输出：
+严格按以下结构输出（YAML 或 JSON 均可，保持格式一致性即可）：
 
 ```json
 {

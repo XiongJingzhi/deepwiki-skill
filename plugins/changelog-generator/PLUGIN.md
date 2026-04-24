@@ -1,7 +1,7 @@
 ---
 name: changelog-generator
 type: generator
-version: 1.0.0
+version: 2.0.0
 description: |
   自动从 Git 提交历史生成格式化的变更日志。
   Automatically generate formatted changelog from Git commit history.

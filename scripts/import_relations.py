@@ -107,7 +107,13 @@ def _resolve_imports_to_paths(imports: List[str], source_file: Path, project_roo
 def _find_module_in_project(module_name: str, project_root: Path, source_ext: str) -> List[str]:
     """在项目中查找模块名对应的文件路径。"""
     candidates = []
-    src_dirs = ['src', 'lib', 'pkg', 'app', 'internal']
+    src_dirs = [
+        'src', 'lib', 'pkg', 'app', 'internal',
+        # Java convention
+        'src/main/java', 'src/main/kotlin', 'src/main/scala',
+        # Go convention
+        'cmd',
+    ]
     
     for src_dir in src_dirs:
         src_path = project_root / src_dir

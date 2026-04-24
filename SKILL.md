@@ -39,6 +39,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 │   ├── structure.json
 │   ├── code-structure.json
 │   ├── import-relations.json
+│   ├── module-analysis.json
 │   └── progress.json
 └── wiki/
     ├── index.md
@@ -143,9 +144,10 @@ python scripts/extract_docs.py <文件绝对路径>  # 预提取文档注释（�
 
 ```bash
 python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项目名称] --reconcile
+python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki
 python scripts/check_quality.py <项目目录绝对路径>/.deepwiki
 ```
 
-> 统一上下文注入（8.1）、meta.json 更新（8.2）、菜单校验（8.3）、质量等级与重新生成策略（8.4）见 [`references/step8-execution-strategy.md`](references/step8-execution-strategy.md)。
+> 统一上下文注入（8.1）、meta.json 更新（8.2）、菜单校验（8.3）、Mermaid 语法修复（8.4）、质量等级与重新生成策略（8.5）见 [`references/step8-execution-strategy.md`](references/step8-execution-strategy.md)。
 
 > 模块优先级排序、并行/串行调度、失败重试、断点续传、降级策略和知识库导出见 [`references/step8-execution-strategy.md`](references/step8-execution-strategy.md)。

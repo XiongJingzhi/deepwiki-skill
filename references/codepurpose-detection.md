@@ -20,8 +20,9 @@
 | **Model** | 路径含 `/models/`、`/entities/`、`/data/` |
 | **Config** | 路径含 `/config/`、扩展名 `.toml/.yaml/.env` |
 | **Util** | 路径含 `/utils/`、`/helpers/` |
-| **Command** | 路径含 `/commands/`、`/cli/` |
-| **Database** | 路径含 `/db/`、`/database/`、`/migrations/` |
+| **Command** | 路径含 `/commands/`、`/cli/`、`/cmd/` |
+| **Database** | 路径含 `/db/`、`/database/`、`/migrations/`、扩展名 `.sql`、`.prisma` |
+| **Other** | 以上均不匹配时的兜底分类 |
 
 ---
 

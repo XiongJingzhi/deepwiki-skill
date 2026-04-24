@@ -39,6 +39,16 @@ DOC_EXTENSIONS = {'.md', '.mdx', '.rst', '.txt'}
 # 缓存 schema 版本号 —— 任一缓存文件格式变更时递增此值
 CACHE_SCHEMA_VERSION = 1
 
+# ── 分析参数常量 ──────────────────────────────────────────────────────────
+HASH_TRUNCATE_LENGTH = 16          # SHA256 hash 截断长度（位）
+MAX_CALLS_PER_FUNCTION = 20        # 每个函数最多追踪的被调用函数数
+MAX_BFS_DEPTH = 6                  # 调用图 BFS 最大遍历深度
+MAX_CORE_FILES_PER_MODULE = 20    # 每个模块最多记录的核心文件数
+CORE_FILE_THRESHOLD = 0.5          # 核心文件重要性最低阈值
+HIGH_PRIORITY_THRESHOLD = 0.6      # 高优先级文件重要性最低阈值
+DEFAULT_CONTEXT_BUDGET = 120000    # 分析总 token 预算
+DEFAULT_GENERATION_BUDGET = 40000  # 为文档生成预留的 token 预算
+
 
 class GitignoreCache:
     """Per-root gitignore cache，避免模块级全局变量泄漏。"""
