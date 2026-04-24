@@ -70,6 +70,9 @@ DeepWiki 是一个 [skills.sh](https://skills.sh) 兼容的技能包，让 AI Ag
 │   ├── code-structure.json             # 调用图、代码模式、关键时序、导入关系
 │   ├── architecture-skeleton.json      # AI 生成的全局架构骨架
 │   ├── module-analysis.json            # 语义分析结果（接口、洞察、组件）
+│   ├── doc-topology.json               # 文档拓扑规划结果
+│   ├── generation-plan.json            # 本轮文档编译计划
+│   ├── evidence-index.json             # 关键结论到源码证据的索引
 │   └── progress.json                   # 分阶段任务状态
 └── wiki/
     ├── overview.md                     # 项目概览、架构图、模块列表
@@ -95,10 +98,14 @@ deepwiki/
 │   ├── analyze_project.py
 │   ├── extract_structure.py
 │   ├── detect_changes.py
+│   ├── plan_doc_topology.py
+│   ├── build_evidence_index.py
 │   ├── extract_doc_comments.py
 │   ├── check_analysis_quality.py          # Step 4.5
+│   ├── check_dependencies.py
 │   ├── check_doc_quality.py
 │   ├── check_cross_module_consistency.py
+│   ├── cli.py                             # 本地统一入口
 │   ├── generate_menu.py
 │   ├── finalize.py                        # CLI: mermaid/quality/consistency
 │   └── fix_mermaid.py
@@ -116,7 +123,7 @@ deepwiki/
 
 | 脚本 | 说明 |
 |------|------|
-| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/plan-doc-topology/quality |
+| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/plan-doc-topology/build-evidence-index/quality |
 | `scripts/check_dependencies.py` | 检查 tree-sitter 与语言绑定等运行依赖 |
 | `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
 | `scripts/analyze_project.py <项目路径>` | 分析结构和技术栈 |

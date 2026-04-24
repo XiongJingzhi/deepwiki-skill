@@ -22,7 +22,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 
 **主路径（全量/增量）：**
 
-`init-wiki` → `analyze-project` → `extract-structure` → `refine-modules` → `generate-skeleton`（纯 AI）→ `detect-changes` → `extract-docs` → `plan-doc-topology` → `check-analysis-quality`
+`init-wiki` → `analyze-project` → `extract-structure` → `refine-modules` → `generate-skeleton`（纯 AI）→ `detect-changes` → `extract-docs` → `plan-doc-topology` → `check-analysis-quality` → `build-evidence-index`
 
 - **pass（exit=0）**：→ `synthesize-deps` → `generate-overview` → `generate-menu` → `generate-module-docs` → `check-cross-module-consistency` → 完成
 - **fail（exit≠0）**：增量补充分析 → 重跑 `check-analysis-quality`
@@ -45,6 +45,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `detect-changes` | [references/workflow/detect-changes.md](references/workflow/detect-changes.md) |
 | `extract-docs` | [references/workflow/extract-docs.md](references/workflow/extract-docs.md) |
 | `plan-doc-topology` | [references/workflow/plan-doc-topology.md](references/workflow/plan-doc-topology.md) |
+| `build-evidence-index` | [references/workflow/build-evidence-index.md](references/workflow/build-evidence-index.md) |
 | `parallel-analysis` | [references/workflow/parallel-analysis.md](references/workflow/parallel-analysis.md) |
 | `check-analysis-quality` | [references/workflow/check-analysis-quality.md](references/workflow/check-analysis-quality.md) |
 | `synthesize-deps` | [references/workflow/synthesize-deps.md](references/workflow/synthesize-deps.md) |
@@ -78,6 +79,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 │   ├── module-analysis.json
 │   ├── doc-topology.json
 │   ├── generation-plan.json
+│   ├── evidence-index.json
 │   └── progress.json
 └── wiki/
     ├── overview.md

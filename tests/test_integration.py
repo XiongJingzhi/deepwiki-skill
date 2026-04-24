@@ -108,12 +108,32 @@ class TestPipelineIntegration:
         assert cli.main(["init", str(fake_python_project)]) == 0
         assert cli.main(["analyze", str(fake_python_project)]) == 0
         assert cli.main(["extract-structure", str(fake_python_project)]) == 0
+        assert cli.main(["detect-changes", str(fake_python_project)]) == 0
         assert cli.main(["plan-doc-topology", str(fake_python_project)]) == 0
+
+        from common import CACHE_SCHEMA_VERSION
+
+        module_analysis = {
+            "cache_schema_version": CACHE_SCHEMA_VERSION,
+            "modules": {
+                "app": {
+                    "module_summary": "Application entry module",
+                    "module_role": "Coordinates startup",
+                    "files": [{"path": "app.py"}],
+                }
+            },
+        }
+        (fake_python_project / ".deepwiki" / "cache" / "module-analysis.json").write_text(
+            json.dumps(module_analysis),
+            encoding="utf-8",
+        )
+        assert cli.main(["build-evidence-index", str(fake_python_project)]) == 0
         assert cli.main(["quality", str(fake_python_project / ".deepwiki")]) == 0
 
         cache = fake_python_project / ".deepwiki" / "cache"
         assert (cache / "doc-topology.json").exists()
         assert (cache / "generation-plan.json").exists()
+        assert (cache / "evidence-index.json").exists()
 
     def test_dependency_self_check_module(self):
         """Dependency self-check exposes a programmatic status."""

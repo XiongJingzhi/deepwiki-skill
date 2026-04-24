@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from analyze_project import analyze_project
+from build_evidence_index import build_evidence_index
 from check_doc_quality import check_wiki_quality
+from detect_changes import detect_changes, print_changes
 from extract_structure import run_extract_structure
 from init_wiki import init_deep_wiki
 from plan_doc_topology import plan_doc_topology
@@ -31,8 +33,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_extract = subparsers.add_parser("extract-structure", help="Extract code structure")
     p_extract.add_argument("project_path")
 
+    p_detect = subparsers.add_parser("detect-changes", help="Detect changed source files")
+    p_detect.add_argument("project_path")
+
     p_plan = subparsers.add_parser("plan-doc-topology", help="Plan document topology")
     p_plan.add_argument("project_path")
+
+    p_evidence = subparsers.add_parser("build-evidence-index", help="Build source evidence index")
+    p_evidence.add_argument("project_path")
 
     p_quality = subparsers.add_parser("quality", help="Check generated wiki quality")
     p_quality.add_argument("path")
@@ -54,8 +62,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         run_extract_structure(Path(args.project_path))
         return 0
 
+    if args.command == "detect-changes":
+        print_changes(detect_changes(args.project_path))
+        return 0
+
     if args.command == "plan-doc-topology":
         plan_doc_topology(Path(args.project_path))
+        return 0
+
+    if args.command == "build-evidence-index":
+        result = build_evidence_index(Path(args.project_path))
+        print(f"Built evidence index with {len(result['claims'])} claims")
         return 0
 
     if args.command == "quality":
