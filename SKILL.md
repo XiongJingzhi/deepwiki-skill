@@ -42,8 +42,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 │   ├── module-analysis.json
 │   └── progress.json
 └── wiki/
-    ├── index.md
-    ├── architecture.md
+    ├── overview.md
     ├── getting-started.md
     ├── doc-map.md
     ├── menu.json
@@ -130,7 +129,7 @@ python scripts/extract_docs.py <文件绝对路径>  # 预提取文档注释（�
 
 ### 第 6 步：生成概览文档
 
-应用 `before_generate` 钩子，生成 `index.md`、`architecture.md`、`getting-started.md`，提取项目上下文摘要供第 8 步使用。
+应用 `before_generate` 钩子，生成 `overview.md`、`getting-started.md`，提取项目上下文摘要供第 8 步使用。
 
 > 文档列表、模板参考、进度追踪、摘要提取见 [`references/step6-overview.md`](references/step6-overview.md)。
 
