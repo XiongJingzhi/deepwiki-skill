@@ -988,6 +988,23 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     # 重新排序（归一化后分数可能变化）
     all_files.sort(key=lambda x: x['importance_score'], reverse=True)
 
+    # ── 归一化后重算模块重要性 ──────────────────────────────────────────
+    # normalize_path_scores 修改了文件的 importance_score，
+    # 必须重新计算模块的平均分、core_files 列表和 core_files_count，
+    # 否则模块排名将基于归一化前的文件分数，导致高估。
+    for mod in modules:
+        mod_prefix = mod['path'].rstrip('/') + '/'
+        mod_files = [f for f in all_files
+                     if f['path'].startswith(mod_prefix) or f['path'] == mod['path']]
+        if mod_files:
+            avg_score = sum(f['importance_score'] for f in mod_files) / len(mod_files)
+            mod['importance_score'] = round(avg_score, 2)
+            mod['core_files'] = [f['path'] for f in mod_files if f['is_core']][:20]
+            mod['core_files_count'] = len([f for f in mod_files if f['is_core']])
+    # 按归一化后的重要性重排模块
+    modules.sort(key=lambda x: x.get('importance_score', 0), reverse=True)
+    # ────────────────────────────────────────────────────────────────────
+
     # 核心文件: importance_score >= 0.5
     core_files = [f for f in all_files if f['is_core']]
 

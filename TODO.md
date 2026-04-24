@@ -2,7 +2,7 @@
 
 ## P1 - File Importance Scoring Lacks Relative Normalization
 
-**Status**: Partially mitigated (4-group weighted model exists, but lacks intra-module normalization)
+**Status**: Fixed — percentile-based normalization (`normalize_path_scores()`) now applied intra-module; single-file module branch recalculates `importance_score`/`is_core`/`is_high_priority`; module importance recalculated after file normalization in `analyze_project()`. See commit `fix: recalculate module importance scores after file-level path score normalization`.
 
 **Problem**: `calculate_file_importance()` uses absolute scoring thresholds. All files under `src/` receive `path_score=1.0` (30% weight), which means a trivial `src/constants.py` can score similarly to `src/engine/core.py`. When module importance is computed as the average of file scores (`discover_modules()`), low-value modules like `src/config/` can rank alongside high-value modules like `src/core/`, causing incorrect prioritization during documentation generation.
 
