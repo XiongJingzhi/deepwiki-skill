@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from parsers import get_manager, get_lang_for_ext, get_parser_for_ext
+from parsers import get_manager, get_lang_for_ext
 
 _LANG_EXTENSIONS = {
     ".py": [".py", ".pyi"],
@@ -59,7 +59,7 @@ def _extract_imports_from_source(source: bytes, lang_name: str) -> List[str]:
 
     try:
         captures = mgr.run_query(lang_name, "import", root)
-    except (ValueError, Exception):
+    except Exception:
         return []
 
     imports: List[str] = []

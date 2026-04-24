@@ -108,7 +108,7 @@ def get_default_meta() -> dict:
     生成一致的结构而非随机追加字段。
     """
     return {
-        "version": "2.0.0",
+        "version": "2.1.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "last_updated": None,
         "files_documented": 0,

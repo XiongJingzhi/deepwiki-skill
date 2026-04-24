@@ -1,7 +1,7 @@
 """Context Budget 计算"""
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Set
 
 from common import CODE_EXTENSIONS
 
@@ -53,8 +53,7 @@ def compute_context_budget(all_files: List[Dict[str, Any]],
     # 估算项目代码总 token 量
     total_code_tokens = 0
     code_files = [f for f in all_files
-                  if f.get("path", "").split(".")[-1].lower() in
-                  {e.lstrip(".") for e in CODE_EXTENSIONS}]
+                  if Path(f.get("path", "")).suffix.lower() in CODE_EXTENSIONS]
     for f in code_files:
         fpath = project_root / f["path"]
         if fpath.exists():

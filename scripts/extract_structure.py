@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Set, Tuple
 
-from common import CODE_EXTENSIONS, CACHE_SCHEMA_VERSION, cache_path
+from common import CODE_EXTENSIONS, CACHE_SCHEMA_VERSION, cache_path, MAX_CALLS_PER_FUNCTION, MAX_BFS_DEPTH
 from import_relations import extract_import_relations
 from parsers import get_manager, get_lang_for_ext
 
@@ -250,8 +250,6 @@ def _parse_definitions(text: bytes, lang_name: str, fpath: str) -> List[Tuple[st
     2. 通过父节点链判断是否在类/impl 内，生成限定名
     3. 提取函数体字节用于后续调用分析
     """
-    from tree_sitter import Language, Query, QueryCursor
-
     mgr = get_manager()
     lang = mgr.get_language(lang_name)
     parser = mgr.get_parser(lang_name)
@@ -479,7 +477,7 @@ def _extract_calls_from_body(body: bytes, func_name: str, lang_name: str) -> Lis
 
     try:
         captures = mgr.run_query(lang_name, "call", root)
-    except (ValueError, Exception):
+    except Exception:
         return []
 
     calls: List[str] = []
@@ -514,7 +512,7 @@ def _extract_calls_from_body(body: bytes, func_name: str, lang_name: str) -> Lis
             seen.add(c)
             calls.append(c)
 
-    return calls[:20]
+    return calls[:MAX_CALLS_PER_FUNCTION]
 
 
 def extract_call_graph(files: List[Path]) -> Dict[str, Any]:
@@ -796,7 +794,7 @@ def detect_patterns(files: List[Path], archetype: str = None,
 def build_key_sequences(
     call_graph: Dict[str, Any],
     entry_points: List[Dict[str, str]],
-    max_depth: int = 6,
+    max_depth: int = MAX_BFS_DEPTH,
 ) -> List[Dict[str, Any]]:
     """从入口点 BFS 遍历调用图，生成近似时序。"""
     if not call_graph or not entry_points:

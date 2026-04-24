@@ -36,6 +36,18 @@
 
 [步骤列表：API 索引 → 具体 API → 使用示例]
 
+### archetype 特化路径
+
+根据项目 archetype 替换或调整阅读路径（原有 3 种路径作为 generic 默认值）：
+
+| archetype | 路径 1 | 路径 2 | 路径 3 |
+|-----------|--------|--------|--------|
+| cli-tool | 命令速查 | 插件开发 | 配置详解 |
+| ml-project | 环境搭建 | 训练流程 | 推理部署 |
+| agent-project | Agent 架构 | 工具注册 | 记忆系统 |
+| monorepo | 工作区结构 | 核心包文档 | 跨包开发 |
+| sdk-library | 快速上手 | API 参考 | 高级用法 |
+
 ---
 
 ## 文档索引
@@ -94,7 +106,7 @@
     {
       "id": "contributing",
       "title": "贡献指南",
-      "fixed": true,
+      "fixed": false,
       "items": [
         { "id": "contributing", "title": "贡献指南", "path": "contributing.md" }
       ]
@@ -120,7 +132,7 @@
 1. **按读者旅程排序**：首区块"概览"→ 核心业务模块 → 周边模块 → 尾区块"贡献指南"
 2. **语义命名**：`title` 面向读者（"认证与鉴权"），不使用路径（"src/auth"）或 CodePurpose 枚举（"Service"）
 3. **层级不超过 3 级**：`sections > items`（最多再加一层 `sub-items`），避免深层嵌套
-4. **固定首尾**：`"fixed": true` 的 Overview 区块始终最前，Contributing 区块始终最后
+4. **首区块固定**：Overview 区块始终最前。尾区块（贡献指南）仅当项目包含 CONTRIBUTING.md 或类似文件时添加，不应强制生成。
 5. **增量占位**：增量更新时已知但未生成的文档，添加 `"planned": true`，不留空条目
 
 ---

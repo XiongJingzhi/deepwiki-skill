@@ -1,1 +1,13 @@
 .deepwiki
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+*.egg
+.DS_Store
+Thumbs.db

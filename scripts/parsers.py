@@ -39,27 +39,20 @@ _EXT_TO_LANG: Dict[str, str] = {
 
 # ── 预编译 Query 模式 ────────────────────────────────────────────────────
 
+# JS/TS/TSX 共享查询模板
+_JS_FUNC_CLASS = """
+    (function_declaration) @fn
+    (method_definition) @method
+    (class_declaration) @cls
+    (lexical_declaration (variable_declarator value: (arrow_function))) @arrow
+"""
+
 # 函数/方法定义提取（返回 function_definition + class_definition 节点）
 _FUNC_CLASS_QUERIES: Dict[str, str] = {
     "python": "(function_definition) @fn (class_definition) @cls",
-    "javascript": """
-        (function_declaration) @fn
-        (method_definition) @method
-        (class_declaration) @cls
-        (lexical_declaration (variable_declarator value: (arrow_function))) @arrow
-    """,
-    "typescript": """
-        (function_declaration) @fn
-        (method_definition) @method
-        (class_declaration) @cls
-        (lexical_declaration (variable_declarator value: (arrow_function))) @arrow
-    """,
-    "tsx": """
-        (function_declaration) @fn
-        (method_definition) @method
-        (class_declaration) @cls
-        (lexical_declaration (variable_declarator value: (arrow_function))) @arrow
-    """,
+    "javascript": _JS_FUNC_CLASS,
+    "typescript": _JS_FUNC_CLASS,
+    "tsx": _JS_FUNC_CLASS,
     "go": "(function_declaration) @fn (method_declaration) @method",
     "rust": "(function_item) @fn (impl_item) @impl",
     "java": "(method_declaration) @method (class_declaration) @cls (interface_declaration) @iface",
@@ -67,6 +60,19 @@ _FUNC_CLASS_QUERIES: Dict[str, str] = {
 }
 
 # 函数体内调用提取
+_JS_CALL = """
+    (call_expression
+      function: (identifier) @call.fn)
+    (call_expression
+      function: (member_expression
+        object: (identifier) @call.obj
+        property: (property_identifier) @call.attr))
+    (call_expression
+      function: (member_expression
+        object: (member_expression) @call.obj
+        property: (property_identifier) @call.attr))
+"""
+
 _CALL_QUERIES: Dict[str, str] = {
     "python": """
         (call
@@ -76,42 +82,9 @@ _CALL_QUERIES: Dict[str, str] = {
             object: (identifier) @call.obj
             attribute: (identifier) @call.attr))
     """,
-    "javascript": """
-        (call_expression
-          function: (identifier) @call.fn)
-        (call_expression
-          function: (member_expression
-            object: (identifier) @call.obj
-            property: (property_identifier) @call.attr))
-        (call_expression
-          function: (member_expression
-            object: (member_expression) @call.obj
-            property: (property_identifier) @call.attr))
-    """,
-    "typescript": """
-        (call_expression
-          function: (identifier) @call.fn)
-        (call_expression
-          function: (member_expression
-            object: (identifier) @call.obj
-            property: (property_identifier) @call.attr))
-        (call_expression
-          function: (member_expression
-            object: (member_expression) @call.obj
-            property: (property_identifier) @call.attr))
-    """,
-    "tsx": """
-        (call_expression
-          function: (identifier) @call.fn)
-        (call_expression
-          function: (member_expression
-            object: (identifier) @call.obj
-            property: (property_identifier) @call.attr))
-        (call_expression
-          function: (member_expression
-            object: (member_expression) @call.obj
-            property: (property_identifier) @call.attr))
-    """,
+    "javascript": _JS_CALL,
+    "typescript": _JS_CALL,
+    "tsx": _JS_CALL,
     "go": """
         (call_expression
           function: (identifier) @call.fn)
@@ -146,23 +119,22 @@ _CALL_QUERIES: Dict[str, str] = {
 }
 
 # Import 语句提取
+_JS_IMPORT = """
+    (import_statement source: (string) @import.path) @stmt
+"""
+
 _IMPORT_QUERIES: Dict[str, str] = {
     "python": """
         (import_from_statement module_name: (dotted_name) @import.module) @stmt
         (import_statement name: (dotted_name) @import.path) @stmt
     """,
-    "javascript": """
-        (import_statement source: (string) @import.path) @stmt
+    "javascript": _JS_IMPORT + """
         (call_expression
           function: (identifier) @require.fn
           arguments: (arguments (string) @import.path)) @require
     """,
-    "typescript": """
-        (import_statement source: (string) @import.path) @stmt
-    """,
-    "tsx": """
-        (import_statement source: (string) @import.path) @stmt
-    """,
+    "typescript": _JS_IMPORT,
+    "tsx": _JS_IMPORT,
     "go": """
         (import_spec path: (interpreted_string_literal) @import.path) @stmt
     """,
@@ -180,6 +152,12 @@ _IMPORT_QUERIES: Dict[str, str] = {
 }
 
 # 控制流节点（复杂度估算用）
+_JS_COMPLEXITY = """
+    (if_statement) @cf (while_statement) @cf (for_statement) @cf
+    (for_in_statement) @cf (switch_statement) @cf (try_statement) @cf (catch_clause) @cf
+    (function_declaration) @def (class_declaration) @def
+"""
+
 _COMPLEXITY_QUERIES: Dict[str, str] = {
     "python": """
         (if_statement) @cf (elif_clause) @cf (while_statement) @cf (for_statement) @cf
@@ -187,21 +165,9 @@ _COMPLEXITY_QUERIES: Dict[str, str] = {
         (match_statement) @cf
         (function_definition) @def (class_definition) @def
     """,
-    "javascript": """
-        (if_statement) @cf (while_statement) @cf (for_statement) @cf
-        (for_in_statement) @cf (switch_statement) @cf (try_statement) @cf (catch_clause) @cf
-        (function_declaration) @def (class_declaration) @def
-    """,
-    "typescript": """
-        (if_statement) @cf (while_statement) @cf (for_statement) @cf
-        (for_in_statement) @cf (switch_statement) @cf (try_statement) @cf (catch_clause) @cf
-        (function_declaration) @def (class_declaration) @def
-    """,
-    "tsx": """
-        (if_statement) @cf (while_statement) @cf (for_statement) @cf
-        (for_in_statement) @cf (switch_statement) @cf (try_statement) @cf (catch_clause) @cf
-        (function_declaration) @def (class_declaration) @def
-    """,
+    "javascript": _JS_COMPLEXITY,
+    "typescript": _JS_COMPLEXITY,
+    "tsx": _JS_COMPLEXITY,
     "go": """
         (if_statement) @cf (for_statement) @cf (switch_statement) @cf
         (select_statement) @cf (type_switch_statement) @cf
@@ -225,6 +191,18 @@ _COMPLEXITY_QUERIES: Dict[str, str] = {
 }
 
 # 重要行检测（声明/导入/导出等节点）
+_TS_IMPORTANT = """
+    (import_statement) @imp (export_statement) @exp
+    (function_declaration) @decl (class_declaration) @decl (lexical_declaration) @decl
+    (interface_declaration) @decl (type_alias_declaration) @decl (enum_declaration) @decl
+"""
+
+_TSX_IMPORTANT = """
+    (import_statement) @imp (export_statement) @exp
+    (function_declaration) @decl (class_declaration) @decl (lexical_declaration) @decl
+    (interface_declaration) @decl (type_alias_declaration) @decl
+"""
+
 _IMPORTANT_QUERIES: Dict[str, str] = {
     "python": """
         (import_statement) @imp (import_from_statement) @imp
@@ -236,16 +214,8 @@ _IMPORTANT_QUERIES: Dict[str, str] = {
         (function_declaration) @decl (class_declaration) @decl (lexical_declaration) @decl
         (expression_statement (assignment_expression)) @decl
     """,
-    "typescript": """
-        (import_statement) @imp (export_statement) @exp
-        (function_declaration) @decl (class_declaration) @decl (lexical_declaration) @decl
-        (interface_declaration) @decl (type_alias_declaration) @decl (enum_declaration) @decl
-    """,
-    "tsx": """
-        (import_statement) @imp (export_statement) @exp
-        (function_declaration) @decl (class_declaration) @decl (lexical_declaration) @decl
-        (interface_declaration) @decl (type_alias_declaration) @decl
-    """,
+    "typescript": _TS_IMPORTANT,
+    "tsx": _TSX_IMPORTANT,
     "go": """
         (import_declaration) @imp (function_declaration) @decl (method_declaration) @decl
         (type_declaration) @decl (var_declaration) @decl (const_declaration) @decl

@@ -32,7 +32,7 @@ class TestGetDefaultMeta:
 
     def test_version(self):
         meta = init_wiki.get_default_meta()
-        assert meta["version"] == "2.0.0"
+        assert meta["version"] == "2.1.0"
 
     def test_last_updated_is_none(self):
         meta = init_wiki.get_default_meta()
@@ -101,7 +101,7 @@ class TestInitDeepWiki:
         meta_path = tmp_path / ".deepwiki" / "meta.json"
         assert meta_path.is_file()
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        assert meta["version"] == "2.0.0"
+        assert meta["version"] == "2.1.0"
         assert "modules" in meta
 
     def test_creates_checksums_json(self, tmp_path):

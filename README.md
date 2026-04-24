@@ -65,11 +65,11 @@ DeepWiki 是一个 [skills.sh](https://skills.sh) 兼容的技能包，让 AI Ag
 ├── cache/
 │   ├── checksums.json                  # 增量变更校验和
 │   ├── structure.json                  # 模块结构和技术栈
-│   ├── project-digest.md               # 精简项目概要（Step 2，~3K tokens）
+│   ├── file-hashes.json                # 文件哈希缓存（供增量更新复用）
+│   ├── parse-results.json              # tree-sitter AST 摘要缓存
 │   ├── code-structure.json             # 调用图、代码模式、关键时序、导入关系
-│   ├── architecture-skeleton-input.json # Step 3.5 脚本提取的骨架输入
-│   ├── architecture-skeleton.json      # Step 3.5 AI 生成的全局架构骨架
-│   ├── module-analysis.json            # Step 5 语义分析结果（接口、洞察、组件）
+│   ├── architecture-skeleton.json      # AI 生成的全局架构骨架
+│   ├── module-analysis.json            # 语义分析结果（接口、洞察、组件）
 │   └── progress.json                   # 分阶段任务状态
 └── wiki/
     ├── overview.md                     # 项目概览、架构图、模块列表
@@ -94,12 +94,13 @@ deepwiki/
 │   ├── init_wiki.py
 │   ├── analyze_project.py
 │   ├── extract_structure.py
-│   ├── generate_architecture_skeleton.py  # → generate_skeleton.py
 │   ├── detect_changes.py
-│   ├── extract_doc_comments.py            # → extract_docs.py (tree-sitter)
+│   ├── extract_doc_comments.py
 │   ├── check_analysis_quality.py          # Step 4.5
-│   ├── check_doc_quality.py               # → check_quality.py
+│   ├── check_doc_quality.py
+│   ├── check_cross_module_consistency.py
 │   ├── generate_menu.py
+│   ├── finalize.py                        # CLI: mermaid/quality/consistency
 │   └── fix_mermaid.py
 ├── references/           # 工作流详细规则和提示词
 ├── schemas/              # JSON Schema 定义
@@ -116,15 +117,15 @@ deepwiki/
 | 脚本 | 说明 |
 |------|------|
 | `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
-| `scripts/analyze_project.py <项目路径>` | 分析结构和技术栈（含 project-digest.md） |
+| `scripts/analyze_project.py <项目路径>` | 分析结构和技术栈 |
 | `scripts/extract_structure.py <项目路径>` | 提取调用图、模式、导入关系 |
-| `scripts/generate_skeleton.py <项目路径>` | **Step 3.5**：提取骨架输入数据 |
 | `scripts/detect_changes.py <项目路径>` | 增量变更检测 |
 | `scripts/extract_doc_comments.py <文件路径>` | 从源码提取文档注释（tree-sitter） |
 | `scripts/check_analysis_quality.py <项目路径>` | **Step 4.5**：分析质量门控 |
-| `scripts/check_doc_quality.py <.deepwiki路径>` | 文档质量检查 |
+| `scripts/finalize.py quality <.deepwiki路径>` | 文档质量检查 |
+| `scripts/finalize.py consistency <.deepwiki路径>` | 跨模块一致性检查 |
+| `scripts/finalize.py mermaid <.deepwiki路径>` | 修复 Mermaid 语法错误 |
 | `scripts/generate_menu.py <wiki目录> [项目名]` | 生成 menu.json（支持 `--reconcile`） |
-| `scripts/fix_mermaid.py <.deepwiki路径>` | 修复 Mermaid 语法错误 |
 
 ---
 

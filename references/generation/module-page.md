@@ -156,12 +156,14 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 ---
 
-## 源码追溯要求
+### 源码追溯要求
 
-每个章节末尾必须包含源码引用：
+描述源码行为的章节（概述、公开接口、核心实现、核心类与函数）末尾应包含源码引用，格式：
 
-**Section sources**
-- [filename.ts](file:///path/to/file.ts#L1-L50)
+> **Section sources**
+> [filename.ts](file:///path/to/file.ts#L1-L50)
+
+纯导航章节（相关文档）和聚合数据章节（依赖关系、模块依赖图）可豁免此要求。
 
 格式：Markdown，使用中文，代码示例使用项目主要语言。
 ```

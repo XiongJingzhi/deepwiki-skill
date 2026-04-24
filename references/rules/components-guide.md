@@ -20,7 +20,7 @@
 
 | 优先级 | 组件 |
 |:------:|------|
-| **P0**（必需） | overview, api-table, nav-links |
+| **P0**（必需） | overview（Test 除外）, api-table（有公开导出时）, nav-links |
 | **P1**（高） | sequence-diagram, code-walkthrough, architecture-diagram |
 | **P2**（中） | class-diagram, state-diagram, dependency-diagram, er-diagram, decision-table, code-example |
 | **P3**（低） | error-table, file-structure, usage-patterns |
@@ -116,6 +116,7 @@ IF dependency_count >= 2:
 1. 若 archetype 有对应的 `add` 规则，且 `trigger` 条件满足（`always` 或 CodePurpose 匹配），则添加对应组件
 2. 若 archetype 有对应的 `remove` 规则，且 `trigger` 条件满足，则移除对应组件（除非 Layer 1/2 已将其标记为 Required）
 3. `remove` 不会覆盖 Required 组件（P0），仅影响 Recommended 和 Optional 组件
+   注意：P0 组件的触发条件豁免（如 Test 模块的 overview、无导出模块的 api-table）不受此保护，archetype 覆写可基于 trigger 条件跳过这些 P0 组件。
 
 示例：`agent-project` archetype 下，`state-diagram` 对所有模块添加；`sequence-diagram` 对非 API/Entry/Service 模块移除。
 

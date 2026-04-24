@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from parsers import get_manager, get_parser_for_ext, get_lang_for_ext
+from parsers import get_manager, get_lang_for_ext
 
 
 @dataclass

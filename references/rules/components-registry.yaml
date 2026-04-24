@@ -11,7 +11,7 @@ components:
   overview:
     purpose: 模块概述，说明解决什么问题、为什么存在
     format: "2-3 段文字 + 架构位置说明"
-    trigger: 必需
+    trigger: "CodePurpose not in [Test]"
     fallback: 无
     required_context:
       - 模块名和路径
@@ -22,7 +22,7 @@ components:
   api-table:
     purpose: 公开接口总览
     format: Markdown 表格
-    trigger: 必需
+    trigger: "模块有公开导出（public_interfaces 非空或 exported symbols >= 1）"
     fallback: 无
     required_context:
       - 导出声明

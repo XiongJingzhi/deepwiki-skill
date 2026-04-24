@@ -12,6 +12,8 @@
 | `meta.json` | 生成器版本、时间戳、每个模块的元数据（质量等级、章节数、最后更新时间） |
 | `cache/checksums.json` | 文件哈希值，用于增量变更检测（含 `cache_schema_version` 版本控制） |
 | `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈，含 `cache_schema_version` 版本控制） |
+| `cache/file-hashes.json` | 文件哈希值缓存，供 `detect-changes` 复用（避免二次全量扫描） |
+| `cache/parse-results.json` | tree-sitter AST 摘要缓存（定义列表、复杂度统计、重要行、文档注释），供后续步骤复用避免重复解析 |
 | `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
 | `cache/architecture-skeleton.json` | `generate-skeleton` AI段生成的全局架构骨架，供 `extract-docs`～`generate-module-docs` 注入全局上下文（含模块分组、架构分层、关键数据流） |
 | `cache/module-analysis.json` | `extract-docs` 语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供 `synthesize-deps` 和 `generate-module-docs` 复用 |

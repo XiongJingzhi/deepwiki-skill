@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """项目结构分析脚本 — 扫描项目目录，识别项目类型、模块结构和文档位置。"""
+import logging
 import os, json
 from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from common import (GitignoreCache, CACHE_SCHEMA_VERSION, validate_cache_version,
                     cache_dir, cache_path)
@@ -42,7 +45,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
             if validate_cache_version(pc_data):
                 _parse_cache_data = pc_data.get('files', {})
         except Exception:
-            pass
+            logger.warning("Failed to load parse-results.json, skipping parse cache")
 
     # 检测 archetype 并计算 import_degree（来自 code-structure.json，如已存在）
     archetype = None
@@ -56,7 +59,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
             if import_relations:
                 import_degrees = compute_in_degree(import_relations)
         except Exception:
-            pass
+            logger.warning("Failed to load code-structure.json, skipping import degrees")
 
     # 扫描所有文件（含重要性评分和复杂度估算，archetype + import_degree 感知）
     all_files = scan_files(root, gitignore_cache=_gitignore_cache,
