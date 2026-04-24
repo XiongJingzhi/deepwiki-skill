@@ -90,13 +90,29 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     # 输出 parse-results.json（AST 摘要缓存，供后续步骤复用，避免重复 tree-sitter 解析）
+    # 使用 merge 模式：保留已有缓存中不在本次分析范围内的文件数据
     parse_summaries = _collect_parse_summaries(all_files, project_path)
     pr_path = project_path / ".deepwiki" / "cache" / "parse-results.json"
     pr_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 读取已有数据，进行合并
+    existing_files: Dict[str, Any] = {}
+    if pr_path.exists():
+        try:
+            with open(pr_path, "r", encoding="utf-8") as f:
+                existing_data = json.load(f)
+            if existing_data.get("cache_schema_version") == CACHE_SCHEMA_VERSION:
+                existing_files = existing_data.get("files", {})
+        except Exception:
+            pass
+
+    # 本次分析的结果覆盖已有数据，不在本次范围内的文件保留
+    merged_files = {**existing_files, **parse_summaries}
+
     with open(pr_path, "w", encoding="utf-8") as f:
         json.dump({
             "cache_schema_version": CACHE_SCHEMA_VERSION,
-            "files": parse_summaries,
+            "files": merged_files,
         }, f, ensure_ascii=False, indent=2)
 
     return result
@@ -639,6 +655,25 @@ def _collect_parse_summaries(
             except Exception:
                 summary["important_lines"] = []
                 summary["important_lines_count"] = 0
+
+            # 4. 提取 doc comments（复用已有 tree，避免重复解析）
+            try:
+                from extract_doc_comments import _extract_doc_entries
+                doc_entries = _extract_doc_entries(source, lang_name, rel_path, tree=tree)
+                summary["doc_entries"] = [
+                    {
+                        "name": e.name,
+                        "type": e.type,
+                        "description": e.description,
+                        "params": e.params,
+                        "returns": e.returns,
+                        "examples": e.examples,
+                        "line_number": e.line_number,
+                    }
+                    for e in doc_entries
+                ]
+            except Exception:
+                summary["doc_entries"] = []
 
             summaries[rel_path] = summary
         except Exception:

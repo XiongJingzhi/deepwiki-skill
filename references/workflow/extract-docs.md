@@ -13,7 +13,7 @@
 
 ## 文件角色分类
 
-> 完整分类规则见 [`../rules/file-role-classification.md`](../rules/file-role-classification.md)。
+> 完整分类规则见 [`../rules/codepurpose-detection.md`](../rules/codepurpose-detection.md)。
 >
 > **执行要点**：在读取每个文件之前先完成分类，角色标签用于生成文档时的针对性描述。
 
@@ -122,10 +122,6 @@
   | `doc-only-change` | 轻量更新：重跑 `extract_doc_comments.py`，更新 `summary` | ❌ 不触发 |
 
   > **降级**：若 `changed_files` 中无 `change_type` 字段（旧版脚本输出），统一视为 `api-change`（向后兼容）。
-
-## 插件缓存优先
-
-若 `.deepwiki/cache/api-analysis.json` 存在（由 `api-doc-enhancer` 插件在 `after_analyze` 阶段生成），优先读取其 `exports` 字段作为接口提取的基础，再进行语义补充，避免重复分析。
 
 ## 预提取文档注释
 

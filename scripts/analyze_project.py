@@ -13,6 +13,7 @@ from context_budget import compute_context_budget
 from module_discovery import discover_modules
 from scanner import (scan_files, scan_directories, compute_file_stats,
                      find_documentation)
+from import_relations import compute_in_degree
 
 # 模块级 gitignore 缓存实例
 _gitignore_cache = GitignoreCache()
@@ -50,15 +51,31 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
         except Exception:
             pass
 
-    # 扫描所有文件（含重要性评分和复杂度估算）
+    # 检测 archetype 并计算 import_degree（来自 code-structure.json，如已存在）
+    archetype = None
+    import_degrees: Dict[str, int] = {}
+    cs_path = root / '.deepwiki' / 'cache' / 'code-structure.json'
+    if cs_path.exists():
+        try:
+            cs_data = json.loads(cs_path.read_text('utf-8'))
+            archetype = cs_data.get('archetype')
+            import_relations = cs_data.get('import_relations', {})
+            if import_relations:
+                import_degrees = compute_in_degree(import_relations)
+        except Exception:
+            pass
+
+    # 扫描所有文件（含重要性评分和复杂度估算，archetype + import_degree 感知）
     all_files = scan_files(root, gitignore_cache=_gitignore_cache,
-                           parse_cache=_parse_cache_data)
+                           parse_cache=_parse_cache_data,
+                           archetype=archetype,
+                           import_degrees=import_degrees)
 
     # 发现模块（传入文件数据用于计算模块重要性）
     modules = discover_modules(root, all_files=all_files)
 
-    # 模块内归一化 path_score，重新计算重要性评分
-    all_files = normalize_path_scores(all_files, modules)
+    # 模块内归一化 path_score，重新计算重要性评分（archetype 感知权重）
+    all_files = normalize_path_scores(all_files, modules, archetype=archetype)
 
     # 重新排序（归一化后分数可能变化）
     all_files.sort(key=lambda x: x['importance_score'], reverse=True)
@@ -104,6 +121,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
         'project_name': root.name,
         'project_type': project_types,
         'languages': languages,
+        'archetype': archetype,
         'entry_points': entry_points,
         'modules': modules,
         'core_files': core_files,
@@ -132,6 +150,19 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         with open(cache_path, 'w', encoding='utf-8') as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
+
+        # 保存文件 hash 到 cache，供 detect_changes 复用（避免二次全量扫描）
+        file_hashes = {}
+        for f in all_files:
+            if f.get('hash'):
+                file_hashes[f['path']] = f['hash']
+        hash_cache_path = wiki_dir / 'cache' / 'file-hashes.json'
+        hash_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(hash_cache_path, 'w', encoding='utf-8') as f:
+            json.dump({
+                'cache_schema_version': CACHE_SCHEMA_VERSION,
+                'hashes': file_hashes,
+            }, f, ensure_ascii=False, indent=2)
 
         # 生成 project-digest.md（供 AI 步骤复用的项目概要，避免重复读取 structure.json）
         _generate_project_digest(result, root)

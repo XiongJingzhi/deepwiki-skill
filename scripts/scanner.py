@@ -4,15 +4,17 @@
 支持可选的 parse_cache 和 gitignore_cache 参数以复用已有解析结果。
 """
 
+import hashlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-from common import IGNORE_DIRS, IGNORE_FILES, CODE_EXTENSIONS, should_ignore_path
+from common import IGNORE_DIRS, IGNORE_FILES, CODE_EXTENSIONS, HASH_TRUNCATE_LENGTH, should_ignore_path
 from importance_scoring import calculate_file_importance
 from code_metrics import estimate_complexity, count_important_lines
 
 
-def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None) -> List[Dict[str, Any]]:
+def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None,
+               archetype: str = None, import_degrees: Dict[str, int] = None) -> List[Dict[str, Any]]:
     """
     扫描所有非忽略文件，计算元数据和重要性评分
 
@@ -21,10 +23,15 @@ def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None) -> List[
         gitignore_cache: GitignoreCache 实例（可选）
         parse_cache: {rel_path: cached_entry} 字典（可选），
                      来自 parse-results.json，用于复用 AST 解析结果
+        archetype: 项目原型标签（可选），传递给 calculate_file_importance 用于动态权重
+        import_degrees: {rel_path: in_degree_count} 字典（可选），
+                        每个文件被 import 的次数，用于 importance 评分
 
     返回文件列表，按重要性评分降序排列。
     包含所有文件类型（不仅是代码文件），用于全面的 project view。
     """
+    if import_degrees is None:
+        import_degrees = {}
     files = []
     for f in root_path.rglob('*'):
         if not f.is_file():
@@ -47,11 +54,26 @@ def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None) -> List[
         except OSError:
             size = 0
 
+        # 计算文件 SHA256 hash（截断），供 detect_changes 复用，避免二次遍历
+        file_hash = ""
+        try:
+            sha256 = hashlib.sha256()
+            with open(f, 'rb') as fh:
+                for chunk in iter(lambda: fh.read(8192), b''):
+                    sha256.update(chunk)
+            file_hash = sha256.hexdigest()[:HASH_TRUNCATE_LENGTH]
+        except (OSError, IOError):
+            pass
+
         rel_path = str(f.relative_to(root_path)).replace('\\', '/')
         is_code = ext in CODE_EXTENSIONS
 
         # 获取分数明细（用于后续归一化）
-        breakdown = calculate_file_importance(f, root_path, size, return_breakdown=True)
+        file_import_degree = import_degrees.get(rel_path, 0)
+        breakdown = calculate_file_importance(
+            f, root_path, size, return_breakdown=True,
+            archetype=archetype, import_degree=file_import_degree
+        )
         importance = breakdown['total']
 
         if is_code:
@@ -70,6 +92,7 @@ def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None) -> List[
             'path': rel_path,
             'name': f.name,
             'size': size,
+            'hash': file_hash,
             'extension': ext,
             'is_code': is_code,
             'importance_score': round(importance, 2),
@@ -84,6 +107,7 @@ def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None) -> List[
             'raw_identity_score': breakdown['identity_score'],
             'raw_lang_score': breakdown['lang_score'],
             'raw_size_score': breakdown['size_score'],
+            'raw_import_degree_score': breakdown.get('import_degree_score', 0.0),
         })
 
     # 按重要性评分降序

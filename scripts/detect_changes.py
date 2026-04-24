@@ -17,11 +17,29 @@ from common import (
     IGNORE_DIRS as DEFAULT_EXCLUDES,
     CODE_EXTENSIONS, DOC_EXTENSIONS,
     GitignoreCache, should_ignore_path,
-    CACHE_SCHEMA_VERSION,
+    CACHE_SCHEMA_VERSION, validate_cache_version,
 )
 
 # 模块级 gitignore 缓存实例
 _gitignore_cache = GitignoreCache()
+
+
+def _load_precomputed_hashes(project_path: Path):
+    """从 analyze-project 阶段保存的 file-hashes.json 读取预计算 hash。
+
+    当 file-hashes.json 存在且版本匹配时，直接返回预计算的 {rel_path: hash} dict，
+    避免 detect_changes 再次全量遍历项目文件计算 hash。
+    """
+    hash_cache = project_path / ".deepwiki" / "cache" / "file-hashes.json"
+    if hash_cache.exists():
+        try:
+            with open(hash_cache, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if validate_cache_version(data):
+                return data.get("hashes", {})
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return None
 
 
 def load_config_excludes(project_root: Path) -> Set[str]:
@@ -269,8 +287,12 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
     # 加载 config.yaml 排除规则（与 analyze_project.py 保持一致）
     config_excludes = load_config_excludes(root)
 
-    # 获取当前文件校验和
-    current_checksums = scan_project_files(project_root, excludes, config_excludes)
+    # 获取当前文件校验和（优先使用 scanner 阶段预计算的 hash）
+    precomputed = _load_precomputed_hashes(root)
+    if precomputed is not None:
+        current_checksums = precomputed
+    else:
+        current_checksums = scan_project_files(project_root, excludes, config_excludes)
     
     # 加载缓存的校验和
     cached = load_cached_checksums(str(wiki_dir))

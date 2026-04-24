@@ -1,11 +1,13 @@
 """模块发现与分类 -- 从 analyze_project.py 提取。
 
 负责扫描项目目录结构，发现业务模块，基于文件重要性计算模块优先级。
+支持基于 import 连通分量的模块边界修正分析。
 """
 
 import json
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Any, Set
+from typing import Dict, List, Any, Set, Tuple
 
 from common import IGNORE_DIRS, CODE_EXTENSIONS
 from importance_scoring import calculate_file_importance
@@ -186,3 +188,280 @@ def categorize_module(name: str) -> str:
         return 'test'
     else:
         return 'module'
+
+
+# ── import 连通分量分析 ────────────────────────────────────────────────────────
+
+# 默认阈值常量
+_MERGE_DENSITY_THRESHOLD = 0.5   # 跨模块 import 密度阈值，超过此值且双向引用则建议合并
+_SPLIT_COMPONENT_RATIO = 0.5     # 模块内最大连通分量占比阈值，低于此值则建议拆分
+
+
+def _build_file_to_module_map(
+    modules: List[Dict], project_root: Path
+) -> Dict[str, str]:
+    """构建文件路径 → 模块名的映射。
+
+    根据模块 path 前缀匹配：文件路径以模块 path + '/' 开头，则归属该模块。
+
+    Args:
+        modules: discover_modules 的输出列表
+        project_root: 项目根目录
+
+    Returns:
+        {文件相对路径（正斜杠）: 模块名}
+    """
+    file_to_module: Dict[str, str] = {}
+    for mod in modules:
+        mod_path = mod['path']
+        prefix = mod_path + '/'
+        # 扫描模块目录下的代码文件
+        mod_dir = project_root / mod_path
+        if not mod_dir.exists():
+            continue
+        for f in mod_dir.rglob('*'):
+            if f.is_file() and f.suffix in CODE_EXTENSIONS:
+                rel = str(f.relative_to(project_root)).replace('\\', '/')
+                if rel.startswith(prefix):
+                    file_to_module[rel] = mod['name']
+    return file_to_module
+
+
+def _build_module_adjacency(
+    file_to_module: Dict[str, str],
+    import_relations: Dict[str, List[str]],
+) -> Dict[str, Dict[str, int]]:
+    """将文件级 import 关系聚合为模块级邻接图。
+
+    Args:
+        file_to_module: 文件 → 模块映射
+        import_relations: {文件路径: [被导入文件路径]}
+
+    Returns:
+        {模块A: {模块B: import次数, ...}, ...}
+    """
+    adjacency: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for src_file, targets in import_relations.items():
+        src_mod = file_to_module.get(src_file)
+        if not src_mod:
+            continue
+        for tgt_file in targets:
+            tgt_mod = file_to_module.get(tgt_file)
+            if tgt_mod and tgt_mod != src_mod:
+                adjacency[src_mod][tgt_mod] += 1
+    return dict(adjacency)
+
+
+def _compute_cross_density(
+    mod_a: str, mod_b: str,
+    adjacency: Dict[str, Dict[str, int]],
+    file_to_module: Dict[str, str],
+) -> float:
+    """计算两个模块之间的跨模块 import 密度。
+
+    密度 = (A→B + B→A 的 import 次数) / (A 的文件数 + B 的文件数)
+
+    Args:
+        mod_a, mod_b: 模块名
+        adjacency: 模块邻接图
+        file_to_module: 文件 → 模块映射
+
+    Returns:
+        密度值
+    """
+    count_ab = adjacency.get(mod_a, {}).get(mod_b, 0)
+    count_ba = adjacency.get(mod_b, {}).get(mod_a, 0)
+    cross_imports = count_ab + count_ba
+
+    files_a = sum(1 for m in file_to_module.values() if m == mod_a)
+    files_b = sum(1 for m in file_to_module.values() if m == mod_b)
+    total_files = files_a + files_b
+
+    if total_files == 0:
+        return 0.0
+    return cross_imports / total_files
+
+
+def _compute_internal_components(
+    mod_name: str,
+    file_to_module: Dict[str, str],
+    import_relations: Dict[str, List[str]],
+) -> List[Set[str]]:
+    """计算模块内部的 import 连通分量（仅限模块内文件之间的连接）。
+
+    使用并查集（Union-Find）算法计算连通分量。
+
+    Args:
+        mod_name: 模块名
+        file_to_module: 文件 → 模块映射
+        import_relations: {文件路径: [被导入文件路径]}
+
+    Returns:
+        连通分量列表，每个分量是该模块内文件路径的集合
+    """
+    # 收集该模块的所有文件
+    mod_files = {f for f, m in file_to_module.items() if m == mod_name}
+    if not mod_files:
+        return []
+
+    # 并查集实现
+    parent: Dict[str, str] = {f: f for f in mod_files}
+
+    def find(x: str) -> str:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]  # 路径压缩
+            x = parent[x]
+        return x
+
+    def union(x: str, y: str) -> None:
+        rx, ry = find(x), find(y)
+        if rx != ry:
+            parent[rx] = ry
+
+    # 遍历该模块文件的 import 关系，仅处理模块内部的连接
+    for src_file, targets in import_relations.items():
+        if src_file not in mod_files:
+            continue
+        for tgt_file in targets:
+            if tgt_file in mod_files:
+                union(src_file, tgt_file)
+
+    # 提取连通分量
+    components: Dict[str, Set[str]] = defaultdict(set)
+    for f in mod_files:
+        components[find(f)].add(f)
+
+    return list(components.values())
+
+
+def refine_modules(
+    modules: List[Dict],
+    import_relations: Dict[str, List[str]],
+    project_root: Path,
+    merge_density_threshold: float = _MERGE_DENSITY_THRESHOLD,
+    split_component_ratio: float = _SPLIT_COMPONENT_RATIO,
+) -> List[Dict]:
+    """基于 import 连通分量修正模块边界。
+
+    策略：
+    1. 将 import_relations 聚合到模块级别
+    2. 计算跨模块 import 密度
+    3. 高密度跨模块 import → 建议合并
+    4. 模块内不连通子分量 → 建议拆分
+
+    不实际合并/拆分模块，只在 refine_notes 中给出建议，保持接口稳定。
+
+    Args:
+        modules: discover_modules 的输出
+        import_relations: {file_path: [imported_file_paths]}
+        project_root: 项目根目录
+        merge_density_threshold: 跨模块 import 密度阈值，默认 0.5
+        split_component_ratio: 模块内最大连通分量占比阈值，默认 0.5
+
+    Returns:
+        修正后的模块列表（新增 refine_notes 字段）
+    """
+    # 深拷贝以避免修改原始数据
+    refined = [dict(mod) for mod in modules]
+
+    if not modules or not import_relations:
+        return refined
+
+    # 步骤 1：构建文件 → 模块映射
+    file_to_module = _build_file_to_module_map(modules, project_root)
+
+    # 步骤 2：聚合为模块级邻接图
+    adjacency = _build_module_adjacency(file_to_module, import_relations)
+
+    # 步骤 3：跨模块 import 密度分析 → 检测合并建议
+    seen_pairs: Set[Tuple[str, str]] = set()
+    merge_suggestions: Dict[str, List[str]] = defaultdict(list)
+
+    for mod_a in adjacency:
+        for mod_b in adjacency[mod_a]:
+            pair = tuple(sorted([mod_a, mod_b]))
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+
+            density = _compute_cross_density(mod_a, mod_b, adjacency, file_to_module)
+
+            # 密度超过阈值且双向都有 import → 建议合并
+            count_ab = adjacency.get(mod_a, {}).get(mod_b, 0)
+            count_ba = adjacency.get(mod_b, {}).get(mod_a, 0)
+            if density > merge_density_threshold and count_ab > 0 and count_ba > 0:
+                merge_suggestions[mod_a].append(
+                    f"建议与 [{mod_b}] 合并：跨模块 import 密度 {density:.2f} "
+                    f"(A→B={count_ab}, B→A={count_ba})"
+                )
+                merge_suggestions[mod_b].append(
+                    f"建议与 [{mod_a}] 合并：跨模块 import 密度 {density:.2f} "
+                    f"(B→A={count_ba}, A→B={count_ab})"
+                )
+
+    # 步骤 4：模块内连通分量分析 → 检测拆分建议
+    for mod in refined:
+        mod_name = mod['name']
+        notes = []
+
+        # 添加合并建议（如果有）
+        if mod_name in merge_suggestions:
+            notes.extend(merge_suggestions[mod_name])
+
+        # 分析模块内连通分量
+        components = _compute_internal_components(mod_name, file_to_module, import_relations)
+        if components:
+            total_files = sum(len(c) for c in components)
+            largest = max(len(c) for c in components)
+            if total_files > 0 and largest < total_files * split_component_ratio:
+                num_components = len(components)
+                notes.append(
+                    f"建议拆分：模块内存在 {num_components} 个不连通分量，"
+                    f"最大分量占 {largest}/{total_files} ({largest/total_files:.0%})，"
+                    f"低于阈值 {split_component_ratio:.0%}"
+                )
+
+        if notes:
+            mod['refine_notes'] = '; '.join(notes)
+
+    return refined
+
+
+# ── CLI 入口 ──────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) < 3:
+        print("用法: python module_discovery.py refine <project_path>")
+        sys.exit(1)
+
+    action = sys.argv[1]
+    project_path = Path(sys.argv[2])
+
+    if action == "refine":
+        # 读取 structure.json 和 code-structure.json
+        structure_path = project_path / ".deepwiki" / "cache" / "structure.json"
+        code_structure_path = project_path / ".deepwiki" / "cache" / "code-structure.json"
+
+        with open(structure_path, 'r', encoding='utf-8') as f:
+            structure = json.load(f)
+        with open(code_structure_path, 'r', encoding='utf-8') as f:
+            code_structure = json.load(f)
+
+        modules = structure.get("modules", [])
+        import_relations = code_structure.get("import_relations", {})
+
+        refined = refine_modules(modules, import_relations, project_path)
+
+        # 输出建议
+        has_notes = [m for m in refined if m.get("refine_notes")]
+        if has_notes:
+            print("模块边界修正建议：")
+            for m in has_notes:
+                print(f"  [{m['name']}] {m['refine_notes']}")
+        else:
+            print("模块边界合理，无需修正。")
+    else:
+        print(f"未知操作: {action}")
+        sys.exit(1)

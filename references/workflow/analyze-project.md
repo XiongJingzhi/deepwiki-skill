@@ -24,5 +24,4 @@
 
 ## 注意事项
 
-- **扁平结构项目**：`analyze_project.py` 会自动跳过 `scripts/`、`plugins/`、`docs/`、`tests/` 等非业务目录。如仍有误识别，可在 `.deepwiki/config.yaml` 的 `exclude` 中手动补充。
-- 应用 `after_analyze` 插件钩子（纯文本指引）优化分析结果。
+- **扁平结构项目**：`analyze_project.py` 会自动跳过 `scripts/`、`docs/`、`tests/` 等非业务目录。如仍有误识别，可在 `.deepwiki/config.yaml` 的 `exclude` 中手动补充。

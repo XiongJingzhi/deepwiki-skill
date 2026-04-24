@@ -37,7 +37,7 @@ CODE_EXTENSIONS = {
 DOC_EXTENSIONS = {'.md', '.mdx', '.rst', '.txt'}
 
 # 缓存 schema 版本号 —— 任一缓存文件格式变更时递增此值
-CACHE_SCHEMA_VERSION = 1
+CACHE_SCHEMA_VERSION = 2
 
 # ── 分析参数常量 ──────────────────────────────────────────────────────────
 HASH_TRUNCATE_LENGTH = 16          # SHA256 hash 截断长度（位）

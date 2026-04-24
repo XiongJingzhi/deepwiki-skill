@@ -1,6 +1,6 @@
 # init-wiki：初始化
 
-> init-wiki，检查并准备 `.deepwiki/` 目录结构，加载插件。
+> init-wiki，检查并准备 `.deepwiki/` 目录结构。
 
 
 ## 契約
@@ -24,11 +24,3 @@
   python scripts/init_wiki.py <项目目录绝对路径> --force
   ```
 - **已存在**：读取项目目录下的 `config.yaml` 和 `cache/structure.json` 获取增量更新上下文。检查 `meta.json` 的版本兼容性。
-
-## 加载插件
-
-从技能目录的 `plugins/_registry.yaml` 加载已启用的插件，读取每个插件的 `PLUGIN.md`，注册钩子。
-
-对比每个插件的 `min_version` 与 `meta.json` 的 `version` 字段，跳过不兼容的插件并记录警告。
-
-应用 `on_init` 钩子指引。

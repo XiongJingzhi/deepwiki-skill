@@ -22,9 +22,9 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 
 **主路径（全量/增量）：**
 
-`init-wiki` → `analyze-project` → `extract-structure` → `generate-skeleton` → `detect-changes` → `extract-docs` → `check-analysis-quality`
+`init-wiki` → `analyze-project` → `extract-structure` → `refine-modules` → `generate-skeleton` → `detect-changes` → `extract-docs` → `check-analysis-quality`
 
-- **pass（exit=0）**：→ `synthesize-deps` → `generate-overview` → `generate-menu` → `generate-module-docs` → 完成
+- **pass（exit=0）**：→ `synthesize-deps` → `generate-overview` → `generate-menu` → `generate-module-docs` → `check-cross-module-consistency` → 完成
 - **fail（exit≠0）**：增量补充分析 → 重跑 `check-analysis-quality`
 
 **快捷路径：**
@@ -40,6 +40,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `init-wiki` | [references/workflow/init-wiki.md](references/workflow/init-wiki.md) |
 | `analyze-project` | [references/workflow/analyze-project.md](references/workflow/analyze-project.md) |
 | `extract-structure` | [references/workflow/extract-structure.md](references/workflow/extract-structure.md) |
+| `refine-modules` | [references/workflow/refine-modules.md](references/workflow/refine-modules.md) |
 | `generate-skeleton` | [references/workflow/generate-skeleton.md](references/workflow/generate-skeleton.md) |
 | `detect-changes` | [references/workflow/detect-changes.md](references/workflow/detect-changes.md) |
 | `extract-docs` | [references/workflow/extract-docs.md](references/workflow/extract-docs.md) |
@@ -49,7 +50,8 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `generate-overview` | [references/workflow/generate-overview.md](references/workflow/generate-overview.md) |
 | `generate-menu` | [references/workflow/generate-menu.md](references/workflow/generate-menu.md) |
 | `generate-module-docs` | [references/workflow/generate-module-docs.md](references/workflow/generate-module-docs.md) |
-| `file-role-classification`（规则） | [references/rules/file-role-classification.md](references/rules/file-role-classification.md) |
+| `check-cross-module-consistency` | 脚本：`scripts/check_cross_module_consistency.py`（详见 [`generate-module-docs.md`](references/workflow/generate-module-docs.md)） |
+| `codepurpose-detection`（规则） | [references/rules/codepurpose-detection.md](references/rules/codepurpose-detection.md) |
 | `analysis-output-spec`（规范） | [references/rules/analysis-output-spec.md](references/rules/analysis-output-spec.md) |
 
 ## 不适用场景
@@ -86,7 +88,3 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 ```
 
 > 所有输出文件的完整用途说明见 [`references/system-reference.md`](references/system-reference.md)。
-
-## 插件协议
-
-> 完整协议说明（钩子类型、加载流程、安全约束）见 [`references/plugin.md`](references/plugin.md)。

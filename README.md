@@ -52,41 +52,6 @@ DeepWiki 是一个 [skills.sh](https://skills.sh) 兼容的技能包，让 AI Ag
 🤖 "更新 wiki"
 ```
 
-### 插件命令
-
-插件采用**纯指令模式**，Agent 读取插件 `PLUGIN.md` 并在对应钩子阶段应用指令，不会执行任何插件代码。
-
-```
-📋 "列出插件"
-📦 "安装插件 <source>"
-🔄 "更新插件 <name>"
-✅ "启用插件 <name>"
-❌ "禁用插件 <name>"
-```
-
-**安装来源:**
-- **GitHub**: `owner/repo`（例如 `vercel-labs/agent-skills`）
-- **URL**: `https://example.com/plugin.zip`
-- **本地**: `./plugins/my-plugin`
-
-### 插件工作原理
-
-DeepWiki 采用 **指令型插件系统**。当你运行任务时：
-1. AI 读取 `plugins/_registry.yaml`
-2. AI 读取启用插件的 `PLUGIN.md` 指令
-3. AI 在特定的 **Hooks**（如 `before_generate`, `on_export`）**应用插件指令（仅文本）**
-
-**执行模型（安全说明）**：
-- 插件为**纯指令**，Agent **不会执行**插件代码或脚本。
-- `PLUGIN.md` 中的 CLI 命令仅供人工操作，Agent 不应执行。
-
-### 内置插件
-
-- `code-complexity`: 代码健康度与复杂度分析
-- `repo-analytics`: 多维度 Git 分析与健康度评分
-- `api-doc-enhancer`: 深度语义 API 文档生成
-- `changelog-generator`: 从 Git 生成变更日志
-
 ---
 
 ## 📁 输出结构
@@ -139,9 +104,7 @@ deepwiki/
 ├── references/           # 工作流详细规则和提示词
 ├── schemas/              # JSON Schema 定义
 ├── assets/               # 配置模板
-├── tests/                # 自动化测试套件
-└── plugins/              # 插件目录
-    └── _registry.yaml
+└── tests/                # 自动化测试套件
 ```
 
 ---

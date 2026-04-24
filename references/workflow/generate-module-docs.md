@@ -7,7 +7,7 @@
 
 | 項 | 値 |
 |----|-----|
-| **脚本** | `python scripts/generate_menu.py ... --reconcile`、`fix_mermaid.py`、`check_doc_quality.py` |
+| **脚本** | `python scripts/generate_menu.py ... --reconcile`、`fix_mermaid.py`、`check_doc_quality.py`、`check_cross_module_consistency.py` |
 | **输入** | `cache/module-analysis.json`、`wiki/menu.json`、RelationshipSummary |
 | **输出** | `wiki/modules/*.md`、`wiki/api/*.md`、`wiki/menu.json`（校验后） |
 | **前置** | `generate-menu` |
@@ -150,7 +150,7 @@ flowchart LR
 python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项目名称] --reconcile
 ```
 
-之后依次应用 `after_generate` 插件钩子和 `on_export` 插件钩子（用于知识库导出、格式转换等后处理）。更新 `cache/progress.json` 的 `phases.details.status` 为 `completed`。
+更新 `cache/progress.json` 的 `phases.details.status` 为 `completed`。
 
 ## Mermaid 语法修复
 
@@ -199,3 +199,27 @@ python scripts/check_doc_quality.py <项目目录绝对路径>/.deepwiki
 3. **跳过 init-wiki 到 extract-structure**，直接从 **extract-docs** 重新执行 → generate-module-docs（生成阶段），仅针对 Basic 模块
 4. 重新生成后再次运行 `check_doc_quality.py` 确认达标
 5. 若二次生成仍为 Basic，记录到 `meta.json` 的 `quality_issues` 字段并告知用户，不再强制重试
+
+## 跨模块一致性检查
+
+在文档质量检查之后，运行跨模块一致性检查，确认模块间接口引用和依赖方向的一致性：
+
+```bash
+python scripts/check_cross_module_consistency.py <项目目录绝对路径>/.deepwiki
+```
+
+### 检查维度
+
+| 维度 | 说明 | 严重级别 |
+|------|------|----------|
+| 接口覆盖率 | 模块 A 引用模块 B 的接口 → B 的文档是否记录了该接口 | warning |
+| 依赖方向分组一致性 | 跨 menu 分组的双向依赖 → 分组是否合理 | info（建议） |
+
+### 退出码
+
+| 退出码 | 含义 | 处理方式 |
+|--------|------|----------|
+| 0 | 通过（无错误） | 流程正常结束 |
+| 1 | 存在错误 | 非阻塞 — 警告和建议不影响整体质量评估，但应告知用户 |
+
+> **重要**：跨模块一致性检查是**非阻塞**的。即使退出码为 1，也仅表示存在警告或建议，不应触发文档重新生成。其目的是帮助发现潜在的文档缺失和分组不合理问题，供用户参考优化。

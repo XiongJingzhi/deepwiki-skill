@@ -1,7 +1,29 @@
 """文件重要性评分、归一化"""
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Union
+
+
+# ---- archetype 感知权重配置 ----
+# 各 archetype 对应的维度权重（path / identity / language / size / import_degree）
+ARCHETYPE_WEIGHTS: Dict[str, Dict[str, float]] = {
+    "fullstack-framework": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "agent-project": {"path": 0.20, "identity": 0.30, "language": 0.20, "size": 0.10, "import_degree": 0.20},
+    "ml-project": {"path": 0.25, "identity": 0.20, "language": 0.25, "size": 0.10, "import_degree": 0.20},
+    "web-service": {"path": 0.30, "identity": 0.25, "language": 0.20, "size": 0.10, "import_degree": 0.15},
+    "spa-frontend": {"path": 0.20, "identity": 0.20, "language": 0.25, "size": 0.15, "import_degree": 0.20},
+    "cli-tool": {"path": 0.20, "identity": 0.30, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "sdk-library": {"path": 0.15, "identity": 0.20, "language": 0.30, "size": 0.10, "import_degree": 0.25},
+    "data-pipeline": {"path": 0.25, "identity": 0.20, "language": 0.25, "size": 0.10, "import_degree": 0.20},
+    "microservice": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "desktop-app": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "mobile-app": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "serverless": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "generic": {"path": 0.30, "identity": 0.25, "language": 0.30, "size": 0.15, "import_degree": 0.00},
+}
+
+# 默认权重（无 archetype 或未识别时使用，import_degree 权重为 0 以保持向后兼容）
+DEFAULT_WEIGHTS = ARCHETYPE_WEIGHTS["generic"]
 
 
 # ---- 文件重要性评分因子 ----
@@ -48,31 +70,40 @@ TEMPLATE_EXTENSIONS = {'.html', '.htm', '.hbs', '.mustache', '.ejs', '.jinja2', 
 LOCK_EXTENSIONS = {'.lock', '.lockb'}
 
 
-def calculate_file_importance(file_path: Path, root_path: Path, size: int, return_breakdown: bool = False):
+def calculate_file_importance(file_path: Path, root_path: Path, size: int,
+                              return_breakdown: bool = False,
+                              archetype: Optional[str] = None,
+                              import_degree: int = 0) -> Union[float, dict]:
     """
     使用分组互斥加权模型计算文件重要性评分 (0.0 - 1.0)
 
-    将所有因子划分为 4 个独立分组，每组内部互斥取最高分，
+    将所有因子划分为 5 个独立分组，每组内部互斥取最高分，
     组间加权求和，避免原线性累加模型导致的分数堆叠问题。
+    权重根据 archetype 动态调整。
 
-    分组及权重：
-    - 路径组 (30%)：文件所在目录对重要性的贡献，互斥取最高
+    分组：
+    - 路径组：文件所在目录对重要性的贡献，互斥取最高
         src/lib → 1.0 | cmd/bin → 0.8 | 数据库路径 → 0.6 | 根目录 → 0.3
-    - 身份组 (25%)：文件名/路径语义对重要性的贡献，互斥取最高
+    - 身份组：文件名/路径语义对重要性的贡献，互斥取最高
         入口点(main/index/app/mod) → 1.0 | 业务关键词(文件名) → 0.8
         业务关键词(目录名) → 0.5 | 配置/setup → 0.3
-    - 语言组 (30%)：扩展名对重要性的贡献，互斥取最高
+    - 语言组：扩展名对重要性的贡献，互斥取最高
         主要语言(.py/.go/.rs/.java等) → 1.0 | JS/TS/前端 → 1.0
         DB(.sql/.graphql) → 0.9 | 构建文件 → 0.5
         配置(.yaml/.json等) → 0.4 | 样式/模板 → 0.3 | 锁文件 → 0.1
-    - 大小组 (15%)：文件体积对重要性的贡献，互斥取最高
+    - 大小组：文件体积对重要性的贡献，互斥取最高
         1KB-50KB(适中) → 1.0 | 100B-1KB(小文件) → 0.5
+    - 入度组：文件被其他文件 import 的次数
+        10 次以上 → 1.0 | 线性归一化到 0-1
 
     Args:
         file_path: 文件路径
         root_path: 项目根路径
         size: 文件大小（字节）
         return_breakdown: 是否返回各组分数明细
+        archetype: 项目原型标签（如 "web-service"），用于动态调整权重；
+                   为 None 时使用默认权重（import_degree 权重为 0，向后兼容）
+        import_degree: 该文件被其他文件 import 的次数（入度）
 
     Returns:
         float: 总分（默认）
@@ -146,12 +177,19 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int, retur
     else:
         size_score = 0.0
 
-    # ── 加权求和 ──────────────────────────────────────────────────────────────
+    # ── 入度组 (import_degree) ──────────────────────────────────────────────
+    # 归一化到 0-1，10 次以上 import = 最高分
+    import_degree_score = min(import_degree / 10.0, 1.0)
+
+    # ── 加权求和（archetype 感知）─────────────────────────────────────────────
+    weights = ARCHETYPE_WEIGHTS.get(archetype, DEFAULT_WEIGHTS) if archetype else DEFAULT_WEIGHTS
+
     score = (
-        path_score     * 0.30 +
-        identity_score * 0.25 +
-        lang_score     * 0.30 +
-        size_score     * 0.15
+        path_score             * weights["path"] +
+        identity_score         * weights["identity"] +
+        lang_score             * weights["language"] +
+        size_score             * weights["size"] +
+        import_degree_score    * weights["import_degree"]
     )
     final_score = round(min(score, 1.0), 4)
 
@@ -162,6 +200,8 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int, retur
             'identity_score': identity_score,
             'lang_score': lang_score,
             'size_score': size_score,
+            'import_degree_score': import_degree_score,
+            'weights': dict(weights),
         }
     return final_score
 
@@ -180,7 +220,8 @@ def _percentile_to_score(percentile: float) -> float:
         return 0.2
 
 
-def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, Any]],
+                          archetype: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     模块内百分位归一化 path_score，重新计算重要性评分。
 
@@ -189,17 +230,22 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
 
     方法：在每个模块内部，按 raw_path_score 计算百分位排名，
     将百分位映射为归一化后的 path_score_normalized，
-    然后重新计算总重要性评分。
+    然后使用 archetype 对应的动态权重重新计算总重要性评分。
+    import_degree 不参与百分位归一化（它是全局信号），保持原值。
 
     Args:
         files: 文件列表（需包含 raw_path_score 字段）
         modules: 模块列表（需包含 path 字段）
+        archetype: 项目原型标签（如 "web-service"），用于动态调整权重
 
     Returns:
         更新后的文件列表（含 path_score_normalized 和重新计算的 importance_score）
     """
     if not files or not modules:
         return files
+
+    # 获取 archetype 对应权重
+    weights = ARCHETYPE_WEIGHTS.get(archetype, DEFAULT_WEIGHTS) if archetype else DEFAULT_WEIGHTS
 
     # 按模块分组文件
     for mod in modules:
@@ -215,11 +261,13 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
             # 模块内少于 2 个文件，跳过百分位计算，但仍需设置归一化字段和重算评分
             for f in mod_files:
                 f['path_score_normalized'] = f.get('raw_path_score', 1.0)
+                import_deg_score = f.get('raw_import_degree_score', 0.0)
                 new_score = (
-                    f['path_score_normalized'] * 0.30 +
-                    f.get('raw_identity_score', 0.0) * 0.25 +
-                    f.get('raw_lang_score', 0.0) * 0.30 +
-                    f.get('raw_size_score', 0.0) * 0.15
+                    f['path_score_normalized'] * weights["path"] +
+                    f.get('raw_identity_score', 0.0) * weights["identity"] +
+                    f.get('raw_lang_score', 0.0) * weights["language"] +
+                    f.get('raw_size_score', 0.0) * weights["size"] +
+                    import_deg_score * weights["import_degree"]
                 )
                 f['importance_score'] = round(min(new_score, 1.0), 2)
                 f['is_core'] = f['importance_score'] >= 0.5
@@ -234,12 +282,14 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
             percentile = sum(1 for s in path_scores if s < raw_score) / len(path_scores)
             f['path_score_normalized'] = _percentile_to_score(percentile)
 
-            # 重新计算重要性评分（使用归一化后的 path_score）
+            # 重新计算重要性评分（使用归一化后的 path_score + archetype 动态权重）
+            import_deg_score = f.get('raw_import_degree_score', 0.0)
             new_score = (
-                f['path_score_normalized'] * 0.30 +
-                f.get('raw_identity_score', 0.0) * 0.25 +
-                f.get('raw_lang_score', 0.0) * 0.30 +
-                f.get('raw_size_score', 0.0) * 0.15
+                f['path_score_normalized'] * weights["path"] +
+                f.get('raw_identity_score', 0.0) * weights["identity"] +
+                f.get('raw_lang_score', 0.0) * weights["language"] +
+                f.get('raw_size_score', 0.0) * weights["size"] +
+                import_deg_score * weights["import_degree"]
             )
             f['importance_score'] = round(min(new_score, 1.0), 2)
             f['is_core'] = f['importance_score'] >= 0.5

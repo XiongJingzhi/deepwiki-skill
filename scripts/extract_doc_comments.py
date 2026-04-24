@@ -7,6 +7,7 @@
 使用 tree-sitter AST 解析（通过 parsers.py），替代旧的 regex 实现。
 """
 
+import json
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -722,11 +723,19 @@ def _extract_rust_doc_comments(root, source: bytes, file_path: str) -> List[DocE
 # Main per-language dispatcher (tree-sitter based)
 # ---------------------------------------------------------------------------
 
-def _extract_doc_entries(source: bytes, lang_name: str, file_path: str) -> List[DocEntry]:
-    """Extract doc comment entries using tree-sitter AST parsing."""
-    mgr = get_manager()
-    parser = mgr.get_parser(lang_name)
-    tree = parser.parse(source)
+def _extract_doc_entries(source: bytes, lang_name: str, file_path: str, tree=None) -> List[DocEntry]:
+    """Extract doc comment entries using tree-sitter AST parsing.
+
+    Args:
+        source: 文件原始字节内容
+        lang_name: 语言名称
+        file_path: 文件路径（用于 DocEntry.file_path）
+        tree: 可选的预解析 tree-sitter Tree 对象，传入则跳过重复解析
+    """
+    if tree is None:
+        mgr = get_manager()
+        parser = mgr.get_parser(lang_name)
+        tree = parser.parse(source)
     root = tree.root_node
 
     if root.has_error and root.child_count == 0:
@@ -747,11 +756,47 @@ def _extract_doc_entries(source: bytes, lang_name: str, file_path: str) -> List[
 
 
 # ---------------------------------------------------------------------------
-# Public API (unchanged signature)
+# 缓存读取辅助函数
 # ---------------------------------------------------------------------------
 
-def extract_jsdoc(content: str, file_path: str) -> List[DocEntry]:
+def _read_doc_entries_from_cache(file_path: str, project_root: str) -> Optional[List[DocEntry]]:
+    """尝试从 parse-results.json 缓存中读取文档条目。
+
+    Args:
+        file_path: 文件的绝对路径或项目根相对路径
+        project_root: 项目根目录路径
+
+    Returns:
+        缓存的 DocEntry 列表，如果缓存未命中则返回 None
+    """
+    try:
+        cache_path = Path(project_root) / ".deepwiki" / "cache" / "parse-results.json"
+        if not cache_path.exists():
+            return None
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        rel_path = str(Path(file_path).relative_to(project_root)).replace('\\', '/')
+        files_data = data.get("files", {})
+        if rel_path in files_data:
+            cached = files_data[rel_path].get("doc_entries", [])
+            if cached:
+                return [DocEntry(**entry) for entry in cached]
+    except (json.JSONDecodeError, KeyError, ValueError, OSError):
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Public API（所有新参数均为可选，保持向后兼容）
+# ---------------------------------------------------------------------------
+
+def extract_jsdoc(content: str, file_path: str, project_root: str = None) -> List[DocEntry]:
     """从 JavaScript/TypeScript 文件中提取 JSDoc 注释"""
+    # 尝试从缓存读取
+    if project_root:
+        cached = _read_doc_entries_from_cache(file_path, project_root)
+        if cached is not None:
+            return cached
     source = content.encode('utf-8')
     # Infer lang from file_path extension
     path = Path(file_path)
@@ -759,38 +804,60 @@ def extract_jsdoc(content: str, file_path: str) -> List[DocEntry]:
     return _extract_doc_entries(source, lang, file_path)
 
 
-def extract_python_docstring(content: str, file_path: str) -> List[DocEntry]:
+def extract_python_docstring(content: str, file_path: str, project_root: str = None) -> List[DocEntry]:
     """从 Python 文件中提取 DocString"""
+    if project_root:
+        cached = _read_doc_entries_from_cache(file_path, project_root)
+        if cached is not None:
+            return cached
     source = content.encode('utf-8')
     return _extract_doc_entries(source, 'python', file_path)
 
 
-def extract_go_docs(content: str, file_path: str) -> List[DocEntry]:
+def extract_go_docs(content: str, file_path: str, project_root: str = None) -> List[DocEntry]:
     """从 Go 文件中提取文档注释"""
+    if project_root:
+        cached = _read_doc_entries_from_cache(file_path, project_root)
+        if cached is not None:
+            return cached
     source = content.encode('utf-8')
     return _extract_doc_entries(source, 'go', file_path)
 
 
-def extract_java_docs(content: str, file_path: str) -> List[DocEntry]:
+def extract_java_docs(content: str, file_path: str, project_root: str = None) -> List[DocEntry]:
     """从 Java/Kotlin 文件中提取 Javadoc"""
+    if project_root:
+        cached = _read_doc_entries_from_cache(file_path, project_root)
+        if cached is not None:
+            return cached
     source = content.encode('utf-8')
     path = Path(file_path)
     lang = 'kotlin' if path.suffix.lower() == '.kt' else 'java'
     return _extract_doc_entries(source, lang, file_path)
 
 
-def extract_rust_docs(content: str, file_path: str) -> List[DocEntry]:
+def extract_rust_docs(content: str, file_path: str, project_root: str = None) -> List[DocEntry]:
     """从 Rust 文件中提取文档注释"""
+    if project_root:
+        cached = _read_doc_entries_from_cache(file_path, project_root)
+        if cached is not None:
+            return cached
     source = content.encode('utf-8')
     return _extract_doc_entries(source, 'rust', file_path)
 
 
-def extract_docs_from_file(file_path: str) -> List[DocEntry]:
+def extract_docs_from_file(file_path: str, project_root: str = None) -> List[DocEntry]:
     """从文件中提取文档"""
     path = Path(file_path)
 
     if not path.exists():
         return []
+
+    # 尝试从 parse-results.json 缓存读取
+    if project_root:
+        cached = _read_doc_entries_from_cache(file_path, project_root)
+        if cached is not None:
+            return cached
 
     with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         content = f.read()

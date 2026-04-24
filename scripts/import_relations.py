@@ -184,3 +184,21 @@ def _find_module_in_project(module_name: str, project_root: Path, source_ext: st
                 break
 
     return candidates
+
+
+def compute_in_degree(import_relations: Dict[str, List[str]]) -> Dict[str, int]:
+    """计算每个文件被 import 的次数（入度）。
+
+    Args:
+        import_relations: {file_path: [imported_file_paths]}
+
+    Returns:
+        {file_path: in_degree_count}
+    """
+    in_degree: Dict[str, int] = {}
+    for source, targets in import_relations.items():
+        for target in targets:
+            # 标准化路径分隔符
+            target_normalized = target.replace('\\', '/')
+            in_degree[target_normalized] = in_degree.get(target_normalized, 0) + 1
+    return in_degree

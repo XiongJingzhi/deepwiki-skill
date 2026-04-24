@@ -111,13 +111,27 @@ class ParseCache:
                 continue
 
     def save(self):
-        """Write cache to disk."""
+        """Write cache to disk（merge 模式，保留磁盘上已有的非本次写入文件的数据）。"""
         import os
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         path = self.cache_dir / "parse-results.json"
+
+        # 读取磁盘上已有的数据，进行合并
+        existing_files = {}
+        if path.exists():
+            try:
+                existing_data = json.loads(path.read_text('utf-8'))
+                if existing_data.get('cache_schema_version') == CACHE_SCHEMA_VERSION:
+                    existing_files = existing_data.get('files', {})
+            except Exception:
+                pass
+
+        # 本次数据覆盖已有数据，不在本次范围内的文件保留
+        merged_files = {**existing_files, **self._data}
+
         data = {
             "cache_schema_version": CACHE_SCHEMA_VERSION,
-            "files": self._data,
+            "files": merged_files,
         }
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)

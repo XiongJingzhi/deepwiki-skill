@@ -1,6 +1,6 @@
 # generate-overview：生成概览文档
 
-> generate-overview，应用 `before_generate` 钩子后，基于init-wiki 到 synthesize-deps 的分析结果生成全局概览文档。这些文档不依赖具体模块的详细文档，可直接产出。
+> generate-overview，基于 init-wiki 到 synthesize-deps 的分析结果生成全局概览文档。这些文档不依赖具体模块的详细文档，可直接产出。
 
 
 ## 契約
