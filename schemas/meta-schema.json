@@ -10,6 +10,10 @@
       "type": "string",
       "description": "DeepWiki version that generated this wiki (e.g., '2.0.0')"
     },
+    "cache_contract_version": {
+      "type": ["string", "null"],
+      "description": "Version tag for the cache contract set used during this generation run"
+    },
     "generated_at": {
       "type": "string",
       "format": "date-time",

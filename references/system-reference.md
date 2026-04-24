@@ -17,6 +17,9 @@
 | `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
 | `cache/architecture-skeleton.json` | `generate-skeleton` AI段生成的全局架构骨架，供 `extract-docs`～`generate-module-docs` 注入全局上下文（含模块分组、架构分层、关键数据流） |
 | `cache/module-analysis.json` | `extract-docs` 语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供 `synthesize-deps` 和 `generate-module-docs` 复用 |
+| `cache/doc-topology.json` | 文档拓扑规划结果：页面列表、页面类型、阅读顺序、页面覆盖的模块或主题。供 `generate-overview`、`generate-menu`、`generate-module-docs` 优先读取；缺失时允许退回磁盘扫描和骨架推断 |
+| `cache/generation-plan.json` | 本轮编译计划：要生成的页面、依赖的缓存文件、受影响页面、可跳过页面。供增量更新、菜单生成和页面编译阶段复用 |
+| `cache/evidence-index.json` | 证据索引：关键结论到源码事实的映射（文件、行号、调用链、导入关系、入口链路）。供质量检查和跨页面一致性检查使用 |
 | `cache/progress.json` | 分阶段任务状态机（overview/menu/details 三阶段，每模块 pending/in_progress/completed/failed，含 subagent/serial 模式标记） |
 | `wiki/overview.md` | 项目概览文档，含项目定位、技术栈、系统架构图、模块列表（`generate-overview` 生成） |
 | `wiki/getting-started.md` | 快速开始文档，含前置条件、安装步骤、第一个示例、常见问题 |
@@ -24,6 +27,24 @@
 | `wiki/menu.json` | 层级化导航菜单（概览 → 模块 → 更多），自动由 `generate_menu.py` 生成 |
 | `wiki/modules/` | 每个项目模块一个文件，含深度分析 |
 | `wiki/api/` | 每个模块的 API 参考，含签名、类型和示例 |
+
+## 缓存契约索引
+
+> 下表描述 `.deepwiki/cache/` 中间表示的生产者、消费者、AI 写入边界和增量复用策略。对 skill 而言，这些缓存文件是“源码认知编译链”的事实基础，而不是实现细节。
+
+| 缓存文件 | 生产阶段 | 消费阶段 | 是否允许 AI 写入 | 是否允许增量复用 |
+|---------|---------|---------|------------------|------------------|
+| `cache/structure.json` | `analyze-project` | `extract-structure`、`generate-skeleton`、`detect-changes`、`plan-doc-topology` | 否 | 是 |
+| `cache/file-hashes.json` | `analyze-project` | `detect-changes` | 否 | 是 |
+| `cache/parse-results.json` | `extract-structure` | `analyze-project`、后续 AST 相关步骤 | 否 | 是 |
+| `cache/code-structure.json` | `extract-structure` | `generate-skeleton`、`extract-docs`、`synthesize-deps`、`plan-doc-topology`、质量检查 | 否 | 是 |
+| `cache/architecture-skeleton.json` | `generate-skeleton` | `extract-docs`、`generate-overview`、`generate-module-docs`、`generate-menu` | 是 | 有条件，建议结合变更重新生成 |
+| `cache/module-analysis.json` | `extract-docs` | `check-analysis-quality`、`synthesize-deps`、`plan-doc-topology`、`generate-module-docs` | 是 | 是，按模块增量覆盖 |
+| `cache/doc-topology.json` | `plan-doc-topology` | `generate-overview`、`generate-menu`、`generate-module-docs`、增量更新 | 是，建议以结构化模板输出 | 是，需按页面或主题局部重算 |
+| `cache/generation-plan.json` | `plan-doc-topology` | `generate-overview`、`generate-menu`、`generate-module-docs`、`detect-changes` | 否，优先由脚本生成 | 是 |
+| `cache/evidence-index.json` | `build-evidence-index` 或文档编译后处理 | `check_doc_quality`、`check_cross_module_consistency` | 否，优先由脚本生成 | 是，按页面或 claim 局部更新 |
+| `cache/checksums.json` | `detect-changes` | `detect-changes` | 否 | 是 |
+| `cache/progress.json` | 多阶段协作更新 | 全流程恢复与重试 | 否 | 是 |
 
 ## 脚本参考（scripts/）
 

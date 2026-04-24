@@ -96,3 +96,105 @@
 ⚠️ [extract-docs] 写入 module-analysis.json 失败（模块：<name>）：<错误信息>
    synthesize-deps 和 generate-module-docs 将降级为从上下文窗口读取分析结果。
 ```
+
+---
+
+## `doc-topology.json` 输出规范
+
+> `doc-topology.json` 是 Documentation Planning Layer 的主契约，描述“页面应该如何组织”，而不是“源码目录长什么样”。
+
+### 写入路径
+
+```
+<项目目录>/.deepwiki/cache/doc-topology.json
+```
+
+### 最小字段
+
+| 字段 | 说明 |
+|------|------|
+| `pages` | 页面列表，每项至少包含 `id`、`type`、`title` |
+| `pages[].source_modules` | 该页面覆盖的源码模块或主题集合 |
+| `pages[].output_path` | 目标文档路径（如 `wiki/overview.md`） |
+| `pages[].depends_on` | 上游页面或缓存依赖 |
+| `reading_order` | 推荐阅读顺序 |
+| `groupings` | 页面分组，如 `overview` / `runtime` / `state` / `modules` / `api` |
+
+### 字段语义
+
+- `pages` 代表文档知识树中的节点，而不是磁盘上已存在的文件
+- `source_modules` 可为空数组，仅用于纯导航或索引页
+- `depends_on` 允许引用缓存文件 id 或其他页面 id
+- `groupings` 用于 `generate-menu` 构造稳定菜单结构
+
+### 降级策略
+
+- 若 `doc-topology.json` 不存在，`generate-menu` 和文档生成可退回骨架分组 + 磁盘扫描
+- 若内容不完整，至少保留 overview / getting-started / doc-map / modules / api 的基础页面集合
+
+---
+
+## `generation-plan.json` 输出规范
+
+> `generation-plan.json` 描述“本轮具体要编译什么”，它比 `doc-topology.json` 更贴近一次实际执行。
+
+### 写入路径
+
+```
+<项目目录>/.deepwiki/cache/generation-plan.json
+```
+
+### 最小字段
+
+| 字段 | 说明 |
+|------|------|
+| `pages` | 本轮待生成或待更新页面列表 |
+| `pages[].page_id` | 对应 `doc-topology.json` 中的页面 id |
+| `pages[].inputs` | 该页面依赖的缓存文件集合 |
+| `pages[].affected_modules` | 该页面依赖的模块集合 |
+| `pages[].action` | `create` / `update` / `skip` |
+| `recompile_all` | 是否需要全量重编译 |
+
+### 字段语义
+
+- `inputs` 用于帮助增量流程判断页面是否需要重算
+- `affected_modules` 是模块到页面的映射桥
+- `action` 是编译建议，不代表最终文件系统状态
+
+### 降级策略
+
+- 若 `generation-plan.json` 缺失，默认退回全量编译
+- 若仅部分页面缺失计划项，未命中的页面按 `create` 处理
+
+---
+
+## `evidence-index.json` 输出规范
+
+> `evidence-index.json` 把“文档中的关键结论”与“源码中的可验证事实”关联起来，是后续质量门控的基础。
+
+### 写入路径
+
+```
+<项目目录>/.deepwiki/cache/evidence-index.json
+```
+
+### 最小字段
+
+| 字段 | 说明 |
+|------|------|
+| `claims` | 关键结论列表 |
+| `claims[].claim_id` | 结论唯一标识 |
+| `claims[].page_id` | 该结论所属页面 |
+| `claims[].claim_text` | 结论摘要 |
+| `claims[].evidence` | 源码证据列表 |
+| `claims[].confidence` | `high` / `medium` / `low` |
+
+### 字段语义
+
+- `evidence` 可引用文件路径、行号范围、调用图节点、导入关系或入口链路
+- `confidence` 用于文档质量检查时的错误等级区分
+
+### 降级策略
+
+- 若证据索引缺失，质量检查应至少给出 warning，而不是静默跳过
+- 若只有部分页面建立索引，只对已索引页面执行严格校验
