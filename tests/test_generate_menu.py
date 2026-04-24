@@ -264,6 +264,53 @@ class TestBuildMenu:
         menu = generate_menu.build_menu(str(wiki))
         assert menu["title"] == ""
 
+    def test_topology_groups_override_default_grouping(self, tmp_path):
+        """When doc-topology.json exists, menu should follow planned groupings first."""
+        wiki = tmp_path / "wiki"
+        (wiki / "modules").mkdir(parents=True)
+        (wiki / "api").mkdir(parents=True)
+        cache = tmp_path / "cache"
+        cache.mkdir()
+
+        (cache / "doc-topology.json").write_text(
+            json.dumps(
+                {
+                    "pages": [
+                        {
+                            "id": "overview",
+                            "type": "overview",
+                            "title": "Overview",
+                            "output_path": "wiki/overview.md",
+                        },
+                        {
+                            "id": "module:auth",
+                            "type": "module",
+                            "title": "Auth",
+                            "output_path": "wiki/modules/auth.md",
+                        },
+                        {
+                            "id": "api:auth",
+                            "type": "api",
+                            "title": "Auth API",
+                            "output_path": "wiki/api/auth.md",
+                        },
+                    ],
+                    "groupings": {
+                        "overview": ["overview"],
+                        "Core Flows": ["module:auth"],
+                        "API Surface": ["api:auth"],
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        section_titles = [section["title"] for section in menu["menu"]]
+        assert "Core Flows" in section_titles
+        assert "API Surface" in section_titles
+
     def test_nonexistent_dir_returns_empty_menu(self, tmp_path):
         """Nonexistent wiki directory returns an empty menu structure."""
         menu = generate_menu.build_menu(str(tmp_path / "no_such_dir"))

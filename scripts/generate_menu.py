@@ -198,6 +198,79 @@ def _build_overview_section(wiki_path: Path, L: dict) -> Optional[Dict]:
     return None
 
 
+def _build_menu_from_topology(
+    topology: dict, project_name: str, L: dict,
+) -> Optional[Dict[str, Any]]:
+    """优先根据 doc-topology.json 组装菜单。
+
+    这里允许页面尚未实际生成，适合在编译前阶段先产出稳定导航结构。
+    """
+    pages = topology.get('pages')
+    groupings = topology.get('groupings')
+    if not isinstance(pages, list) or not isinstance(groupings, dict):
+        return None
+
+    page_map = {
+        page.get('id'): page
+        for page in pages
+        if isinstance(page, dict) and page.get('id') and page.get('output_path')
+    }
+    if not page_map:
+        return None
+
+    menu: List[Dict[str, Any]] = []
+    for raw_group_title, page_ids in groupings.items():
+        if not isinstance(page_ids, list):
+            continue
+        section_title = L['overview'] if raw_group_title == 'overview' else raw_group_title
+        direct_items: List[Dict[str, str]] = []
+        module_items: Dict[str, Dict[str, Any]] = {}
+
+        for page_id in page_ids:
+            page = page_map.get(page_id)
+            if not page:
+                continue
+
+            path = page.get('output_path', '')
+            if path.startswith('wiki/'):
+                path = path[5:]
+            page_type = page.get('type')
+
+            if page_type in {'overview', 'guide', 'map'}:
+                direct_items.append({
+                    'title': page.get('title') or Path(path).stem,
+                    'path': path,
+                })
+                continue
+
+            if page_type not in {'module', 'api'}:
+                direct_items.append({
+                    'title': page.get('title') or Path(path).stem,
+                    'path': path,
+                })
+                continue
+
+            module_name = Path(path).stem
+            item = module_items.setdefault(module_name, {
+                'title': module_name,
+                'items': [],
+            })
+            if page_type == 'module':
+                item['title'] = page.get('title') or module_name
+                item['items'].append({'title': L['module_doc'], 'path': path})
+            else:
+                item['items'].append({'title': L['api_ref'], 'path': path})
+
+        if module_items:
+            menu.append({'title': section_title, 'items': list(module_items.values())})
+        elif direct_items:
+            menu.append({'title': section_title, 'items': direct_items})
+
+    if not menu:
+        return None
+    return _envelope(menu, project_name)
+
+
 def _group_modules_flat(wiki_path: Path, L: dict) -> List[Dict]:
     """无分析数据时的平铺回退（保持原有行为：单 "模块" 分区）。
 
@@ -499,6 +572,12 @@ def build_menu(wiki_dir: str, project_name: str = '', cache_dir: str = None) -> 
         return _empty_menu(project_name)
 
     L = _labels(wiki_dir)
+    if cache_dir:
+        topology = _load_json(Path(cache_dir) / 'doc-topology.json')
+        topology_menu = _build_menu_from_topology(topology, project_name, L) if topology else None
+        if topology_menu:
+            return topology_menu
+
     menu: List[Dict[str, Any]] = []
 
     # ---------- 概览分区 ----------
