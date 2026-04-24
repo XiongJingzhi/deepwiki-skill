@@ -9,10 +9,8 @@
 
 ## 首页与快速开始
 
-> `index.md` 和 `getting-started.md` 参考 `templates.md` 中的骨架模板生成。
-
 **生成建议**：
-- `index.md`：从 README.md 提取项目简介、核心特性和架构预览。
+- `overview.md`：从 README.md 提取项目简介、核心特性和架构预览。
 - `getting-started.md`：从 README 的安装章节和入口文件提取前置条件、安装步骤和最小可运行示例。
 
 ---

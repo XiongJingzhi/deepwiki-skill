@@ -37,6 +37,20 @@
       "items": {
         "$ref": "#/definitions/MenuGroup"
       }
+    },
+    "semantic_group_hints": {
+      "type": "object",
+      "description": "Semantic grouping hints from module-analysis.json, mapping group names to their member modules and confidence levels",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "module": {"type": "string"},
+            "confidence": {"type": "string"}
+          }
+        }
+      }
     }
   },
   "definitions": {

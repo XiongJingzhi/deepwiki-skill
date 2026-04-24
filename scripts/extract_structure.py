@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Set, Tuple
 
-from common import CODE_EXTENSIONS, CACHE_SCHEMA_VERSION
+from common import CODE_EXTENSIONS, CACHE_SCHEMA_VERSION, cache_path
 from import_relations import extract_import_relations
 from parsers import get_manager, get_lang_for_ext
 
@@ -38,7 +38,7 @@ _SKIP: frozenset = frozenset({
 
 def run_extract_structure(project_path: Path) -> Dict[str, Any]:
     """主入口：读取 structure.json，运行所有分析，写出 code-structure.json。"""
-    structure_path = project_path / ".deepwiki" / "cache" / "structure.json"
+    structure_path = cache_path(project_path, "structure.json")
     if not structure_path.exists():
         raise FileNotFoundError(f"structure.json not found: {structure_path}")
 
@@ -84,7 +84,7 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
         "import_relations": import_relations,
     }
 
-    out_path = project_path / ".deepwiki" / "cache" / "code-structure.json"
+    out_path = cache_path(project_path, "code-structure.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
@@ -92,7 +92,7 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
     # 输出 parse-results.json（AST 摘要缓存，供后续步骤复用，避免重复 tree-sitter 解析）
     # 使用 merge 模式：保留已有缓存中不在本次分析范围内的文件数据
     parse_summaries = _collect_parse_summaries(all_files, project_path)
-    pr_path = project_path / ".deepwiki" / "cache" / "parse-results.json"
+    pr_path = cache_path(project_path, "parse-results.json")
     pr_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 读取已有数据，进行合并
@@ -576,7 +576,7 @@ def _collect_parse_summaries(
             "loc": 50,
         }}
     """
-    from code_metrics import compute_complexity_score
+    from code_metrics import compute_complexity_score, count_loc as _count_loc, scan_todo_lines as _scan_todo
 
     mgr = get_manager()
     summaries: Dict[str, Dict[str, Any]] = {}
@@ -625,9 +625,7 @@ def _collect_parse_summaries(
                 cf_count = len(caps.get("cf", []))
                 def_count = len(caps.get("def", []))
                 summary["complexity_nodes"] = cf_count + def_count
-                lines = source.split(b"\n")
-                non_empty_lines = [l for l in lines if l.strip() and not l.strip().startswith((b"#", b"//", b"/*", b"*"))]
-                loc = len(non_empty_lines)
+                loc = _count_loc(source)
                 summary["loc"] = loc
                 summary["complexity_score"] = compute_complexity_score(cf_count, def_count, loc)
             except Exception:
@@ -643,13 +641,8 @@ def _collect_parse_summaries(
                     for node in caps.get(category, []):
                         important_lines.add(node.start_point[0])
                 # TODO/FIXME 标记
-                import re as _re
-                for i, line in enumerate(source.split(b"\n")):
-                    line_str = line.decode("utf-8", errors="replace")
-                    if _re.search(
-                        r"(?:TODO|FIXME|HACK|NOTE|WARN|XXX)\s*[:\(]", line_str
-                    ):
-                        important_lines.add(i)
+                for todo_line in _scan_todo(source):
+                    important_lines.add(todo_line)
                 summary["important_lines"] = sorted(important_lines)
                 summary["important_lines_count"] = len(summary["important_lines"])
             except Exception:

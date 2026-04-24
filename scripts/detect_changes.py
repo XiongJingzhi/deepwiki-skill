@@ -18,10 +18,8 @@ from common import (
     CODE_EXTENSIONS, DOC_EXTENSIONS,
     GitignoreCache, should_ignore_path,
     CACHE_SCHEMA_VERSION, validate_cache_version,
+    cache_path,
 )
-
-# 模块级 gitignore 缓存实例
-_gitignore_cache = GitignoreCache()
 
 
 def _load_precomputed_hashes(project_path: Path):
@@ -30,7 +28,7 @@ def _load_precomputed_hashes(project_path: Path):
     当 file-hashes.json 存在且版本匹配时，直接返回预计算的 {rel_path: hash} dict，
     避免 detect_changes 再次全量遍历项目文件计算 hash。
     """
-    hash_cache = project_path / ".deepwiki" / "cache" / "file-hashes.json"
+    hash_cache = cache_path(project_path, "file-hashes.json")
     if hash_cache.exists():
         try:
             with open(hash_cache, 'r', encoding='utf-8') as f:
@@ -42,7 +40,7 @@ def _load_precomputed_hashes(project_path: Path):
     return None
 
 
-def load_config_excludes(project_root: Path) -> Set[str]:
+def load_config_excludes(project_root: Path, gitignore_cache: GitignoreCache = None) -> Set[str]:
     """从 .deepwiki/config.yaml 读取 exclude 规则，合并到排除集合"""
     config_path = project_root / ".deepwiki" / "config.yaml"
     if not config_path.exists():
@@ -56,17 +54,13 @@ def load_config_excludes(project_root: Path) -> Set[str]:
             pattern = str(pattern).strip()
             if pattern:
                 if any(c in pattern for c in ('*', '?', '[')):
-                    _gitignore_cache.globs.add(pattern.lstrip('*'))
+                    if gitignore_cache:
+                        gitignore_cache.globs.add(pattern.lstrip('*'))
                 else:
                     excludes.add(pattern)
         return excludes
     except Exception:
         return set()
-
-
-def _ensure_gitignore_loaded(root_path: Path):
-    """加载 .gitignore（仅首次调用时执行）。"""
-    _gitignore_cache.ensure_loaded(root_path)
 
 
 def calculate_file_hash(file_path: str) -> str:
@@ -81,7 +75,9 @@ def calculate_file_hash(file_path: str) -> str:
         return ""
 
 
-def should_include_file(file_path: Path, excludes: Set[str], config_excludes: Set[str] = None) -> bool:
+def should_include_file(file_path: Path, excludes: Set[str],
+                        config_excludes: Set[str] = None,
+                        gitignore_cache: GitignoreCache = None) -> bool:
     """判断文件是否应该被包含（硬编码规则 + config.yaml 排除 + .gitignore）"""
     all_excludes = excludes | (config_excludes or set())
 
@@ -95,16 +91,19 @@ def should_include_file(file_path: Path, excludes: Set[str], config_excludes: Se
                 return False
 
     # 检查 .gitignore 规则
-    if _gitignore_cache.dirs and any(part in _gitignore_cache.dirs for part in file_path.parts):
-        return False
-    if _gitignore_cache.globs and any(fnmatch.fnmatch(file_path.name, p) for p in _gitignore_cache.globs):
-        return False
+    if gitignore_cache:
+        if gitignore_cache.dirs and any(part in gitignore_cache.dirs for part in file_path.parts):
+            return False
+        if gitignore_cache.globs and any(fnmatch.fnmatch(file_path.name, p) for p in gitignore_cache.globs):
+            return False
 
     # 只包含代码和文档文件
     return file_path.suffix in CODE_EXTENSIONS or file_path.suffix in DOC_EXTENSIONS
 
 
-def scan_project_files(project_root: str, excludes: Set[str] = None, config_excludes: Set[str] = None) -> Dict[str, str]:
+def scan_project_files(project_root: str, excludes: Set[str] = None,
+                       config_excludes: Set[str] = None,
+                       gitignore_cache: GitignoreCache = None) -> Dict[str, str]:
     """
     扫描项目文件并计算校验和
 
@@ -112,6 +111,7 @@ def scan_project_files(project_root: str, excludes: Set[str] = None, config_excl
         project_root: 项目根目录
         excludes: 硬编码排除规则
         config_excludes: 从 config.yaml 读取的排除规则
+        gitignore_cache: GitignoreCache 实例
 
     Returns:
         {相对路径: 校验和}
@@ -123,7 +123,7 @@ def scan_project_files(project_root: str, excludes: Set[str] = None, config_excl
     checksums = {}
 
     for file_path in root.rglob('*'):
-        if file_path.is_file() and should_include_file(file_path, excludes, config_excludes):
+        if file_path.is_file() and should_include_file(file_path, excludes, config_excludes, gitignore_cache):
             rel_path = str(file_path.relative_to(root))
             checksums[rel_path] = calculate_file_hash(str(file_path))
 
@@ -132,9 +132,9 @@ def scan_project_files(project_root: str, excludes: Set[str] = None, config_excl
 
 def load_cached_checksums(wiki_dir: str) -> Dict[str, Dict[str, str]]:
     """加载缓存的校验和，版本不匹配时返回空 dict 触发全量扫描。"""
-    cache_path = Path(wiki_dir) / "cache" / "checksums.json"
-    if cache_path.exists():
-        with open(cache_path, 'r', encoding='utf-8') as f:
+    checksums_path = Path(wiki_dir) / "cache" / "checksums.json"
+    if checksums_path.exists():
+        with open(checksums_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         # 版本校验
         if data.get("cache_schema_version") is not None:
@@ -148,13 +148,13 @@ def load_cached_checksums(wiki_dir: str) -> Dict[str, Dict[str, str]]:
 
 def save_checksums(wiki_dir: str, checksums: Dict[str, Dict[str, str]]):
     """保存校验和到缓存（含版本号）"""
-    cache_path = Path(wiki_dir) / "cache" / "checksums.json"
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    checksums_path = Path(wiki_dir) / "cache" / "checksums.json"
+    checksums_path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "cache_schema_version": CACHE_SCHEMA_VERSION,
         "checksums": checksums,
     }
-    with open(cache_path, 'w', encoding='utf-8') as f:
+    with open(checksums_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
@@ -282,17 +282,18 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
     wiki_dir = root / ".deepwiki"
 
     # 加载 .gitignore 规则
-    _ensure_gitignore_loaded(root)
+    _gitignore_cache = GitignoreCache.get(root)
 
     # 加载 config.yaml 排除规则（与 analyze_project.py 保持一致）
-    config_excludes = load_config_excludes(root)
+    config_excludes = load_config_excludes(root, gitignore_cache=_gitignore_cache)
 
     # 获取当前文件校验和（优先使用 scanner 阶段预计算的 hash）
     precomputed = _load_precomputed_hashes(root)
     if precomputed is not None:
         current_checksums = precomputed
     else:
-        current_checksums = scan_project_files(project_root, excludes, config_excludes)
+        current_checksums = scan_project_files(project_root, excludes, config_excludes,
+                                               gitignore_cache=_gitignore_cache)
     
     # 加载缓存的校验和
     cached = load_cached_checksums(str(wiki_dir))
@@ -337,7 +338,7 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
     reverse_affected: Set[str] = set()
 
     # 尝试从 structure.json 加载模块信息
-    structure_path = root / ".deepwiki" / "cache" / "structure.json"
+    structure_path = cache_path(root, "structure.json")
     structure = None
     if structure_path.exists():
         try:

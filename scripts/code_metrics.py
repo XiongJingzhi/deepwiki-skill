@@ -2,12 +2,33 @@
 """
 代码复杂度与重要行统计模块。
 
-从 analyze_project.py 提取的纯函数，
-供 analyze_project.py 和 parse_cache.py 共用。
+从 analyze_project.py 提取的纯函数。
+提供 count_loc / scan_todo_lines 等公共工具函数，
+供 extract_structure.py 等模块复用。
 """
 
 import re
 from pathlib import Path
+
+
+def count_loc(source: bytes) -> int:
+    """计算非空、非纯注释行数。"""
+    lines = source.split(b'\n')
+    non_empty = [l for l in lines if l.strip() and not l.strip().startswith((b"#", b"//", b"/*", b"*"))]
+    return len(non_empty)
+
+
+def scan_todo_lines(source: bytes) -> list:
+    """扫描包含 TODO/FIXME 等标记的行号（0-indexed）。"""
+    result = []
+    for i, line in enumerate(source.split(b'\n')):
+        try:
+            line_str = line.decode('utf-8', errors='replace')
+        except Exception:
+            continue
+        if re.search(r'(?:TODO|FIXME|HACK|NOTE|WARN|XXX)\s*[:\(]', line_str):
+            result.append(i)
+    return result
 
 
 def compute_complexity_score(cf_count: int, def_count: int, loc: int) -> int:
@@ -56,10 +77,7 @@ def estimate_complexity(file_path: Path) -> int:
         cf_count = len(caps.get("cf", []))
         def_count = len(caps.get("def", []))
 
-        # 统计有效代码行（排除空行和纯注释行）
-        lines = source.split(b"\n")
-        non_empty_lines = [l for l in lines if l.strip() and not l.strip().startswith((b"#", b"//", b"/*", b"*"))]
-        loc = len(non_empty_lines)
+        loc = count_loc(source)
 
         return compute_complexity_score(cf_count, def_count, loc)
     except Exception:
@@ -110,10 +128,8 @@ def count_important_lines(file_path: Path) -> int:
                 important_lines.add(node.start_point[0])
 
         # 加上 TODO/FIXME 等标记（regex 仍适合行级扫描）
-        for i, line in enumerate(source.split(b"\n")):
-            line_str = line.decode("utf-8", errors="replace")
-            if re.search(r'(?:TODO|FIXME|HACK|NOTE|WARN|XXX)\s*[:\(]', line_str):
-                important_lines.add(i)
+        for todo_line in scan_todo_lines(source):
+            important_lines.add(todo_line)
 
         return len(important_lines)
     except Exception:

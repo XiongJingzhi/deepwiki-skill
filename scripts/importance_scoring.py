@@ -9,6 +9,18 @@ from typing import Dict, List, Any, Optional, Union
 WEIGHTS = {"path": 0.30, "identity": 0.25, "language": 0.30, "size": 0.15, "import_degree": 0.15}
 
 
+def _compute_weighted_score(path_score, identity_score, lang_score,
+                            size_score, import_deg_score) -> float:
+    """计算五维度加权求和（路径、身份、语言、大小、入度）。"""
+    return (
+        path_score * WEIGHTS["path"] +
+        identity_score * WEIGHTS["identity"] +
+        lang_score * WEIGHTS["language"] +
+        size_score * WEIGHTS["size"] +
+        import_deg_score * WEIGHTS["import_degree"]
+    )
+
+
 # ---- 文件重要性评分因子 ----
 
 # 主要语言扩展名（高权重）
@@ -165,13 +177,8 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
     import_degree_score = min(import_degree / 10.0, 1.0)
 
     # ── 加权求和 ──────────────────────────────────────────────────────────
-    score = (
-        path_score             * WEIGHTS["path"] +
-        identity_score         * WEIGHTS["identity"] +
-        lang_score             * WEIGHTS["language"] +
-        size_score             * WEIGHTS["size"] +
-        import_degree_score    * WEIGHTS["import_degree"]
-    )
+    score = _compute_weighted_score(path_score, identity_score, lang_score,
+                                    size_score, import_degree_score)
     final_score = round(min(score, 1.0), 4)
 
     if return_breakdown:
@@ -240,12 +247,12 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
             for f in mod_files:
                 f['path_score_normalized'] = f.get('raw_path_score', 1.0)
                 import_deg_score = f.get('raw_import_degree_score', 0.0)
-                new_score = (
-                    f['path_score_normalized'] * WEIGHTS["path"] +
-                    f.get('raw_identity_score', 0.0) * WEIGHTS["identity"] +
-                    f.get('raw_lang_score', 0.0) * WEIGHTS["language"] +
-                    f.get('raw_size_score', 0.0) * WEIGHTS["size"] +
-                    import_deg_score * WEIGHTS["import_degree"]
+                new_score = _compute_weighted_score(
+                    f['path_score_normalized'],
+                    f.get('raw_identity_score', 0.0),
+                    f.get('raw_lang_score', 0.0),
+                    f.get('raw_size_score', 0.0),
+                    import_deg_score,
                 )
                 f['importance_score'] = round(min(new_score, 1.0), 2)
                 f['is_core'] = f['importance_score'] >= 0.5
@@ -262,12 +269,12 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
 
             # 重新计算重要性评分（使用归一化后的 path_score）
             import_deg_score = f.get('raw_import_degree_score', 0.0)
-            new_score = (
-                f['path_score_normalized'] * WEIGHTS["path"] +
-                f.get('raw_identity_score', 0.0) * WEIGHTS["identity"] +
-                f.get('raw_lang_score', 0.0) * WEIGHTS["language"] +
-                f.get('raw_size_score', 0.0) * WEIGHTS["size"] +
-                import_deg_score * WEIGHTS["import_degree"]
+            new_score = _compute_weighted_score(
+                f['path_score_normalized'],
+                f.get('raw_identity_score', 0.0),
+                f.get('raw_lang_score', 0.0),
+                f.get('raw_size_score', 0.0),
+                import_deg_score,
             )
             f['importance_score'] = round(min(new_score, 1.0), 2)
             f['is_core'] = f['importance_score'] >= 0.5

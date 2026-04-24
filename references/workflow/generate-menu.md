@@ -16,6 +16,8 @@
 
 ## 8.1：AI 生成 menu.json
 
+> **重要变更**：`build_menu()` 现在支持 `cache_dir` 参数，自动读取 `module-analysis.json` 的 `semantic_group` 和 `architecture-skeleton.json` 的 `module_groups` 进行数据驱动分组。当分析数据存在时，分区名来自 AI 的项目理解，而非固定模板。
+
 ### 输入数据（按优先级顺序读取）
 
 | 数据源 | 作用 | 优先级 |
@@ -31,66 +33,56 @@
 
 ---
 
-### 三层分组算法
+### 三层分组算法（Python 脚本自动执行）
 
-**层1：依赖数据聚类（必做）**
+> 以下三层算法已内置于 `generate_menu.py`，由 Python 脚本自动执行，无需 AI 手动计算。
 
-从 `code-structure.json` 的 `import_relations`（或 `dependency_hints`）构建模块依赖图：
+**层1：依赖数据聚类 — `_cluster_by_import_relations()`**
+
+已在 Python 脚本中使用 Union-Find 算法实现，从 `code-structure.json` 的 `import_relations` 构建模块依赖图并自动聚类：
 1. 互相存在双向引用、或共同被第三个模块大量引用的模块 → 候选聚合组
 2. 同父目录且有共同依赖的模块 → 加强候选信号
 3. 按依赖强度从高到低排列候选组
 
-#### 层1 操作步骤（具体执行）
+核心逻辑（脚本自动完成）：
+- 将文件级 import 归并为模块级依赖，计算 `dep_weight(A, B)`
+- 强依赖对（`dep_weight(A, B) >= 2` 或双向 `>= 3`）通过 Union-Find 合并为候选组
+- 候选组 > 6 模块时按 `dep_weight` 拆分；组内仅 1 模块时标记为"孤岛"
 
-1. 读取 `cache/code-structure.json` 的 `import_relations` 字段，将文件级 import 归并为模块级依赖：将路径前缀相同的文件归为同一模块，统计模块 A → 模块 B 的跨模块 import 次数，得到 `dep_weight(A, B)`
-2. 标记强依赖对：`dep_weight(A, B) >= 2` 或 `dep_weight(A, B) + dep_weight(B, A) >= 3` → 候选同组
-3. 用 Union-Find 或贪心聚类将强依赖对合并为候选组
-4. 对每个候选组：若组内模块数 > 6，按 `dep_weight` 拆分为子组；若组内模块数 = 1，标记为"孤岛"
+**层2：语义标注验证 — `_cluster_by_semantic_group()`**
 
-**层2：语义标注验证（推荐）**
-
-#### 前置检查：semantic_group_override 优先读取
-
-在执行层2算法之前，扫描 `module-analysis.json` 中所有含 `semantic_group_override: true` 的条目：
-- 这些模块的 `semantic_group` 来自深度源码分析，置信度视同 `high`
-- 层2中这些模块的语义标注不再与骨架建议对比，直接作为分组命名依据
-- 所有 override 模块命名确认后，**回写修正**到 `cache/architecture-skeleton.json` 对应的 `module_groups[].name`
-
-用 `semantic_group` 字段验证和命名候选组：
+已在 Python 脚本中实现，自动读取 `module-analysis.json` 的 `semantic_group` 字段验证和命名候选组：
 - `semantic_group` **相同** 且有依赖关系 → 确认聚合，使用 `semantic_group` 值作为分区名
-- `semantic_group` **不同** 但依赖强度高 → 以依赖数据为准；重新为该组命名（可取两者语义的公共上位词）
-- `semantic_group` **相同** 但无依赖关系 → 平行列出（同主题但独立模块），不强行合并
+- `semantic_group` **不同** 但依赖强度高 → 以依赖数据为准；取两者语义的公共上位词命名
+- `semantic_group` **相同** 但无依赖关系 → 平行列出（同主题但独立模块）
 - `semantic_group_confidence` 为 `low` → 降低该标注权重，更多依赖层1数据决策
 
-#### 层2 决策矩阵
+`semantic_group_override: true` 的条目自动获得 `high` 置信度，其分组命名直接作为依据。菜单生成后，脚本自动将 override 修正结果回写到 `cache/architecture-skeleton.json`。
+
+#### 层2 决策矩阵（脚本内部逻辑参考）
 
 | 依赖强度 | semantic_group 相同？ | confidence | 操作 |
 |---------|---------------------|-----------|------|
-| 强（weight ≥ 2） | 是 | high | ✅ 确认聚合，用 semantic_group 值命名分组 |
+| 强（weight ≥ 2） | 是 | high | 确认聚合，用 semantic_group 值命名分组 |
 | 强（weight ≥ 2） | 否 | 任意 | 以依赖数据为准合并，取两者语义的公共上位词重命名 |
 | 弱（weight = 1） | 是 | high | 平行列出，不强行合并 |
 | 弱（weight = 1） | 是 | low | 孤岛，层3兜底 |
 | 无依赖 | 是 | high | 平行列出 |
 | 无依赖 | 否/low | 任意 | 孤岛，层3兜底 |
 
-#### 骨架回写（菜单生成后执行）
+**层3：孤岛兜底（AI 手动参考）**
 
-`menu.json` 生成完毕后，将 override 修正结果写回：
-1. 读取 `cache/architecture-skeleton.json`
-2. 对每个 `semantic_group_override: true` 的模块，找到骨架中包含该模块的 `module_groups` 条目
-3. 将 `name` 更新为 override 后的 `semantic_group`（不改 `modules` 和 `role`）
-4. 写回文件
-
-**目的**：确保骨架作为 `generate-overview` 和 `generate-module-docs` 共享上下文时，反映深度分析修正后的分组命名，消除骨架与文档内容的不一致。
-
-**层3：孤岛兜底（按需）**
-
-对无强依赖关系的模块：
-1. 读取 `../rules/menu-archetypes.md` 中对应当前 `archetype` 的常见语义主题
-2. 按模块的 `code_purpose` 和 `module_summary` 判断最接近的主题
-3. 将孤岛模块归入最近邻主题，或在该主题下新建子区块
+`../rules/menu-archetypes.md` 保留为 AI 的手动兜底参考。当 Python 脚本生成的分组中出现孤岛模块时，AI 可参考该文件中当前 `archetype` 的常见语义主题，按模块的 `code_purpose` 和 `module_summary` 判断最接近的主题进行归类。
 
 ---
+
+## AI 角色：微调
+
+Python 脚本已自动按 semantic_group 生成 menu.json。AI 的职责是：
+1. 检查分区命名是否面向读者（非技术术语）
+2. 检查分区粒度（3-8 个顶层，每组 2-6 模块）
+3. 检查读者旅程顺序是否自然
+4. 仅当发现明显问题时才修改，否则保持脚本输出
 
 ### 粒度收敛规则
 
@@ -108,7 +100,7 @@
 ### 固定首尾区块
 
 所有菜单必须包含：
-- **首区块**：项目概览（Overview / 入门），指向 `overview.md`、`architecture.md`、`doc-map.md`
+- **首区块**：项目概览（Overview / 入门），指向 `overview.md`、`doc-map.md`
 - **尾区块**：贡献与扩展（Contributing），指向贡献指南或扩展接口文档
 
 ---
@@ -121,7 +113,7 @@
 
 ## 8.2：AI 生成 doc-map.md
 
-基于 `menu.json` 的导航结构和 `architecture.md` 的架构信息，生成 `wiki/doc-map.md`：
+基于 `menu.json` 的导航结构和 `overview.md` 的架构信息，生成 `wiki/doc-map.md`：
 
 | 内容 | 数据来源 |
 |------|---------|

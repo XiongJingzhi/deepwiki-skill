@@ -20,7 +20,7 @@
 | `archetype` | 项目原型标签（`spa-frontend` / `web-service` / `cli-tool` / `sdk-library` / `ml-project` / `agent-project` / `fullstack-framework` / `monorepo` / `generic`） | extract-docs 决定分析侧重点与图表类型；`monorepo`（包间依赖关系/共享模块/各子包独立入口/跨包调用链） |
 | `call_graph` | `{ "Class.method": { calls, file, line } }` 跨文件调用图 | extract-docs 作为语义分析锚点，synthesize-deps 增强依赖图 |
 | `patterns` | 检测到的代码模式（`middleware_chain` / `http_route` / `orm_usage` / `react_component` / `state_management` / `event_system` 等） | extract-docs 指导 AI 聚焦核心模式 |
-| `key_sequences` | 从入口点 BFS 生成的近似时序（`participants` / `steps`） | generate-overview 生成 `architecture.md` 时序图的原始数据 |
+| `key_sequences` | 从入口点 BFS 生成的近似时序（`participants` / `steps`） | generate-overview 生成 `overview.md` 时序图的原始数据 |
 | `import_relations` | 文件级导入关系图（`{file: {imports: [...]}}`） | synthesize-deps 作为可信基线验证 AI 依赖分析的准确性 |
 
 > **实现说明**：使用 tree-sitter AST 精确解析，覆盖 TS/JS/Python/Go/Rust/Java/Kotlin，不会误匹配字符串或注释中的伪代码结构。

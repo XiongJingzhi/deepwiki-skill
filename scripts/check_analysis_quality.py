@@ -21,6 +21,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
+from common import cache_path
+
 
 # ── 质量门控最低标准 ────────────────────────────────────────────────────────
 
@@ -165,12 +167,12 @@ def check_analysis_quality(
 
 def load_module_analysis(project_path: Path) -> Optional[dict]:
     """加载 module-analysis.json，失败返回 None。"""
-    cache_path = project_path / ".deepwiki" / "cache" / "module-analysis.json"
-    if not cache_path.exists():
-        print(f"❌ module-analysis.json 不存在: {cache_path}", file=sys.stderr)
+    analysis_path = cache_path(project_path, "module-analysis.json")
+    if not analysis_path.exists():
+        print(f"❌ module-analysis.json 不存在: {analysis_path}", file=sys.stderr)
         return None
     try:
-        with open(cache_path, encoding="utf-8") as f:
+        with open(analysis_path, encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
         print(f"❌ module-analysis.json JSON 解析失败: {e}", file=sys.stderr)

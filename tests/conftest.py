@@ -13,16 +13,14 @@ import common
 
 @pytest.fixture(autouse=True)
 def reset_gitignore_cache():
-    """Reset module-level gitignore cache between tests.
+    """Reset GitignoreCache singleton between tests.
 
-    analyze_project.py and detect_changes.py share GitignoreCache
-    instances that persist across test runs and must be reset.
+    GitignoreCache uses a class-level singleton pattern, so we reset
+    the class itself rather than module-level attributes.
     """
-    import analyze_project
-    import detect_changes
-
-    analyze_project._gitignore_cache.reset()
-    detect_changes._gitignore_cache.reset()
+    from common import GitignoreCache
+    if GitignoreCache._instance is not None:
+        GitignoreCache._instance.reset()
 
     yield
 

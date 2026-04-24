@@ -6,7 +6,7 @@
 
 import fnmatch
 from pathlib import Path
-from typing import Set, Tuple
+from typing import Optional, Set, Tuple
 
 # 默认排除目录
 IGNORE_DIRS = {
@@ -51,10 +51,22 @@ HIGH_PRIORITY_THRESHOLD = 0.6      # 高优先级文件重要性最低阈值
 class GitignoreCache:
     """Per-root gitignore cache，避免模块级全局变量泄漏。"""
 
+    _instance: Optional['GitignoreCache'] = None
+    _loaded_root: Optional[str] = None
+
     def __init__(self):
         self.dirs: Set[str] = set()
         self.globs: Set[str] = set()
         self._loaded = False
+
+    @classmethod
+    def get(cls, root_path):
+        """获取或创建 GitignoreCache 单例，自动加载指定根目录的规则。"""
+        if cls._instance is None or cls._loaded_root != str(root_path):
+            cls._instance = cls()
+            cls._instance.ensure_loaded(root_path)
+            cls._loaded_root = str(root_path)
+        return cls._instance
 
     def ensure_loaded(self, root_path: Path):
         """加载 .gitignore（仅首次调用时执行）。"""
@@ -67,6 +79,8 @@ class GitignoreCache:
         self.dirs = set()
         self.globs = set()
         self._loaded = False
+        GitignoreCache._instance = None
+        GitignoreCache._loaded_root = None
 
 
 def load_gitignore(root_path: Path) -> Tuple[Set[str], Set[str]]:
@@ -143,3 +157,15 @@ def validate_cache_version(data: dict, expected: int = None) -> bool:
     if version is None:
         return True  # 遗留缓存，无版本字段
     return version == expected
+
+
+# ── 缓存路径工具函数 ────────────────────────────────────────────────────
+
+def cache_dir(root: Path) -> Path:
+    """返回 .deepwiki/cache/ 目录路径。"""
+    return root / ".deepwiki" / "cache"
+
+
+def cache_path(root: Path, name: str) -> Path:
+    """返回 .deepwiki/cache/{name} 文件路径。"""
+    return cache_dir(root) / name

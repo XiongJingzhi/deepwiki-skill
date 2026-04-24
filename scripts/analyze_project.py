@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime, timezone
 
-from common import (GitignoreCache, CACHE_SCHEMA_VERSION, validate_cache_version)
+from common import (GitignoreCache, CACHE_SCHEMA_VERSION, validate_cache_version,
+                    cache_dir, cache_path)
 from project_detection import (detect_project_types, find_entry_points,
                                 detect_project_languages)
 from importance_scoring import normalize_path_scores
@@ -15,21 +16,13 @@ from scanner import (scan_files, scan_directories, compute_file_stats,
                      find_documentation)
 from import_relations import compute_in_degree
 
-# 模块级 gitignore 缓存实例
-_gitignore_cache = GitignoreCache()
-
-
-def _ensure_gitignore_loaded(root_path: Path):
-    """加载 .gitignore（仅首次调用时执行）。"""
-    _gitignore_cache.ensure_loaded(root_path)
-
 
 def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, Any]:
     """完整分析项目结构。返回含文件元数据、重要性评分、核心文件识别的字典。"""
     root = Path(project_root)
 
     # 加载 .gitignore 规则
-    _ensure_gitignore_loaded(root)
+    _gitignore_cache = GitignoreCache.get(root)
 
     # 检测项目类型
     project_types = detect_project_types(root)
@@ -42,7 +35,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
 
     # Try loading parse cache (extract-structure may have populated it)
     _parse_cache_data = None
-    pc_path = root / '.deepwiki' / 'cache' / 'parse-results.json'
+    pc_path = cache_path(root, 'parse-results.json')
     if pc_path.exists():
         try:
             pc_data = json.loads(pc_path.read_text('utf-8'))
@@ -54,7 +47,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     # 检测 archetype 并计算 import_degree（来自 code-structure.json，如已存在）
     archetype = None
     import_degrees: Dict[str, int] = {}
-    cs_path = root / '.deepwiki' / 'cache' / 'code-structure.json'
+    cs_path = cache_path(root, 'code-structure.json')
     if cs_path.exists():
         try:
             cs_data = json.loads(cs_path.read_text('utf-8'))
@@ -145,10 +138,9 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
 
     # 保存到缓存
     if save_to_cache:
-        wiki_dir = root / '.deepwiki'
-        cache_path = wiki_dir / 'cache' / 'structure.json'
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(cache_path, 'w', encoding='utf-8') as f:
+        struct_cache_path = cache_path(root, 'structure.json')
+        cache_dir(root).mkdir(parents=True, exist_ok=True)
+        with open(struct_cache_path, 'w', encoding='utf-8') as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
 
         # 保存文件 hash 到 cache，供 detect_changes 复用（避免二次全量扫描）
@@ -156,7 +148,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
         for f in all_files:
             if f.get('hash'):
                 file_hashes[f['path']] = f['hash']
-        hash_cache_path = wiki_dir / 'cache' / 'file-hashes.json'
+        hash_cache_path = cache_path(root, 'file-hashes.json')
         hash_cache_path.parent.mkdir(parents=True, exist_ok=True)
         with open(hash_cache_path, 'w', encoding='utf-8') as f:
             json.dump({

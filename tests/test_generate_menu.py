@@ -803,3 +803,168 @@ class TestReconcileSemanticGroups:
         )
         hints = report.get("semantic_group_hints", {})
         assert hints == {}, f"无 semantic_group 的模块不应出现在 hints 中，实际 hints: {hints}"
+
+
+# ---------------------------------------------------------------------------
+# TestBuildMenuDataDriven
+# ---------------------------------------------------------------------------
+
+
+class TestBuildMenuDataDriven:
+    """Tests for data-driven module grouping in build_menu."""
+
+    def _write(self, path: Path, content: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    def _make_analysis(self, modules_dict: dict) -> dict:
+        return {
+            "cache_schema_version": 1,
+            "generated_at": "2026-04-24T00:00:00Z",
+            "modules": modules_dict,
+        }
+
+    def _make_module(self, semantic_group: str, confidence: str = "high",
+                     module_path: str = "src/x", code_purpose: str = "Service") -> dict:
+        return {
+            "semantic_group": semantic_group,
+            "semantic_group_confidence": confidence,
+            "module_path": module_path,
+            "code_purpose": code_purpose,
+            "analysis_depth": "standard",
+            "module_summary": "summary",
+            "selected_components": [],
+            "dependency_hints": {"imports": [], "imported_by": []},
+            "files": [],
+        }
+
+    def test_groups_by_semantic_group(self, tmp_path):
+        """有 semantic_group 时按语义分组，分区名为 semantic_group 值"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "modules").mkdir(parents=True)
+        (wiki / "modules" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
+        (wiki / "modules" / "token.md").write_text("# Token\nToken module.", encoding="utf-8")
+        (wiki / "modules" / "user.md").write_text("# User\nUser module.", encoding="utf-8")
+
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        analysis = self._make_analysis({
+            "auth": self._make_module("认证与鉴权", module_path="src/auth"),
+            "token": self._make_module("认证与鉴权", module_path="src/token", code_purpose="Util"),
+            "user": self._make_module("用户管理", module_path="src/user"),
+        })
+        (cache / "module-analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        group_titles = [g["title"] for g in menu["menu"]]
+        # 应有两个语义分组（认证与鉴权, 用户管理）
+        assert "认证与鉴权" in group_titles
+        assert "用户管理" in group_titles
+        # 不应出现固定的"模块"分区
+        assert "模块" not in group_titles
+
+    def test_fallback_to_flat_when_no_analysis(self, tmp_path):
+        """无分析数据时回退到平铺的'模块'分区（向后兼容）"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "modules").mkdir(parents=True)
+        (wiki / "modules" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=None)
+        sections = {g["title"]: g for g in menu["menu"]}
+        assert "模块" in sections
+
+    def test_fallback_to_flat_when_empty_cache(self, tmp_path):
+        """cache_dir 存在但 module-analysis.json 缺失时回退到平铺"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "modules").mkdir(parents=True)
+        (wiki / "modules" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
+        (wiki / "modules" / "db.md").write_text("# DB\nDB module.", encoding="utf-8")
+
+        empty_cache = tmp_path / "empty_cache"
+        empty_cache.mkdir()
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(empty_cache))
+        sections = {g["title"]: g for g in menu["menu"]}
+        assert "模块" in sections
+
+    def test_uses_skeleton_groups_when_available(self, tmp_path):
+        """有 skeleton module_groups 时按骨架分组"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "modules").mkdir(parents=True)
+        (wiki / "modules" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
+        (wiki / "modules" / "user.md").write_text("# User\nUser module.", encoding="utf-8")
+        (wiki / "modules" / "order.md").write_text("# Order\nOrder module.", encoding="utf-8")
+
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        skeleton = {
+            "project_nature": "电商系统",
+            "architecture_style": "分层架构",
+            "module_groups": [
+                {"name": "交易引擎", "modules": ["order", "auth"]},
+                {"name": "用户中心", "modules": ["user"]},
+            ]
+        }
+        (cache / "architecture-skeleton.json").write_text(json.dumps(skeleton), encoding="utf-8")
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        group_titles = [g["title"] for g in menu["menu"]]
+        assert "交易引擎" in group_titles
+        assert "用户中心" in group_titles
+
+    def test_api_pairing_preserved_in_semantic_groups(self, tmp_path):
+        """语义分组下仍然保持 module + api 配对"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "modules").mkdir(parents=True)
+        (wiki / "api").mkdir(parents=True)
+        (wiki / "modules" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
+        (wiki / "api" / "auth.md").write_text("# Auth API\nEndpoints.", encoding="utf-8")
+
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        analysis = self._make_analysis({
+            "auth": self._make_module("认证与鉴权", module_path="src/auth"),
+        })
+        (cache / "module-analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        # 找到语义分组
+        auth_group = [g for g in menu["menu"] if g["title"] == "认证与鉴权"][0]
+        auth_item = auth_group["items"][0]
+        child_titles = [c["title"] for c in auth_item["items"]]
+        assert "模块文档" in child_titles
+        assert "API 参考" in child_titles
+
+    def test_handles_list_format_analysis_modules(self, tmp_path):
+        """兼容 module-analysis.json 中 modules 为数组格式的情况"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        (wiki / "modules").mkdir(parents=True)
+        (wiki / "modules" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
+
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        # modules 为数组格式（代码中 _extract_semantic_groups 支持此格式）
+        analysis = {
+            "modules": [
+                {
+                    "module_path": "auth",
+                    "semantic_group": "认证",
+                    "code_purpose": "Service",
+                    "analysis_depth": "standard",
+                    "module_summary": "summary",
+                    "selected_components": [],
+                    "dependency_hints": {"imports": [], "imported_by": []},
+                    "files": [],
+                }
+            ]
+        }
+        (cache / "module-analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        group_titles = [g["title"] for g in menu["menu"]]
+        assert "认证" in group_titles

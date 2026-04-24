@@ -77,10 +77,10 @@
       "title": "概览",
       "fixed": true,
       "items": [
-        { "id": "home",         "title": "首页",     "path": "index.md" },
-        { "id": "architecture", "title": "架构总览", "path": "architecture.md" },
+        { "id": "home",         "title": "首页",     "path": "overview.md" },
+        { "id": "architecture", "title": "架构总览", "path": "overview.md" },
         { "id": "doc-map",      "title": "文档地图", "path": "doc-map.md" },
-        { "id": "quickstart",   "title": "快速开始", "path": "quick-start.md" }
+        { "id": "quickstart",   "title": "快速开始", "path": "getting-started.md" }
       ]
     },
     {
