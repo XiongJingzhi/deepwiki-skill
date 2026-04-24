@@ -8,12 +8,12 @@ Step 3.5 辅助脚本：架构骨架数据提取
 该脚本只做数据提取和裁剪，不调用 AI：
   - structure.json       → 模块列表、重要性排名、技术栈
   - code-structure.json  → archetype、patterns 摘要、key_sequences 参与者
-  - import-relations.json → 跨模块导入关系摘要（仅保留模块间关系，过滤文件内部关系）
+  - code-structure.json（import_relations 字段） → 跨模块导入关系摘要（仅保留模块间关系，过滤文件内部关系）
 
 输出：cache/architecture-skeleton-input.json（约 5-15K tokens）
 
 用法：
-  python scripts/generate_architecture_skeleton.py <项目目录绝对路径>
+  python scripts/generate_skeleton.py <项目目录绝对路径>
 
 退出码：
   0 — 成功，architecture-skeleton-input.json 已写入
@@ -136,7 +136,7 @@ def extract_cross_module_imports(
     modules: List[Dict[str, Any]],
 ) -> List[Dict[str, str]]:
     """
-    从 import-relations.json 中提取跨模块导入关系。
+    从 code-structure.json 的 import_relations 字段中提取跨模块导入关系。
 
     只保留源文件和目标文件属于不同模块的关系，
     并将文件路径归约为模块名（取第一层有效目录）。
@@ -222,10 +222,9 @@ def build_skeleton_input(project_path: Path) -> Tuple[Optional[Dict[str, Any]], 
         warnings.append("code-structure.json 不存在，跳过代码结构摘要提取（建议先运行 extract_structure.py）")
         code_structure = {}
 
-    import_relations_data = load_json(cache_dir / "import-relations.json")
-    if import_relations_data is None:
-        warnings.append("import-relations.json 不存在，跳过跨模块导入关系提取")
-        import_relations_data = {}
+    import_relations_data = code_structure.get("import_relations", {})
+    if not import_relations_data:
+        warnings.append("code-structure.json 中缺少 import_relations 字段，跳过跨模块导入关系提取")
 
     # ── 提取各部分摘要 ─────────────────────────────────────────────────────
     project_basics = extract_project_basics(structure)
@@ -243,7 +242,6 @@ def build_skeleton_input(project_path: Path) -> Tuple[Optional[Dict[str, Any]], 
             "source_files": [
                 "cache/structure.json",
                 "cache/code-structure.json",
-                "cache/import-relations.json",
             ],
             "purpose": (
                 "AI 读取此文件，生成 cache/architecture-skeleton.json。"
@@ -265,7 +263,7 @@ def main() -> int:
 
     if len(sys.argv) < 2:
         print(
-            "用法：python scripts/generate_architecture_skeleton.py <项目目录绝对路径>",
+            "用法：python scripts/generate_skeleton.py <项目目录绝对路径>",
             file=sys.stderr,
         )
         return 1

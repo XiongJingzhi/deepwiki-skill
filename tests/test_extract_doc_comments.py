@@ -1,9 +1,9 @@
-"""Tests for scripts/extract_docs.py - documentation extraction from source code."""
+"""Tests for scripts/extract_doc_comments.py - documentation extraction from source code."""
 
 import pytest
 
-import extract_docs
-from extract_docs import (
+import extract_doc_comments
+from extract_doc_comments import (
     DocEntry,
     extract_jsdoc,
     extract_python_docstring,

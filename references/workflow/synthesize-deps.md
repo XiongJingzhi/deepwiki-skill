@@ -8,7 +8,7 @@
 | 項 | 值 |
 |----|-----|
 | **脚本** | 无（AI 执行） |
-| **输入** | `cache/module-analysis.json`、`cache/import-relations.json`、`cache/architecture-skeleton.json`（可选） |
+| **输入** | `cache/module-analysis.json`、`cache/code-structure.json`（`import_relations` 字段）、`cache/architecture-skeleton.json`（可选） |
 | **输出** | RelationshipSummary（AI 上下文，供后续工具使用） |
 | **前置** | `check-analysis-quality`（exit=0） |
 | **后置** | `generate-overview` |
@@ -34,7 +34,7 @@
 
 若 `cache/architecture-skeleton.json` 存在（generate-skeleton 生成），将其作为**验证基线**叠加使用：
 
-- `cross_domain_dependencies`：AI 综合出的依赖边应与骨架方向一致，冲突时以 `import-relations.json` 为最终裁决
+- `cross_domain_dependencies`：AI 综合出的依赖边应与骨架方向一致，冲突时以 `code-structure.json` 的 `import_relations` 为最终裁决
 - `architecture_layers`：作为分层分组的初始结构，AI 只需验证和补充细节，无需从零推断
 - **效果**：步骤 6 从"从零综合"变为"验证修正"，AI 工作量减少约 50%
 
@@ -52,6 +52,11 @@
 - 跨包 import 关系（`cross_package: true`）全量保留，不截断
 - 优先保留各 package 的入口文件和对外公开的 API 文件
 - 若 package 总数 > 20，对低重要性 package（`importance_score < 0.3`）整体跳过，仅记录其对外接口声明
+
+**共享包去重分析**：对于被多个 package 依赖的共享包（如 `@monorepo/utils`、`@monorepo/config`、`libs/*`）：
+- 仅分析一次（通常是第一次被依赖时），生成完整的接口和依赖文档
+- 后续消费方 package 在依赖分析中**引用**共享包文档而非重复分析
+- 在 `RelationshipSummary.key_insights` 中单独列出"被 ≥3 个 package 依赖的共享包"清单，供 overview 页面展示
 
 ## 依赖提取（静态层）
 
@@ -91,8 +96,8 @@
 
 ## 可信基线验证
 
-extract-structure 产出的 `cache/import-relations.json` 提供了基于 tree-sitter AST 精确解析的文件级导入关系。在 AI 综合分析时，应将此作为**可信基线**进行交叉验证：
+extract-structure 产出的 `cache/code-structure.json` 中的 `import_relations` 字段提供了基于 tree-sitter AST 精确解析的文件级导入关系。在 AI 综合分析时，应将此作为**可信基线**进行交叉验证：
 
-1. **导入一致性校验**：AI 推断的模块间 `Import` 类型依赖边，必须能在 `import-relations.json` 中找到对应的文件级 import 语句支持。找不到静态证据的依赖边应降低 `importance` 或标记为"推断依赖"。
-2. **遗漏补充**：如果 `import-relations.json` 中存在跨模块的 import 关系但 AI 未识别，应补充为依赖边（类型 `Import`，`importance` 2-3）。
-3. **方向验证**：确认 AI 推断的依赖方向与 `import-relations.json` 中的实际 import 方向一致（A imports B 意味着 A 依赖 B，而非反向）。
+1. **导入一致性校验**：AI 推断的模块间 `Import` 类型依赖边，必须能在 `code-structure.json` 的 `import_relations` 中找到对应的文件级 import 语句支持。找不到静态证据的依赖边应降低 `importance` 或标记为"推断依赖"。
+2. **遗漏补充**：如果 `import_relations` 中存在跨模块的 import 关系但 AI 未识别，应补充为依赖边（类型 `Import`，`importance` 2-3）。
+3. **方向验证**：确认 AI 推断的依赖方向与 `import_relations` 中的实际 import 方向一致（A imports B 意味着 A 依赖 B，而非反向）。

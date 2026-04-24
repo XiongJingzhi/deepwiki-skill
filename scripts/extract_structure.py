@@ -89,15 +89,6 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
-    # 独立输出 import-relations.json
-    ir_path = project_path / ".deepwiki" / "cache" / "import-relations.json"
-    ir_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(ir_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "cache_schema_version": CACHE_SCHEMA_VERSION,
-            "relations": import_relations,
-        }, f, ensure_ascii=False, indent=2)
-
     # 输出 parse-results.json（AST 摘要缓存，供后续步骤复用，避免重复 tree-sitter 解析）
     parse_summaries = _collect_parse_summaries(all_files, project_path)
     pr_path = project_path / ".deepwiki" / "cache" / "parse-results.json"
@@ -563,9 +554,14 @@ def _collect_parse_summaries(
             "language": "python",
             "definitions": [{"name": "func", "kind": "function", "line": 10, "end_line": 25}],
             "complexity_nodes": 15,
+            "complexity_score": 42,
             "important_lines": [1, 3, 10],
+            "important_lines_count": 3,
+            "loc": 50,
         }}
     """
+    from code_metrics import compute_complexity_score
+
     mgr = get_manager()
     summaries: Dict[str, Dict[str, Any]] = {}
 
@@ -607,14 +603,21 @@ def _collect_parse_summaries(
                 for name, line_no, body_bytes in defs
             ]
 
-            # 2. 复杂度节点计数
+            # 2. 复杂度节点计数 + complexity_score + loc
             try:
                 caps = mgr.run_query(lang_name, "complexity", root)
-                summary["complexity_nodes"] = (
-                    len(caps.get("cf", [])) + len(caps.get("def", []))
-                )
+                cf_count = len(caps.get("cf", []))
+                def_count = len(caps.get("def", []))
+                summary["complexity_nodes"] = cf_count + def_count
+                lines = source.split(b"\n")
+                non_empty_lines = [l for l in lines if l.strip() and not l.strip().startswith((b"#", b"//", b"/*", b"*"))]
+                loc = len(non_empty_lines)
+                summary["loc"] = loc
+                summary["complexity_score"] = compute_complexity_score(cf_count, def_count, loc)
             except Exception:
                 summary["complexity_nodes"] = 0
+                summary["loc"] = 0
+                summary["complexity_score"] = 0
 
             # 3. 重要行号集合
             try:
@@ -632,8 +635,10 @@ def _collect_parse_summaries(
                     ):
                         important_lines.add(i)
                 summary["important_lines"] = sorted(important_lines)
+                summary["important_lines_count"] = len(summary["important_lines"])
             except Exception:
                 summary["important_lines"] = []
+                summary["important_lines_count"] = 0
 
             summaries[rel_path] = summary
         except Exception:

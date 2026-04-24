@@ -605,9 +605,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python check_quality.py /path/to/project/.deepwiki
-  python check_quality.py . --verbose
-  python check_quality.py . --json report.json
+  python check_doc_quality.py /path/to/project/.deepwiki
+  python check_doc_quality.py . --verbose
+  python check_doc_quality.py . --json report.json
         """
     )
     parser.add_argument(

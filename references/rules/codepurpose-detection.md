@@ -25,6 +25,8 @@
 | **Other** | 以上均不匹配时的兜底分类 |
 
 > **语言特定信号扩展**：当上表的路径/文件名模式无法匹配时，参见 [`file-role-classification.md`](file-role-classification.md) 第二层语义推断的"语言特定信号"表格，适用于 Go / Rust / Java / Kotlin / Python 的框架注解和语法特征检测。
+>
+> 语言特定的代码模式信号见 [`file-role-classification.md`](file-role-classification.md#语言特定信号)。
 
 ---
 

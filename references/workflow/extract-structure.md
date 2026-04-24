@@ -9,7 +9,7 @@
 |----|-----|
 | **脚本** | `python scripts/extract_structure.py <项目路径>` |
 | **输入** | `cache/structure.json` |
-| **输出** | `cache/code-structure.json`、`cache/import-relations.json` |
+| **输出** | `cache/code-structure.json` |
 | **前置** | `analyze-project` |
 | **后置** | `generate-skeleton`、`detect-changes` |
 
@@ -23,13 +23,19 @@
 | `key_sequences` | 从入口点 BFS 生成的近似时序（`participants` / `steps`） | generate-overview 生成 `architecture.md` 时序图的原始数据 |
 | `import_relations` | 文件级导入关系图（`{file: {imports: [...]}}`） | synthesize-deps 作为可信基线验证 AI 依赖分析的准确性 |
 
-额外输出文件：`cache/import-relations.json`（与 `code-structure.json` 中的 `import_relations` 字段内容一致）。
-
 > **实现说明**：使用 tree-sitter AST 精确解析，覆盖 TS/JS/Python/Go/Rust/Java/Kotlin，不会误匹配字符串或注释中的伪代码结构。
 
 ## Monorepo 检测逻辑
 
-当 `analyze-project` 在 `structure.json` 中检测到 `is_monorepo: true` 时，`extract-structure` 自动将 archetype 设为 `monorepo`，并调整分析单位：
+当 `analyze-project` 在 `structure.json` 中检测到 `is_monorepo: true` 时，`extract-structure` 自动将 archetype 设为 `monorepo`，并调整分析单位。
+
+**检测文件标记**（满足任一即判定为 monorepo）：
+- `pnpm-workspace.yaml` — pnpm workspace 配置
+- `lerna.json` — Lerna monorepo 管理配置
+- `turbo.json` — Turborepo 配置
+- `nx.json` — Nx workspace 配置
+- `package.json` 中包含 `workspaces` 字段 — Yarn/npm workspace 原生声明
+- `rush.json` — Rush monorepo 配置
 
 | 普通项目 | Monorepo |
 |---------|---------|

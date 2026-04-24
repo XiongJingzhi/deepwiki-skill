@@ -52,7 +52,7 @@
 
 ## 质量等级
 
-`check_quality.py` 基于行数、章节数、图表和示例综合评分，得出 `basic / standard / professional` 三级。
+`check_doc_quality.py` 基于行数、章节数、图表和示例综合评分，得出 `basic / standard / professional` 三级。
 
 ### 评分公式
 

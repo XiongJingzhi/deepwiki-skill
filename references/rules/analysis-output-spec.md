@@ -38,7 +38,7 @@
 | `module_summary` | 1-2 句描述模块职责和架构角色 |
 | `selected_components` | 已选定的文档组件列表（generate-module-docs直接使用，无需重新决策） |
 | `dependency_hints.imports` | 本模块依赖的其他模块名列表 |
-| `dependency_hints.imported_by` | 依赖本模块的其他模块名列表（可从 import-relations.json 推断） |
+| `dependency_hints.imported_by` | 依赖本模块的其他模块名列表（可从 code-structure.json 的 `import_relations` 字段推断） |
 | `files[].path` | 文件相对路径 |
 | `files[].code_purpose` | 文件级 CodePurpose |
 | `files[].complexity_score` | 来自 structure.json 的复杂度评分 |

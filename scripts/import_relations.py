@@ -4,10 +4,47 @@ Import 关系提取模块
 基于 tree-sitter AST 提取文件级 import 关系，作为依赖验证的可信基线。
 """
 
+import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from parsers import get_manager, get_lang_for_ext, get_parser_for_ext
+
+_LANG_EXTENSIONS = {
+    ".py": [".py", ".pyi"],
+    ".ts": [".ts", ".tsx"],
+    ".tsx": [".tsx", ".ts"],
+    ".js": [".js", ".jsx", ".mjs", ".cjs"],
+    ".go": [".go"],
+    ".rs": [".rs"],
+    ".java": [".java", ".kt"],
+    ".kt": [".kt", ".java"],
+}
+
+
+def _discover_source_dirs(project_root: Path) -> List[str]:
+    """Discover source directories from structure.json or fallback to heuristics.
+
+    Priority:
+    1. Read structure.json modules[].path to derive actual top-level source dirs
+    2. Fall back to common heuristic directories
+    """
+    structure_path = project_root / ".deepwiki" / "cache" / "structure.json"
+    if structure_path.exists():
+        try:
+            data = json.loads(structure_path.read_text('utf-8'))
+            module_paths = [m.get('path', '') for m in data.get('modules', [])]
+            dirs = set()
+            for mp in module_paths:
+                parts = mp.split('/')
+                if len(parts) >= 1 and parts[0]:
+                    dirs.add(parts[0])  # e.g., "src", "lib", "packages"
+            if dirs:
+                return sorted(dirs)
+        except Exception:
+            pass
+    # Fallback
+    return ["src", "lib", "pkg", "app", "internal", "cmd"]
 
 
 def _extract_imports_from_source(source: bytes, lang_name: str) -> List[str]:
@@ -110,11 +147,14 @@ def _resolve_imports_to_paths(imports: List[str], source_file: Path, project_roo
                 resolved.append(str(target_file.relative_to(project_root)).replace("\\", "/"))
         elif "/" in imp:
             base_path = project_root / imp
-            for ext in ["", ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs"]:
-                candidate = base_path.with_suffix(ext) if ext else base_path
-                if candidate.exists() and candidate.is_file():
-                    resolved.append(str(candidate.relative_to(project_root)).replace("\\", "/"))
-                    break
+            # Language-aware extension guessing
+            ext_options = _LANG_EXTENSIONS.get(source_ext, [source_ext])
+            if not any(c in imp for c in ("*", "?", "[")):
+                for ext in ext_options:
+                    candidate = base_path.with_suffix(ext) if ext else base_path
+                    if candidate.exists() and candidate.is_file():
+                        resolved.append(str(candidate.relative_to(project_root)).replace("\\", "/"))
+                        break
 
     return list(set(resolved))
 
@@ -122,20 +162,15 @@ def _resolve_imports_to_paths(imports: List[str], source_file: Path, project_roo
 def _find_module_in_project(module_name: str, project_root: Path, source_ext: str) -> List[str]:
     """在项目中查找模块名对应的文件路径。"""
     candidates: List[str] = []
-    src_dirs = [
-        "src", "lib", "pkg", "app", "internal",
-        # Java convention
-        "src/main/java", "src/main/kotlin", "src/main/scala",
-        # Go convention
-        "cmd",
-    ]
+    src_dirs = _discover_source_dirs(project_root)
+    ext_options = _LANG_EXTENSIONS.get(source_ext, [source_ext])
 
     for src_dir in src_dirs:
         src_path = project_root / src_dir
         if not src_path.exists():
             continue
 
-        for ext in [source_ext, ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs"]:
+        for ext in ext_options:
             candidate = src_path / f"{module_name}{ext}"
             if candidate.exists():
                 candidates.append(str(candidate.relative_to(project_root)).replace("\\", "/"))

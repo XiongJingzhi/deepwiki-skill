@@ -20,14 +20,14 @@
 
 | 数据源 | 作用 | 优先级 |
 |--------|------|--------|
-| `cache/import-relations.json` | 模块间依赖强度，最客观的聚合信号 | **最高** |
+| `cache/code-structure.json` → `import_relations` | 模块间依赖强度，最客观的聚合信号 | **最高** |
 | `cache/module-analysis.json` → `dependency_hints` | 步骤 5 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
 | `cache/module-analysis.json` → `semantic_group` | AI 的语义主题标注，验证并命名分组 | 中 |
 | `cache/code-structure.json` → `patterns` | 同类 pattern 的模块有结构亲缘，可辅助归组 | 中 |
 | `cache/structure.json` → 目录聚集度 | 同父目录的模块有弱亲缘关系，作为辅助信号 | 低 |
 | `../rules/menu-archetypes.md` | 当前 archetype 的分组思路（孤岛模块兜底） | 兜底 |
 
-> **降级**：若 `module-analysis.json` 不存在，直接使用 `import-relations.json` + `structure.json`，跳过语义分组层。
+> **降级**：若 `module-analysis.json` 不存在，直接使用 `code-structure.json` 的 `import_relations` + `structure.json`，跳过语义分组层。
 
 ---
 
@@ -35,14 +35,14 @@
 
 **层1：依赖数据聚类（必做）**
 
-从 `import-relations.json`（或 `dependency_hints`）构建模块依赖图：
+从 `code-structure.json` 的 `import_relations`（或 `dependency_hints`）构建模块依赖图：
 1. 互相存在双向引用、或共同被第三个模块大量引用的模块 → 候选聚合组
 2. 同父目录且有共同依赖的模块 → 加强候选信号
 3. 按依赖强度从高到低排列候选组
 
 #### 层1 操作步骤（具体执行）
 
-1. 读取 `cache/import-relations.json`，将文件级 import 归并为模块级依赖：将路径前缀相同的文件归为同一模块，统计模块 A → 模块 B 的跨模块 import 次数，得到 `dep_weight(A, B)`
+1. 读取 `cache/code-structure.json` 的 `import_relations` 字段，将文件级 import 归并为模块级依赖：将路径前缀相同的文件归为同一模块，统计模块 A → 模块 B 的跨模块 import 次数，得到 `dep_weight(A, B)`
 2. 标记强依赖对：`dep_weight(A, B) >= 2` 或 `dep_weight(A, B) + dep_weight(B, A) >= 3` → 候选同组
 3. 用 Union-Find 或贪心聚类将强依赖对合并为候选组
 4. 对每个候选组：若组内模块数 > 6，按 `dep_weight` 拆分为子组；若组内模块数 = 1，标记为"孤岛"

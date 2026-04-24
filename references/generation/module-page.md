@@ -20,7 +20,7 @@ CodePurpose: {{ CODE_PURPOSE }}
 完整代码内容:
 {{ CODE_CONTENT }}
 
-预提取的文档注释（由 extract_docs.py 生成）:
+预提取的文档注释（由 extract_doc_comments.py 生成）:
 {{ EXTRACTED_DOCS }}
 
 ### 语言术语规范

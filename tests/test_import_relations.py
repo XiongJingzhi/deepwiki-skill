@@ -1,5 +1,6 @@
 """Tests for import_relations.py — import relation extraction and path resolution."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -217,3 +218,53 @@ class TestFindModuleInProject:
             "nonexistent_xyz_123", tmp_path, ".py"
         )
         assert result == []
+
+
+# ── _discover_source_dirs ──────────────────────────────────────────────
+
+
+class TestDiscoverSourceDirs:
+    def test_with_structure_json(self, tmp_path):
+        """Returns source dirs from structure.json modules."""
+        deepwiki = tmp_path / ".deepwiki" / "cache"
+        deepwiki.mkdir(parents=True)
+        structure = {"modules": [
+            {"path": "src/auth"}, {"path": "src/core"}, {"path": "lib/utils"}
+        ]}
+        (deepwiki / "structure.json").write_text(json.dumps(structure))
+        dirs = import_relations._discover_source_dirs(tmp_path)
+        assert "src" in dirs
+        assert "lib" in dirs
+
+    def test_without_structure_json(self, tmp_path):
+        """Falls back to heuristic dirs."""
+        dirs = import_relations._discover_source_dirs(tmp_path)
+        assert "src" in dirs
+        assert "lib" in dirs
+
+    def test_with_empty_modules(self, tmp_path):
+        """Falls back when modules list is empty."""
+        deepwiki = tmp_path / ".deepwiki" / "cache"
+        deepwiki.mkdir(parents=True)
+        (deepwiki / "structure.json").write_text('{"modules": []}')
+        dirs = import_relations._discover_source_dirs(tmp_path)
+        assert "src" in dirs  # fallback
+
+
+# ── _LANG_EXTENSIONS ───────────────────────────────────────────────────
+
+
+class TestLangExtensions:
+    def test_python_extensions(self):
+        exts = import_relations._LANG_EXTENSIONS[".py"]
+        assert ".py" in exts
+        assert ".pyi" in exts
+
+    def test_go_extensions(self):
+        exts = import_relations._LANG_EXTENSIONS[".go"]
+        assert exts == [".go"]
+
+    def test_typescript_extensions(self):
+        exts = import_relations._LANG_EXTENSIONS[".ts"]
+        assert ".ts" in exts
+        assert ".tsx" in exts

@@ -12,10 +12,9 @@
 | `meta.json` | 生成器版本、时间戳、每个模块的元数据（质量等级、章节数、最后更新时间） |
 | `cache/checksums.json` | 文件哈希值，用于增量变更检测（含 `cache_schema_version` 版本控制） |
 | `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈，含 `cache_schema_version` 版本控制） |
-| `cache/project-digest.md` | 精简项目概要（`analyze-project` 自动生成），约 3K tokens，供 AI 步骤复用，避免重复读取完整 structure.json |
+| `cache/project-digest.md` | 精简项目概要（`analyze-project` 自动生成），约 3K tokens，供 AI 步骤复用，是 structure.json 的 AI 消费优化视图 |
 | `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
-| `cache/import-relations.json` | 文件级导入关系图（作为 AI 依赖分析的可信基线） |
-| `cache/architecture-skeleton-input.json` | `generate-skeleton` 脚本段提取的精简摘要，供 AI 生成全局架构骨架时读取（约 5-15K tokens） |
+| `cache/architecture-skeleton-input.json` | `generate-skeleton` 脚本段提取的精简摘要，供 AI 生成全局架构骨架时读取（约 5-15K tokens；瞬态文件，仅作为 AI 步骤输入） |
 | `cache/architecture-skeleton.json` | `generate-skeleton` AI段生成的全局架构骨架，供 `extract-docs`～`generate-module-docs` 注入全局上下文（含模块分组、架构分层、关键数据流） |
 | `cache/module-analysis.json` | `extract-docs` 语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供 `synthesize-deps` 和 `generate-module-docs` 复用 |
 | `cache/progress.json` | 分阶段任务状态机（overview/menu/details 三阶段，每模块 pending/in_progress/completed/failed，含 subagent/serial 模式标记） |
@@ -37,11 +36,11 @@
 | `scripts/init_wiki.py <项目路径>` | `init-wiki` | 初始化 .deepwiki 目录 |
 | `scripts/analyze_project.py <项目路径>` | `analyze-project` | 分析项目结构和技术栈（同时生成 `cache/project-digest.md`） |
 | `scripts/extract_structure.py <项目路径>` | `extract-structure` | 提取调用图、代码模式、关键时序和导入关系 |
-| `scripts/generate_architecture_skeleton.py <项目路径>` | `generate-skeleton` | 从确定性缓存文件提取精简摘要，输出 `cache/architecture-skeleton-input.json` |
+| `scripts/generate_skeleton.py <项目路径>` | `generate-skeleton` | 从确定性缓存文件提取精简摘要，输出 `cache/architecture-skeleton-input.json` |
 | `scripts/detect_changes.py <项目路径>` | `detect-changes` | 检测文件变更，用于增量更新（含反向依赖传播） |
-| `scripts/extract_docs.py <文件路径>` | `extract-docs`（预提取子步骤） | 从源码提取文档注释 |
+| `scripts/extract_doc_comments.py <文件路径>` | `extract-docs`（预提取子步骤） | 从源码提取文档注释 |
 | `scripts/check_analysis_quality.py <项目路径>` | `check-analysis-quality` | 检查 `module-analysis.json` 是否满足最低质量标准（支持 `--verbose` 和 `--json`） |
-| `scripts/check_quality.py <.deepwiki路径>` | `generate-module-docs`（收尾质检） | 检查文档质量（含源码链接有效性验证） |
+| `scripts/check_doc_quality.py <.deepwiki路径>` | `generate-module-docs`（收尾质检） | 检查文档质量（含源码链接有效性验证） |
 | `scripts/generate_menu.py <wiki目录路径> [项目名称]` | `generate-menu` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
 | `scripts/fix_mermaid.py <.deepwiki路径>` | `generate-module-docs`（Mermaid 修复子步骤） | 修复 Mermaid 图表语法错误（支持 `--dry-run` 和 `--json`） |
 
@@ -63,7 +62,7 @@ python scripts/init_wiki.py $PROJECT_DIR --force
 python scripts/analyze_project.py $PROJECT_DIR
 
 # generate-skeleton：提取架构骨架输入数据（AI 再根据输出生成 architecture-skeleton.json）
-python scripts/generate_architecture_skeleton.py $PROJECT_DIR
+python scripts/generate_skeleton.py $PROJECT_DIR
 
 # 检测文件变更
 python scripts/detect_changes.py $PROJECT_DIR
@@ -72,7 +71,7 @@ python scripts/detect_changes.py $PROJECT_DIR
 python scripts/extract_structure.py $PROJECT_DIR
 
 # 提取源码注释
-python scripts/extract_docs.py /path/to/src/utils.ts
+python scripts/extract_doc_comments.py /path/to/src/utils.ts
 
 # check-analysis-quality：检查分析质量门控
 python scripts/check_analysis_quality.py $PROJECT_DIR
@@ -80,9 +79,9 @@ python scripts/check_analysis_quality.py $PROJECT_DIR --verbose
 python scripts/check_analysis_quality.py $PROJECT_DIR --json gate-report.json
 
 # 检查文档质量（基本 / 详细报告 / 导出 JSON）
-python scripts/check_quality.py $PROJECT_DIR/.deepwiki
-python scripts/check_quality.py $PROJECT_DIR/.deepwiki --verbose
-python scripts/check_quality.py $PROJECT_DIR/.deepwiki --json report.json
+python scripts/check_doc_quality.py $PROJECT_DIR/.deepwiki
+python scripts/check_doc_quality.py $PROJECT_DIR/.deepwiki --verbose
+python scripts/check_doc_quality.py $PROJECT_DIR/.deepwiki --json report.json
 
 # 生成导航菜单
 python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称"

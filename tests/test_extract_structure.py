@@ -516,8 +516,8 @@ class TestImportRelationsIntegration:
         assert "import_relations" in result
         assert isinstance(result["import_relations"], dict)
 
-    def test_import_relations_json_file(self, tmp_path):
-        """import-relations.json should be written to cache/."""
+    def test_import_relations_in_code_structure_json(self, tmp_path):
+        """import_relations data should be in code-structure.json (standalone file removed)."""
         src = tmp_path / "src"
         src.mkdir()
         (src / "index.ts").write_text("export const x = 1;")
@@ -533,10 +533,12 @@ class TestImportRelationsIntegration:
         }
         (deepwiki / "structure.json").write_text(json.dumps(structure))
 
-        extract_structure.run_extract_structure(tmp_path)
+        result = extract_structure.run_extract_structure(tmp_path)
 
-        ir_file = deepwiki / "import-relations.json"
-        assert ir_file.exists()
-        data = json.loads(ir_file.read_text())
-        assert "cache_schema_version" in data
-        assert "relations" in data
+        # import_relations should be in the returned result and in code-structure.json
+        assert "import_relations" in result
+        assert isinstance(result["import_relations"], dict)
+
+        out_file = deepwiki / "code-structure.json"
+        data = json.loads(out_file.read_text())
+        assert "import_relations" in data

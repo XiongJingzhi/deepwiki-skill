@@ -38,24 +38,33 @@
 - 含 UI 渲染逻辑（`render(`、`return <`、`template:`）→ `Widget` 或 `Page`
 - 含配置常量（大量 `const CONFIG_`、`env.`）→ `Config`
 
-### 语言特定信号（通用规则无法判断时适用）
+## 语言特定信号
 
-| 语言 | 代码信号 | 推断角色 |
-|------|---------|---------|
-| **Go** | 含 `http.HandleFunc`、`gin.GET`、`echo.GET`、`mux.Handle` | `Api` |
-| **Go** | 含 `sql.Query`、`db.Exec`、`gorm.Find`、`sqlx.Get` | `Dao` |
-| **Go** | 含 `func main()` 且在 `main` package | `Entry` |
-| **Rust** | 含 `#[tokio::main]` 或 `fn main()` | `Entry` |
-| **Rust** | 含 `impl Trait`（Trait 为外部接口名） | `Service` |
-| **Rust** | 含 `axum::Router`、`actix_web::HttpServer` | `Api` |
-| **Java/Kotlin** | 含 `@RestController`、`@Controller` 注解 | `Api` |
-| **Java/Kotlin** | 含 `@Repository`、`@Mapper` 注解 | `Dao` |
-| **Java/Kotlin** | 含 `@Service`、`@Component`（无 `@Controller`） | `Service` |
-| **Java/Kotlin** | 含 `@Entity`、`@Table` 注解 | `Model` |
-| **Java/Kotlin** | 含 `@SpringBootApplication`、`fun main(` | `Entry` |
-| **Python** | 含 `@app.route`、`@router.get`、`@router.post` | `Api` |
-| **Python** | 继承 `BaseModel`（Pydantic）、`SQLModel` | `Model` |
-| **Python** | 含 `if __name__ == "__main__"` 且调用核心业务函数 | `Entry` |
-| **Python** | 含 `@pytest.fixture` 或函数名以 `test_` 开头 | `Test` |
+当第一层路径规则和第二层通用语义规则均无法确定角色时，使用以下语言特定的代码模式信号表。表中按语言分组，列出信号模式及其对应的推断角色。
+
+| 语言 | 信号模式 | 角色 |
+|------|---------|------|
+| **Go** | `http.HandleFunc`、`gin.GET`、`echo.GET`、`mux.Handle`、`http.Listen` | `Api` |
+| **Go** | `sql.Query`、`sql.Exec`、`database/sql` import、`gorm.Find`、`sqlx.Get` | `Dao` |
+| **Go** | `func main()` 且在 `package main` | `Entry` |
+| **Go** | `fmt.Fprintf`、`log.Printf` | `Util` |
+| **Rust** | `#[tokio::main]`、`fn main()` | `Entry` |
+| **Rust** | `impl Trait for`（Trait 为外部接口名） | `Service` |
+| **Rust** | `axum::Router`、`warp::Filter`、`actix_web::HttpServer` | `Api` |
+| **Rust** | `#[derive(Debug, Clone)]` 等派生宏作用于 struct | `Model` |
+| **Rust** | `#[cfg(test)]`、`#[test]` | `Test` |
+| **Java** | `@RestController`、`@GetMapping`、`@PostMapping`、`@Controller` | `Api` |
+| **Java** | `@Repository`、`extends JpaRepository`、`@Mapper` | `Dao` |
+| **Java** | `@Service`、`@Component`（无 `@Controller`） | `Service` |
+| **Java** | `@Entity`、`@Table`、`@Column` | `Model` |
+| **Java** | `@SpringBootApplication` | `Entry` |
+| **Kotlin** | `@RestController`、`@GetMapping`、`@PostMapping` | `Api` |
+| **Kotlin** | `@Service`、`@Component`（无 `@Controller`） | `Service` |
+| **Kotlin** | `@Entity`、`data class` | `Model` |
+| **Kotlin** | `@SpringBootApplication`、`fun main(` | `Entry` |
+| **Python** | `@app.route`、`@router.get`、`@router.post`、`@router.` | `Api` |
+| **Python** | 继承 `BaseModel`（Pydantic）、`SQLModel`、`class.*BaseModel`、`class.*Schema` | `Model` |
+| **Python** | `if __name__ == "__main__"` | `Entry` |
+| **Python** | `@pytest.fixture`、`@pytest.mark`、函数名以 `test_` 开头 | `Test` |
 
 > **应用顺序**：第一层路径规则 → 第二层通用语义规则 → 本语言特定信号表。只有前两步都无法确定时才查此表。

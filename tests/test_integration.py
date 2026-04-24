@@ -4,6 +4,7 @@ Tests the init → analyze → extract_structure → detect_changes pipeline
 without AI involvement (steps 1-3, 2.5).
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -95,6 +96,7 @@ class TestPipelineIntegration:
         cache = fake_python_project / ".deepwiki" / "cache"
         assert (cache / "structure.json").exists()
         assert (cache / "code-structure.json").exists()
-        assert (cache / "import-relations.json").exists()
+        # import-relations data is now embedded in code-structure.json (no separate file)
+        assert "import_relations" in json.loads((cache / "code-structure.json").read_text())
         assert (cache / "checksums.json").exists()
         assert (cache / "progress.json").exists()

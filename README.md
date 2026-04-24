@@ -101,8 +101,7 @@ DeepWiki 采用 **指令型插件系统**。当你运行任务时：
 │   ├── checksums.json                  # 增量变更校验和
 │   ├── structure.json                  # 模块结构和技术栈
 │   ├── project-digest.md               # 精简项目概要（Step 2，~3K tokens）
-│   ├── code-structure.json             # 调用图、代码模式、关键时序
-│   ├── import-relations.json           # 文件级导入关系图
+│   ├── code-structure.json             # 调用图、代码模式、关键时序、导入关系
 │   ├── architecture-skeleton-input.json # Step 3.5 脚本提取的骨架输入
 │   ├── architecture-skeleton.json      # Step 3.5 AI 生成的全局架构骨架
 │   ├── module-analysis.json            # Step 5 语义分析结果（接口、洞察、组件）
@@ -130,11 +129,11 @@ deepwiki/
 │   ├── init_wiki.py
 │   ├── analyze_project.py
 │   ├── extract_structure.py
-│   ├── generate_architecture_skeleton.py  # Step 3.5
+│   ├── generate_architecture_skeleton.py  # → generate_skeleton.py
 │   ├── detect_changes.py
-│   ├── extract_docs.py
+│   ├── extract_doc_comments.py            # → extract_docs.py (tree-sitter)
 │   ├── check_analysis_quality.py          # Step 4.5
-│   ├── check_quality.py
+│   ├── check_doc_quality.py               # → check_quality.py
 │   ├── generate_menu.py
 │   └── fix_mermaid.py
 ├── references/           # 工作流详细规则和提示词
@@ -156,11 +155,11 @@ deepwiki/
 | `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
 | `scripts/analyze_project.py <项目路径>` | 分析结构和技术栈（含 project-digest.md） |
 | `scripts/extract_structure.py <项目路径>` | 提取调用图、模式、导入关系 |
-| `scripts/generate_architecture_skeleton.py <项目路径>` | **Step 3.5**：提取骨架输入数据 |
+| `scripts/generate_skeleton.py <项目路径>` | **Step 3.5**：提取骨架输入数据 |
 | `scripts/detect_changes.py <项目路径>` | 增量变更检测 |
-| `scripts/extract_docs.py <文件路径>` | 从源码提取文档注释 |
+| `scripts/extract_doc_comments.py <文件路径>` | 从源码提取文档注释（tree-sitter） |
 | `scripts/check_analysis_quality.py <项目路径>` | **Step 4.5**：分析质量门控 |
-| `scripts/check_quality.py <.deepwiki路径>` | 文档质量检查 |
+| `scripts/check_doc_quality.py <.deepwiki路径>` | 文档质量检查 |
 | `scripts/generate_menu.py <wiki目录> [项目名]` | 生成 menu.json（支持 `--reconcile`） |
 | `scripts/fix_mermaid.py <.deepwiki路径>` | 修复 Mermaid 语法错误 |
 

@@ -15,7 +15,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 |---------|------|---------|
 | 生成/创建文档 | **全量生成** | `init-wiki` |
 | 重建 wiki | **增量更新** | `init-wiki`（`detect-changes` 自动跳过未变更模块） |
-| 检查 wiki 质量 | **仅质量检查** | `check_quality.py`（直接运行，不重新生成） |
+| 检查 wiki 质量 | **仅质量检查** | `check_doc_quality.py`（直接运行，不重新生成） |
 | 更新/升级文档 | **定向重生成** | `extract-docs`（跳过 `init-wiki` → `detect-changes`） |
 
 ## 工作流
@@ -29,7 +29,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 
 **快捷路径：**
 
-- 仅质量检查：直接运行 `check_quality.py`，跳过所有生成步骤
+- 仅质量检查：直接运行 `check_doc_quality.py`，跳过所有生成步骤
 - 定向重生成：从 `extract-docs` 开始，跳过 `init-wiki` → `detect-changes`
 
 
@@ -69,7 +69,6 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 │   ├── structure.json
 │   ├── project-digest.md
 │   ├── code-structure.json
-│   ├── import-relations.json
 │   ├── architecture-skeleton.json
 │   ├── module-analysis.json
 │   └── progress.json

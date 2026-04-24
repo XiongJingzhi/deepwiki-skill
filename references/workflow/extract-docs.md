@@ -5,7 +5,7 @@
 
 | 項 | 值 |
 |----|-----|
-| **脚本** | `python scripts/extract_docs.py <文件绝对路径>`（预提取注释，逐文件） |
+| **脚本** | `python scripts/extract_doc_comments.py <文件绝对路径>`（预提取注释，逐文件） |
 | **输入** | `cache/structure.json`、`cache/code-structure.json`、`cache/architecture-skeleton.json`（可选） |
 | **输出** | `cache/module-analysis.json` |
 | **前置** | `detect-changes`，可选 `generate-skeleton` |
@@ -115,11 +115,11 @@
 
   | change_type | 重分析范围 | 反向依赖传播 |
   |------------|-----------|------------|
+  | `new` | 完整分析（视同新模块） | 按所属模块处理 |
+  | `deleted` | 标记废弃，删除 `module-analysis.json` 中对应 `files[]` 条目 | ✅ 触发 |
   | `api-change` | 完整重分析：更新 `public_interfaces`、`key_insights`、`summary` | ✅ 触发 |
   | `impl-change` | 定向重分析：仅重读实现部分，更新 `key_insights` | ❌ 不触发 |
-  | `doc-only-change` | 轻量更新：重跑 `extract_docs.py`，更新 `summary` | ❌ 不触发 |
-  | 新增文件 | 完整分析（视同新模块） | 按所属模块处理 |
-  | 删除文件 | 标记废弃，删除 `module-analysis.json` 中对应 `files[]` 条目 | ✅ 触发 |
+  | `doc-only-change` | 轻量更新：重跑 `extract_doc_comments.py`，更新 `summary` | ❌ 不触发 |
 
   > **降级**：若 `changed_files` 中无 `change_type` 字段（旧版脚本输出），统一视为 `api-change`（向后兼容）。
 
@@ -132,7 +132,7 @@
 对每个待处理的核心文件，从**技能目录**运行以下命令预提取结构化注释（函数签名、参数、返回值、类定义）：
 
 ```bash
-python scripts/extract_docs.py <文件绝对路径>
+python scripts/extract_doc_comments.py <文件绝对路径>
 ```
 
 将提取结果作为语义分析的起点注入 `{{ EXTRACTED_DOCS }}` 变量，减少重复提取工作。若文件无文档注释则跳过。

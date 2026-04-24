@@ -7,8 +7,8 @@
 
 | 項 | 值 |
 |----|-----|
-| **脚本** | `python scripts/generate_architecture_skeleton.py <项目路径>`（脚本段）+ AI 生成（AI 段） |
-| **输入** | `cache/structure.json`、`cache/code-structure.json`、`cache/import-relations.json` |
+| **脚本** | `python scripts/generate_skeleton.py <项目路径>`（脚本段）+ AI 生成（AI 段） |
+| **输入** | `cache/structure.json`、`cache/code-structure.json` |
 | **输出** | `cache/architecture-skeleton.json` |
 | **前置** | `extract-structure` |
 | **后置** | `extract-docs`（注入全局上下文） |
@@ -44,13 +44,12 @@ extract-docs的深度分析采用 batch-3 策略（每批 3 个模块），每�
 从技能目录运行以下脚本，提取精简摘要，输出 `cache/architecture-skeleton-input.json`：
 
 ```bash
-python scripts/generate_architecture_skeleton.py <项目目录绝对路径>
+python scripts/generate_skeleton.py <项目目录绝对路径>
 ```
 
 **脚本输入**（全部来自确定性脚本，零 AI 成本）：
 - `cache/structure.json` — 模块列表、重要性排名、技术栈
-- `cache/code-structure.json` — archetype、patterns 摘要、key_sequences 参与者
-- `cache/import-relations.json` — 跨模块导入关系摘要
+- `cache/code-structure.json` — archetype、patterns 摘要、key_sequences 参与者、`import_relations` 跨模块导入关系
 
 **脚本输出**：`cache/architecture-skeleton-input.json`（约 5-15K tokens）
 

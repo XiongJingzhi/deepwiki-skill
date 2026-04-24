@@ -7,7 +7,7 @@
 
 | 項 | 値 |
 |----|-----|
-| **脚本** | `python scripts/generate_menu.py ... --reconcile`、`fix_mermaid.py`、`check_quality.py` |
+| **脚本** | `python scripts/generate_menu.py ... --reconcile`、`fix_mermaid.py`、`check_doc_quality.py` |
 | **输入** | `cache/module-analysis.json`、`wiki/menu.json`、RelationshipSummary |
 | **输出** | `wiki/modules/*.md`、`wiki/api/*.md`、`wiki/menu.json`（校验后） |
 | **前置** | `generate-menu` |
@@ -179,7 +179,7 @@ python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report
 从**技能目录**运行质量检查，确认生成的文档符合质量标准（源码链接、Mermaid 图表、章节完整性）：
 
 ```bash
-python scripts/check_quality.py <项目目录绝对路径>/.deepwiki
+python scripts/check_doc_quality.py <项目目录绝对路径>/.deepwiki
 ```
 
 ### 质量等级说明
@@ -197,5 +197,5 @@ python scripts/check_quality.py <项目目录绝对路径>/.deepwiki
 1. 加 `--verbose` 查看具体 Basic 文档的缺失项（源码链接、图表、章节数不足等）
 2. 将这些模块在 `cache/progress.json` 中对应条目状态重置为 `pending`
 3. **跳过 init-wiki 到 extract-structure**，直接从 **extract-docs** 重新执行 → generate-module-docs（生成阶段），仅针对 Basic 模块
-4. 重新生成后再次运行 `check_quality.py` 确认达标
+4. 重新生成后再次运行 `check_doc_quality.py` 确认达标
 5. 若二次生成仍为 Basic，记录到 `meta.json` 的 `quality_issues` 字段并告知用户，不再强制重试
