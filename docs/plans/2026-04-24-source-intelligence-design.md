@@ -8,7 +8,7 @@
 
 ## Implementation Summary
 
-本设计已在 `feature/source-intelligence` 分支完成第一轮基线落地。
+本设计已合并到 `master`，第一轮基线已完成落地。
 
 已完成的关键闭环：
 

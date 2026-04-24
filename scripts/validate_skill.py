@@ -17,6 +17,7 @@ REQUIRED_FILES = [
     "scripts/check_dependencies.py",
     "scripts/validate_skill.py",
     "references/system-reference.md",
+    "references/rules/file-role-classification.md",
     "references/workflow/build-evidence-index.md",
 ]
 

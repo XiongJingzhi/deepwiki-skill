@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+**Status:** Completed on `master`
+
 **Goal:** 按 优化1→3→2→4→5→6→7→8 顺序对 deepwiki-skill 的 references/ 规范文档实施 8 项结构性优化
 
 **Architecture:** 纯文档改造，不涉及脚本逻辑变更；所有变更限于 references/ 和 SKILL.md；新增两份规范文档（file-role-classification.md、analysis-output-spec.md）

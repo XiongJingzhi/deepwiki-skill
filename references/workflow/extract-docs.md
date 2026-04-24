@@ -13,7 +13,7 @@
 
 ## 文件角色分类
 
-> 完整分类规则见 [`../rules/codepurpose-detection.md`](../rules/codepurpose-detection.md)。
+> 完整分类规则见 [`../rules/file-role-classification.md`](../rules/file-role-classification.md)；组件触发规则见 [`../rules/codepurpose-detection.md`](../rules/codepurpose-detection.md)。
 >
 > **执行要点**：在读取每个文件之前先完成分类，角色标签用于生成文档时的针对性描述。
 

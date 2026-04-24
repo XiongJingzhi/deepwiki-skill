@@ -56,6 +56,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `self-check` | 脚本：`scripts/cli.py self-check`，检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
 | `check-cross-module-consistency` | 脚本：`scripts/finalize.py consistency`（详见 [`generate-module-docs.md`](references/workflow/generate-module-docs.md)） |
 | `codepurpose-detection`（规则） | [references/rules/codepurpose-detection.md](references/rules/codepurpose-detection.md) |
+| `file-role-classification`（规则） | [references/rules/file-role-classification.md](references/rules/file-role-classification.md) |
 | `analysis-output-spec`（规范） | [references/rules/analysis-output-spec.md](references/rules/analysis-output-spec.md) |
 
 ## 不适用场景

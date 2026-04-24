@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.9+、pytest、Markdown workflow docs、JSON cache contracts、tree-sitter language bindings、现有 `scripts/` CLI。
 
-**Implementation Status:** 第一轮基线已在 `feature/source-intelligence` 分支完成并通过完整测试。Task 1-10 均已落地，后续优化可继续围绕正文编译器、跨语言语义提取深度和更严格的证据覆盖率展开。
+**Implementation Status:** 第一轮基线已合并到 `master` 并通过完整测试。Task 1-10 均已落地，后续增强可继续围绕正文编译器、跨语言语义提取深度和更严格的证据覆盖率展开。
 
 ---
 
