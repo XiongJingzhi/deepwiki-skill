@@ -233,6 +233,11 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
                             "doc-map.md": "pending"
                         }
                     },
+                    "analysis": {
+                        "status": "pending",
+                        "mode": "serial",
+                        "modules": {}
+                    },
                     "details": {"status": "pending", "modules": {}},
                     "menu": {"status": "pending"}
                 }

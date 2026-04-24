@@ -163,3 +163,17 @@ class TestInitDeepWiki:
         result = init_wiki.init_deep_wiki(str(tmp_path))
         assert result["success"] is True
         assert "成功初始化" in result["message"]
+
+
+def test_progress_json_has_analysis_phase(tmp_path):
+    """初始化后 progress.json 应包含 analysis 阶段（第4步并行追踪）"""
+    import json
+    init_wiki.init_deep_wiki(str(tmp_path))
+    progress_path = tmp_path / ".deepwiki" / "cache" / "progress.json"
+    assert progress_path.exists()
+    progress = json.loads(progress_path.read_text(encoding="utf-8"))
+    assert "phases" in progress
+    assert "analysis" in progress["phases"], \
+        "progress.json 应包含 analysis 阶段"
+    assert progress["phases"]["analysis"]["status"] == "pending"
+    assert progress["phases"]["analysis"].get("modules") == {}

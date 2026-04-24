@@ -24,6 +24,27 @@
         "menu": {
           "$ref": "#/definitions/PhaseState"
         },
+        "analysis": {
+          "type": "object",
+          "description": "Step 4 module semantic analysis phase (parallel subagent dispatch)",
+          "properties": {
+            "status": {
+              "enum": ["pending", "in_progress", "completed"]
+            },
+            "mode": {
+              "type": "string",
+              "enum": ["serial", "subagent"],
+              "description": "Execution mode for this phase"
+            },
+            "modules": {
+              "type": "object",
+              "description": "Per-module analysis status",
+              "additionalProperties": {
+                "$ref": "#/definitions/ModuleState"
+              }
+            }
+          }
+        },
         "details": {
           "type": "object",
           "properties": {
