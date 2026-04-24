@@ -43,3 +43,11 @@
 - `architecture.md`（第 6 步）的"模块依赖图"章节（Mermaid `flowchart LR`）
 - `doc-map.md`（第 7 步）的"依赖矩阵"章节
 - 各模块 `modules/<name>.md`（第 8 步）的"依赖关系"章节
+
+## 可信基线验证
+
+第 2.5 步产出的 `cache/import-relations.json` 提供了基于静态分析的文件级导入关系。在 AI 综合分析时，应将此作为**可信基线**进行交叉验证：
+
+1. **导入一致性校验**：AI 推断的模块间 `Import` 类型依赖边，必须能在 `import-relations.json` 中找到对应的文件级 import 语句支持。找不到静态证据的依赖边应降低 `importance` 或标记为"推断依赖"。
+2. **遗漏补充**：如果 `import-relations.json` 中存在跨模块的 import 关系但 AI 未识别，应补充为依赖边（类型 `Import`，`importance` 2-3）。
+3. **方向验证**：确认 AI 推断的依赖方向与 `import-relations.json` 中的实际 import 方向一致（A imports B 意味着 A 依赖 B，而非反向）。

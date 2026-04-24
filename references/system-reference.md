@@ -10,8 +10,10 @@
 |------|------|
 | `config.yaml` | 生成设置（语言、排除规则、功能开关） |
 | `meta.json` | 生成器版本、时间戳、每个模块的元数据（质量等级、章节数、最后更新时间） |
-| `cache/checksums.json` | 文件哈希值，用于增量变更检测 |
-| `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈） |
+| `cache/checksums.json` | 文件哈希值，用于增量变更检测（含 `cache_schema_version` 版本控制） |
+| `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈，含 `cache_schema_version` 版本控制） |
+| `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
+| `cache/import-relations.json` | 文件级导入关系图（作为 AI 依赖分析的可信基线） |
 | `cache/progress.json` | 分阶段任务状态机（overview/menu/details 三阶段，每模块 pending/in_progress/completed/failed，含 subagent/serial 模式标记） |
 | `wiki/index.md` | 项目首页，含概述、徽章、导航、快速开始 |
 | `wiki/architecture.md` | 系统架构图、技术栈、模块依赖 |
@@ -31,10 +33,12 @@
 |------|------|
 | `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
 | `scripts/analyze_project.py <项目路径>` | 分析项目结构和技术栈 |
+| `scripts/extract_structure.py <项目路径>` | 提取调用图、代码模式、关键时序和导入关系 |
 | `scripts/detect_changes.py <项目路径>` | 检测文件变更，用于增量更新（含反向依赖传播） |
 | `scripts/extract_docs.py <文件路径>` | 从源码提取文档注释 |
 | `scripts/check_quality.py <.deepwiki路径>` | 检查文档质量（含源码链接有效性验证） |
 | `scripts/generate_menu.py <wiki目录路径> [项目名称]` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
+| `scripts/fix_mermaid.py <.deepwiki路径>` | 修复 Mermaid 图表语法错误（支持 `--dry-run` 和 `--json`） |
 
 ### 使用示例
 
@@ -56,6 +60,9 @@ python scripts/analyze_project.py $PROJECT_DIR
 # 检测文件变更
 python scripts/detect_changes.py $PROJECT_DIR
 
+# 提取代码结构（调用图、模式、导入关系）
+python scripts/extract_structure.py $PROJECT_DIR
+
 # 提取源码注释
 python scripts/extract_docs.py /path/to/src/utils.ts
 
@@ -69,6 +76,11 @@ python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称"
 
 # Reconcile 模式：步骤 8 完成后校验并修正菜单
 python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称" --reconcile --verbose
+
+# 修复 Mermaid 图表语法
+python scripts/fix_mermaid.py $PROJECT_DIR/.deepwiki
+python scripts/fix_mermaid.py $PROJECT_DIR/.deepwiki --dry-run
+python scripts/fix_mermaid.py $PROJECT_DIR/.deepwiki --json report.json
 ```
 
 ### generate_menu.py --reconcile 模式说明

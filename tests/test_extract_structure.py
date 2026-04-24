@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import pytest
+import common
 import extract_structure
 
 
@@ -277,3 +278,265 @@ class TestRunExtractStructure:
         """Should raise FileNotFoundError if structure.json is missing."""
         with pytest.raises(FileNotFoundError):
             extract_structure.run_extract_structure(tmp_path)
+
+
+# =========================================================================
+# 新增测试：_has_dep() 词边界匹配
+# =========================================================================
+
+class TestHasDep:
+    """Tests for _has_dep() word-boundary matching."""
+
+    def test_torch_not_matches_torchaudio(self, tmp_path):
+        """torch should NOT match torchaudio in requirements.txt."""
+        (tmp_path / "requirements.txt").write_text("torchaudio>=2.0\ntensorboard\n")
+        assert not extract_structure._has_dep(tmp_path, {"torch"})
+
+    def test_torch_matches_torch(self, tmp_path):
+        (tmp_path / "requirements.txt").write_text("torch>=2.0\n")
+        assert extract_structure._has_dep(tmp_path, {"torch"})
+
+    def test_gin_not_matches_engine(self, tmp_path):
+        """gin should NOT match engine in go.mod."""
+        (tmp_path / "go.mod").write_text("module example.com/engine\n")
+        assert not extract_structure._has_dep(tmp_path, {"gin"})
+
+    def test_vue_not_matches_vuepress(self, tmp_path):
+        """vue should NOT match vuepress in package.json."""
+        (tmp_path / "package.json").write_text('{"devDependencies":{"vuepress":"^1.0"}}')
+        assert not extract_structure._has_dep(tmp_path, {"vue"})
+
+    def test_vue_matches_vue(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"dependencies":{"vue":"^3.0","vue-router":"^4"}}')
+        assert extract_structure._has_dep(tmp_path, {"vue"})
+
+    def test_multiple_names_any_match(self, tmp_path):
+        (tmp_path / "requirements.txt").write_text("flask>=2.0\n")
+        assert extract_structure._has_dep(tmp_path, {"django", "flask", "fastapi"})
+
+    def test_no_manifest_no_crash(self, tmp_path):
+        assert not extract_structure._has_dep(tmp_path, {"anything"})
+
+    def test_gin_in_go_mod(self, tmp_path):
+        """gin should match gin-gonic in go.mod."""
+        (tmp_path / "go.mod").write_text("module example.com/app\ngo 1.21\nrequire github.com/gin-gonic/gin v1.9.0\n")
+        # Note: "gin" in "github.com/gin-gonic" - the preceding "/" is not a word char,
+        # so this SHOULD match. This is the correct behavior.
+        assert extract_structure._has_dep(tmp_path, {"gin"})
+
+
+# =========================================================================
+# 新增测试：分语言调用图解析
+# =========================================================================
+
+class TestExtractCallGraphLanguageSplit:
+    """Tests for language-specific call graph parsing."""
+
+    def test_python_def_in_string_not_matched(self, tmp_path):
+        """'def ' inside a Python string should not create a function entry."""
+        f = tmp_path / "strings.py"
+        f.write_text(
+            'HELP_TEXT = "Use def main() to start"\n'
+            'def actual_function():\n'
+            '    return 42\n'
+        )
+        graph = extract_structure.extract_call_graph([f])
+        assert "actual_function" in graph
+        assert "main" not in graph
+
+    def test_typescript_constructor_not_filtered(self, tmp_path):
+        """PascalCase methods like constructor should not be filtered."""
+        f = tmp_path / "Service.ts"
+        f.write_text(
+            "class UserService {\n"
+            "  constructor(private dao: UserDao) {}\n"
+            "  createUser(name: string) {\n"
+            "    this.dao.insert(name);\n"
+            "  }\n"
+            "}\n"
+        )
+        graph = extract_structure.extract_call_graph([f])
+        assert "UserService.createUser" in graph
+
+    def test_python_method_qualified_name(self, tmp_path):
+        """Python methods should be qualified as ClassName.method."""
+        f = tmp_path / "model.py"
+        f.write_text(
+            "class UserModel:\n"
+            "    def save(self):\n"
+            "        self.validate()\n"
+            "    def validate(self):\n"
+            "        pass\n"
+            "def standalone():\n"
+            "    pass\n"
+        )
+        graph = extract_structure.extract_call_graph([f])
+        assert "UserModel.save" in graph
+        assert "UserModel.validate" in graph
+        assert "standalone" in graph
+
+    def test_go_functions_independent(self, tmp_path):
+        """Go functions should be parsed independently."""
+        f = tmp_path / "main.go"
+        f.write_text(
+            "package main\n\n"
+            "func main() {\n"
+            "    greet()\n"
+            "}\n\n"
+            "func greet() {\n"
+            '    fmt.Println("hello")\n'
+            "}\n"
+        )
+        graph = extract_structure.extract_call_graph([f])
+        assert "main" in graph
+        assert "greet" in graph
+
+    def test_rust_functions_independent(self, tmp_path):
+        """Rust functions should be parsed independently."""
+        f = tmp_path / "lib.rs"
+        f.write_text(
+            "pub fn process(input: &str) -> String {\n"
+            "    transform(input)\n"
+            "}\n\n"
+            "fn transform(s: &str) -> String {\n"
+            "    s.to_uppercase()\n"
+            "}\n"
+        )
+        graph = extract_structure.extract_call_graph([f])
+        assert "process" in graph
+        assert "transform" in graph
+
+    def test_java_class_methods(self, tmp_path):
+        """Java class methods should be detected."""
+        f = tmp_path / "Service.java"
+        f.write_text(
+            "public class Service {\n"
+            "    public void execute() {\n"
+            "        helper();\n"
+            "    }\n"
+            "    private void helper() {}\n"
+            "}\n"
+        )
+        graph = extract_structure.extract_call_graph([f])
+        assert any("execute" in k for k in graph)
+
+    def test_call_extraction_strips_strings(self, tmp_path):
+        """Function calls inside string literals should not be extracted."""
+        f = tmp_path / "utils.py"
+        f.write_text(
+            'LOG = "calling process_data() now"\n'
+            "def real_func():\n"
+            "    do_something()\n"
+        )
+        graph = extract_structure.extract_call_graph([f])
+        assert "real_func" in graph
+        # "process_data" should not be in calls because it's inside a string
+        if "real_func" in graph:
+            assert "process_data" not in graph["real_func"]["calls"]
+
+
+# =========================================================================
+# 新增测试：缓存版本控制
+# =========================================================================
+
+class TestCacheVersioning:
+    """Tests for cache schema version validation."""
+
+    def test_stale_structure_json_raises_valueerror(self, tmp_path):
+        """Should raise ValueError when structure.json has wrong version."""
+        deepwiki = tmp_path / ".deepwiki" / "cache"
+        deepwiki.mkdir(parents=True)
+        structure = {
+            "cache_schema_version": 999,
+            "entry_points": [],
+            "core_files": [],
+            "modules": [],
+        }
+        (deepwiki / "structure.json").write_text(json.dumps(structure))
+
+        with pytest.raises(ValueError, match="schema version mismatch"):
+            extract_structure.run_extract_structure(tmp_path)
+
+    def test_code_structure_json_has_version(self, tmp_path):
+        """Output code-structure.json should include cache_schema_version."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "index.ts").write_text("export const x = 1;")
+
+        deepwiki = tmp_path / ".deepwiki" / "cache"
+        deepwiki.mkdir(parents=True)
+        structure = {
+            "cache_schema_version": common.CACHE_SCHEMA_VERSION,
+            "entry_points": [],
+            "core_files": [{"path": "src/index.ts", "importance_score": 0.5}],
+            "high_priority_files": [],
+            "modules": [],
+        }
+        (deepwiki / "structure.json").write_text(json.dumps(structure))
+
+        result = extract_structure.run_extract_structure(tmp_path)
+        out_file = deepwiki / "code-structure.json"
+        data = json.loads(out_file.read_text())
+        assert "cache_schema_version" in data
+        assert data["cache_schema_version"] == common.CACHE_SCHEMA_VERSION
+
+
+# =========================================================================
+# 新增测试：import_relations 集成
+# =========================================================================
+
+class TestImportRelationsIntegration:
+    """Tests for import_relations integration in run_extract_structure."""
+
+    def test_import_relations_in_output(self, tmp_path):
+        """code-structure.json should include import_relations field."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "a.py").write_text(
+            "from .b import helper\n\ndef run():\n    helper()\n"
+        )
+        (src / "b.py").write_text("def helper():\n    pass\n")
+        (tmp_path / "requirements.txt").write_text("flask>=2.0\n")
+
+        deepwiki = tmp_path / ".deepwiki" / "cache"
+        deepwiki.mkdir(parents=True)
+        structure = {
+            "cache_schema_version": common.CACHE_SCHEMA_VERSION,
+            "entry_points": [],
+            "core_files": [
+                {"path": "src/a.py", "importance_score": 0.7},
+                {"path": "src/b.py", "importance_score": 0.5},
+            ],
+            "high_priority_files": [],
+            "modules": [],
+        }
+        (deepwiki / "structure.json").write_text(json.dumps(structure))
+
+        result = extract_structure.run_extract_structure(tmp_path)
+        assert "import_relations" in result
+        assert isinstance(result["import_relations"], dict)
+
+    def test_import_relations_json_file(self, tmp_path):
+        """import-relations.json should be written to cache/."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "index.ts").write_text("export const x = 1;")
+
+        deepwiki = tmp_path / ".deepwiki" / "cache"
+        deepwiki.mkdir(parents=True)
+        structure = {
+            "cache_schema_version": common.CACHE_SCHEMA_VERSION,
+            "entry_points": [],
+            "core_files": [{"path": "src/index.ts", "importance_score": 0.5}],
+            "high_priority_files": [],
+            "modules": [],
+        }
+        (deepwiki / "structure.json").write_text(json.dumps(structure))
+
+        extract_structure.run_extract_structure(tmp_path)
+
+        ir_file = deepwiki / "import-relations.json"
+        assert ir_file.exists()
+        data = json.loads(ir_file.read_text())
+        assert "cache_schema_version" in data
+        assert "relations" in data

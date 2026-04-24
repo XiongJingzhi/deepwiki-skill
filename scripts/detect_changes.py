@@ -18,6 +18,7 @@ from common import (
     IGNORE_DIRS as DEFAULT_EXCLUDES,
     CODE_EXTENSIONS, DOC_EXTENSIONS,
     GitignoreCache, should_ignore_path,
+    CACHE_SCHEMA_VERSION,
 )
 
 # 模块级 gitignore 缓存实例
@@ -113,20 +114,31 @@ def scan_project_files(project_root: str, excludes: Set[str] = None, config_excl
 
 
 def load_cached_checksums(wiki_dir: str) -> Dict[str, Dict[str, str]]:
-    """加载缓存的校验和"""
+    """加载缓存的校验和，版本不匹配时返回空 dict 触发全量扫描。"""
     cache_path = Path(wiki_dir) / "cache" / "checksums.json"
     if cache_path.exists():
         with open(cache_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
+        # 版本校验
+        if data.get("cache_schema_version") is not None:
+            if data["cache_schema_version"] != CACHE_SCHEMA_VERSION:
+                return {}
+            return data.get("checksums", {})
+        # 遗留格式（无版本字段）：直接返回整个 dict
+        return data
     return {}
 
 
 def save_checksums(wiki_dir: str, checksums: Dict[str, Dict[str, str]]):
-    """保存校验和到缓存"""
+    """保存校验和到缓存（含版本号）"""
     cache_path = Path(wiki_dir) / "cache" / "checksums.json"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "cache_schema_version": CACHE_SCHEMA_VERSION,
+        "checksums": checksums,
+    }
     with open(cache_path, 'w', encoding='utf-8') as f:
-        json.dump(checksums, f, indent=2, ensure_ascii=False)
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 def propagate_reverse_dependencies(changed_modules: Set[str],

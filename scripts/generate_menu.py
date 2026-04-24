@@ -14,6 +14,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from common import CACHE_SCHEMA_VERSION
+
 # 多语言标签映射
 _LABELS = {
     'zh': {'overview': '概览', 'modules': '模块', 'more': '更多',
@@ -166,6 +168,7 @@ def build_menu(wiki_dir: str, project_name: str = '') -> Dict[str, Any]:
         menu.append({'title': L['more'], 'items': more_items})
 
     return {
+        'cache_schema_version': CACHE_SCHEMA_VERSION,
         'title': project_name or '',
         'version': '1.0',
         'generated_at': datetime.now(timezone.utc).isoformat(),
@@ -343,6 +346,7 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
 
 def _empty_menu(project_name: str) -> Dict[str, Any]:
     return {
+        'cache_schema_version': CACHE_SCHEMA_VERSION,
         'title': project_name or '',
         'version': '1.0',
         'generated_at': datetime.now(timezone.utc).isoformat(),

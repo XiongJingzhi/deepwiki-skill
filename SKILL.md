@@ -37,6 +37,8 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 ├── cache/
 │   ├── checksums.json
 │   ├── structure.json
+│   ├── code-structure.json
+│   ├── import-relations.json
 │   └── progress.json
 └── wiki/
     ├── index.md

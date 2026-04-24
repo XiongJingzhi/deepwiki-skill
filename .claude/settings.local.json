@@ -26,7 +26,19 @@
       "Bash(python -m pytest tests/test_detect_changes.py::TestPropagateReverseDependencies::test_propagation_detected tests/test_extract_docs.py::TestExtractPythonDocstring::test_returns_section tests/test_generate_menu.py::TestReconcileMenu::test_updates_titles_from_h1 tests/test_generate_menu.py::TestReconcileMenu::test_removes_empty_groups -v --tb=short)",
       "Bash(python -m pytest tests/test_detect_changes.py::TestPropagateReverseDependencies::test_propagation_detected tests/test_generate_menu.py::TestReconcileMenu::test_removes_empty_groups -v --tb=short)",
       "Bash(python -m pytest tests/test_init_wiki.py::TestGetDefaultConfig::test_returns_string -v --tb=long)",
-      "Bash(python -m pytest tests/ --tb=short)"
+      "Bash(python -m pytest tests/ --tb=short)",
+      "Bash(git:*)",
+      "Bash(python -m py_compile scripts/common.py)",
+      "Bash(python -m py_compile scripts/extract_structure.py)",
+      "Bash(python -m py_compile scripts/analyze_project.py)",
+      "Bash(python -m py_compile scripts/detect_changes.py)",
+      "Bash(python -m py_compile scripts/init_wiki.py)",
+      "Bash(python scripts/init_wiki.py . --force)",
+      "Bash(python scripts/extract_structure.py .)",
+      "Bash(python scripts/detect_changes.py .)",
+      "Bash(python scripts/check_quality.py .deepwiki)",
+      "Bash(python scripts/fix_mermaid.py .deepwiki --dry-run)",
+      "Bash(python -m pytest tests/ -v)"
     ]
   }
 }

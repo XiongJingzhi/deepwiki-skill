@@ -36,6 +36,9 @@ CODE_EXTENSIONS = {
 # 文档扩展名
 DOC_EXTENSIONS = {'.md', '.mdx', '.rst', '.txt'}
 
+# 缓存 schema 版本号 —— 任一缓存文件格式变更时递增此值
+CACHE_SCHEMA_VERSION = 1
+
 
 class GitignoreCache:
     """Per-root gitignore cache，避免模块级全局变量泄漏。"""
@@ -118,3 +121,17 @@ def should_ignore_path(path: Path, cache: GitignoreCache,
     if cache.globs and any(fnmatch.fnmatch(path.name, p) for p in cache.globs):
         return True
     return False
+
+
+def validate_cache_version(data: dict, expected: int = None) -> bool:
+    """检查缓存 dict 是否具有预期的 schema 版本。
+
+    Returns True if version matches or no version field exists (legacy).
+    Returns False if version exists and does not match.
+    """
+    if expected is None:
+        expected = CACHE_SCHEMA_VERSION
+    version = data.get("cache_schema_version")
+    if version is None:
+        return True  # 遗留缓存，无版本字段
+    return version == expected

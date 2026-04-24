@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from common import (
     IGNORE_DIRS, IGNORE_FILES, CODE_EXTENSIONS,
     GitignoreCache, should_ignore_path, load_gitignore,
+    CACHE_SCHEMA_VERSION,
 )
 
 # 模块级 gitignore 缓存实例
@@ -947,6 +948,7 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     code_file_count = sum(1 for f in all_files if f['is_code'])
 
     result = {
+        'cache_schema_version': CACHE_SCHEMA_VERSION,
         'project_root': str(root.resolve()),
         'project_name': root.name,
         'project_type': project_types,

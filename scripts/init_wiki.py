@@ -11,6 +11,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
+from common import CACHE_SCHEMA_VERSION
+
 
 def get_default_config() -> str:
     """返回默认配置文件内容"""
@@ -194,8 +196,9 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
 
         # 创建空的缓存文件
         cache_files = {
-            "cache/checksums.json": {},
+            "cache/checksums.json": {"cache_schema_version": CACHE_SCHEMA_VERSION, "checksums": {}},
             "cache/structure.json": {
+                "cache_schema_version": CACHE_SCHEMA_VERSION,
                 "project_name": "",
                 "project_type": [],
                 "languages": [],
@@ -218,6 +221,7 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
                 }
             },
             "cache/progress.json": {
+                "cache_schema_version": CACHE_SCHEMA_VERSION,
                 "last_updated": None,
                 "phases": {
                     "overview": {

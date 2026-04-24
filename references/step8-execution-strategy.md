@@ -163,3 +163,23 @@ python scripts/check_quality.py <项目目录绝对路径>/.deepwiki
 3. **跳过第 1-3 步**，直接从**第 4 步**（深度阅读）重新执行 → 第 8.1 步（生成），仅针对 Basic 模块
 4. 重新生成后再次运行 `check_quality.py` 确认达标
 5. 若二次生成仍为 Basic，记录到 `meta.json` 的 `quality_issues` 字段并告知用户，不再强制重试
+
+## Mermaid 语法修复（8.5）
+
+所有文档保存完毕且质量检查通过后，运行 Mermaid 语法修复脚本，自动修正 AI 生成的 Mermaid 图表中的常见语法问题：
+
+```bash
+python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki
+```
+
+修复内容包括：
+- **flowchart**：标签含空格或中文未加引号、边标签含特殊字符未加引号、重复节点 ID 自动重命名
+- **classDiagram**：类名含特殊字符、成员名含空格、关系标签未加引号
+- **sequenceDiagram**：participant 别名含空格、消息标签含空格
+
+支持 `--dry-run`（仅报告不修改）和 `--json <file>`（输出修复报告）：
+
+```bash
+python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --dry-run
+python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report.json
+```
