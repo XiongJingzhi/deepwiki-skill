@@ -173,6 +173,28 @@ python scripts/extract_docs.py <文件绝对路径>
 | `semantic_group` | AI 对该模块的语义主题标注（**自由文字**，如"认证与鉴权"、"消息路由"、"Data Persistence"）——依据代码实际内容命名，不受 CodePurpose 枚举约束；命名面向读者理解，非文件路径 |
 | `semantic_group_confidence` | 语义分组置信度：`high`=模块有清晰的语义边界 / `low`=职责混杂或 AI 不确定；步骤 7 分组时对 `low` 的条目降低权重，优先以依赖数据为准 |
 
+### semantic_group 命名指南
+
+命名应面向**读者理解**，而非代码路径或 CodePurpose 枚举：
+
+| ✅ 好的命名 | ❌ 不好的命名 | 原因 |
+|------------|--------------|------|
+| `认证与鉴权` | `Service` | 不使用 CodePurpose 枚举 |
+| `消息路由` | `src/router` | 不使用文件路径 |
+| `Data Persistence` | `Dao + Model` | 语义聚合，非技术层 |
+| `Agent 调度引擎` | `agent.py` | 面向概念，非文件名 |
+| `配置与启动` | `Config` | 读者视角（"启动时做什么"）比技术层（"Config 类"）更清晰 |
+
+**命名步骤：**
+1. 看模块的主要文件名 + 目录名，提取业务关键词
+2. 问：**"这个模块帮用户/系统做什么事？"**（回答就是 semantic_group 名称）
+3. 同一功能域的多个模块应使用**相同或相近的 semantic_group 名称**（为 step7 的聚合提供信号）
+4. 职责混杂或不确定时，设置 `semantic_group_confidence: "low"`
+
+**多模块同组示例：**
+- `src/auth`、`src/token`、`src/session` → 都标注 `semantic_group: "认证与鉴权"`
+- `src/order`、`src/payment`、`src/cart` → 都标注 `semantic_group: "交易流程"`
+
 > 完整字段格式见 [`schemas/module-analysis-schema.json`](../schemas/module-analysis-schema.json)。
 
 ### 降级处理
