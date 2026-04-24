@@ -107,10 +107,21 @@
 
 ## 变更筛选（基于detect-changes结果）
 
-根据detect-changes结果，筛选待处理文件：
+根据 `detect-changes` 结果筛选待处理文件，并按 `change_type` 决定最小重分析深度：
 
-- **首次生成**（无变更记录）：处理所有模块的核心文件。
-- **增量更新**：仅处理变更文件所属模块的核心文件。对于被其他变更模块依赖的模块（反向依赖），也应纳入处理范围。
+- **首次生成**（无变更记录）：处理所有模块的核心文件，执行完整分析。
+
+- **增量更新**：
+
+  | change_type | 重分析范围 | 反向依赖传播 |
+  |------------|-----------|------------|
+  | `api-change` | 完整重分析：更新 `public_interfaces`、`key_insights`、`summary` | ✅ 触发 |
+  | `impl-change` | 定向重分析：仅重读实现部分，更新 `key_insights` | ❌ 不触发 |
+  | `doc-only-change` | 轻量更新：重跑 `extract_docs.py`，更新 `summary` | ❌ 不触发 |
+  | 新增文件 | 完整分析（视同新模块） | 按所属模块处理 |
+  | 删除文件 | 标记废弃，删除 `module-analysis.json` 中对应 `files[]` 条目 | ✅ 触发 |
+
+  > **降级**：若 `changed_files` 中无 `change_type` 字段（旧版脚本输出），统一视为 `api-change`（向后兼容）。
 
 ## 插件缓存优先
 
