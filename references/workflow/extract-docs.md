@@ -108,7 +108,7 @@
 项目类型：{{ skeleton.project_nature }}
 架构风格：{{ skeleton.architecture_style }}
 
-模块分组（请保持你分析的 semantic_group 与以下分组一致）：
+模块分组（以下分组为初始建议，非硬约束。若源码实际职责与建议不符，可输出 semantic_group_override: true 并使用更准确的命名）：
 - {{ group.name }}：{{ group.modules }}（{{ group.role }}）
   ...
 
@@ -202,7 +202,7 @@ python scripts/extract_docs.py <文件绝对路径>
 | `files[].public_interfaces` | 导出接口列表（名称、类型、签名、行号、描述） |
 | `files[].key_insights` | 2-5 条设计意图说明（解释 WHY，非 WHAT） |
 | `files[].confidence` | 分析置信度（`high` / `medium` / `low`） |
-| `semantic_group` | AI 对该模块的语义主题标注（**自由文字**，如"认证与鉴权"、"消息路由"、"Data Persistence"）——依据代码实际内容命名，不受 CodePurpose 枚举约束；命名面向读者理解，非文件路径 |
+| `semantic_group` | AI 对该模块的语义主题标注（**自由文字**，如"认证与鉴权"、"消息路由"、"Data Persistence"）——依据代码实际内容命名，不受 CodePurpose 枚举约束；命名面向读者理解，非文件路径。若与骨架建议分组不符，可同时写入 `semantic_group_override: true`，表明此命名来自深度分析；`generate-menu` 优先采用带 override 标记的命名 |
 | `semantic_group_confidence` | 语义分组置信度：`high`=模块有清晰的语义边界 / `low`=职责混杂或 AI 不确定；步骤 8 分组时对 `low` 的条目降低权重，优先以依赖数据为准 |
 
 ### semantic_group 命名指南
@@ -226,6 +226,15 @@ python scripts/extract_docs.py <文件绝对路径>
 **多模块同组示例：**
 - `src/auth`、`src/token`、`src/session` → 都标注 `semantic_group: "认证与鉴权"`
 - `src/order`、`src/payment`、`src/cart` → 都标注 `semantic_group: "交易流程"`
+
+### 与骨架建议冲突时的处理
+
+| 情形 | 操作 |
+|------|------|
+| 骨架建议名与源码职责吻合 | 直接使用，不写 `semantic_group_override` |
+| 骨架建议过于宽泛，源码有更精确语义 | 使用精确命名，写 `semantic_group_override: true` |
+| 骨架将两个明显独立职责归为一组 | 各自独立命名，各自写 `semantic_group_override: true` |
+| 骨架 `reason` 字段含"import"（来自精确 import 数据） | 倾向保留骨架建议，慎用 override |
 
 > 完整字段格式见 [`schemas/module-analysis-schema.json`](../schemas/module-analysis-schema.json)。
 

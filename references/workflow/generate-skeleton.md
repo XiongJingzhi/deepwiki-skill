@@ -161,7 +161,7 @@ python scripts/generate_architecture_skeleton.py <项目目录绝对路径>
 项目类型：{{ skeleton.project_nature }}
 架构风格：{{ skeleton.architecture_style }}
 
-模块分组（以下分组来自全局骨架，请保持你的 semantic_group 与之一致）：
+模块分组（以下分组为初始建议，非硬约束。若源码实际职责与建议不符，可输出 semantic_group_override: true 并使用更准确的命名）：
 {% for group in skeleton.module_groups %}
 - {{ group.name }}：{{ group.modules | join(", ") }}（{{ group.role }}）
 {% endfor %}

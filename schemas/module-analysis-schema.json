@@ -79,6 +79,11 @@
           "description": "high = module has a clear, distinct semantic boundary; low = AI is uncertain (overlapping responsibilities or unclear scope). Step 7 reduces grouping weight for low-confidence entries.",
           "default": "high"
         },
+        "semantic_group_override": {
+          "type": "boolean",
+          "description": "true means this semantic_group comes from deep source analysis and differs from generate-skeleton suggestion. generate-menu will prioritize this naming and write back the correction to the skeleton file.",
+          "default": false
+        },
         "files": {
           "type": "array",
           "description": "Per-file analysis results for files in this module",

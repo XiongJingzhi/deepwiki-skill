@@ -49,6 +49,13 @@
 
 **层2：语义标注验证（推荐）**
 
+#### 前置检查：semantic_group_override 优先读取
+
+在执行层2算法之前，扫描 `module-analysis.json` 中所有含 `semantic_group_override: true` 的条目：
+- 这些模块的 `semantic_group` 来自深度源码分析，置信度视同 `high`
+- 层2中这些模块的语义标注不再与骨架建议对比，直接作为分组命名依据
+- 所有 override 模块命名确认后，**回写修正**到 `cache/architecture-skeleton.json` 对应的 `module_groups[].name`
+
 用 `semantic_group` 字段验证和命名候选组：
 - `semantic_group` **相同** 且有依赖关系 → 确认聚合，使用 `semantic_group` 值作为分区名
 - `semantic_group` **不同** 但依赖强度高 → 以依赖数据为准；重新为该组命名（可取两者语义的公共上位词）
@@ -65,6 +72,16 @@
 | 弱（weight = 1） | 是 | low | 孤岛，层3兜底 |
 | 无依赖 | 是 | high | 平行列出 |
 | 无依赖 | 否/low | 任意 | 孤岛，层3兜底 |
+
+#### 骨架回写（菜单生成后执行）
+
+`menu.json` 生成完毕后，将 override 修正结果写回：
+1. 读取 `cache/architecture-skeleton.json`
+2. 对每个 `semantic_group_override: true` 的模块，找到骨架中包含该模块的 `module_groups` 条目
+3. 将 `name` 更新为 override 后的 `semantic_group`（不改 `modules` 和 `role`）
+4. 写回文件
+
+**目的**：确保骨架作为 `generate-overview` 和 `generate-module-docs` 共享上下文时，反映深度分析修正后的分组命名，消除骨架与文档内容的不一致。
 
 **层3：孤岛兜底（按需）**
 
