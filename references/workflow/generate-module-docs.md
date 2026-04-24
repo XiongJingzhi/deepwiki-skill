@@ -121,7 +121,7 @@ flowchart LR
 
 ---
 
-## 模块文档统一上下文（9.1）
+## 模块文档统一上下文
 
 无论使用 subagent 并行还是主 Agent 串行，每个模块的生成任务都接收以下统一上下文：
 
@@ -137,12 +137,12 @@ flowchart LR
 
 模板参考：`../generation/module-page.md` → 模块 / API 参考。
 
-## 保存与 meta.json 更新（9.2）
+## 保存与 meta.json 更新
 
 - 将所有 wiki 文件写入 `.deepwiki/wiki/`。
 - 更新 `meta.json` 的时间戳和每个模块的元数据。
 
-## 菜单校验（9.3）
+## 菜单校验
 
 所有详细文档生成完毕后，从**技能目录**运行 `generate_menu.py --reconcile` 校验并修正 `menu.json`（详细行为规则见 [`../system-reference.md`](../system-reference.md) → reconcile 模式说明）：
 
@@ -152,7 +152,7 @@ python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项�
 
 之后依次应用 `after_generate` 插件钩子和 `on_export` 插件钩子（用于知识库导出、格式转换等后处理）。更新 `cache/progress.json` 的 `phases.details.status` 为 `completed`。
 
-## Mermaid 语法修复（9.4）
+## Mermaid 语法修复
 
 所有文档保存完毕后，**先**运行 Mermaid 语法修复脚本，自动修正 AI 生成的 Mermaid 图表中的常见语法问题：
 
@@ -174,7 +174,7 @@ python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report
 
 > **重要**：Mermaid 修复必须在质量检查之前运行，避免可修复的语法问题触发质量降级。
 
-## 文档质量检查（9.5）
+## 文档质量检查
 
 从**技能目录**运行质量检查，确认生成的文档符合质量标准（源码链接、Mermaid 图表、章节完整性）：
 

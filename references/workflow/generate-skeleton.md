@@ -194,10 +194,10 @@ python scripts/generate_architecture_skeleton.py <项目目录绝对路径>
 
 ## 失败降级
 
-若 Step 3.5 因任何原因失败（AI 输出格式错误、骨架文件缺失等）：
+若 `generate-skeleton` 因任何原因失败（AI 输出格式错误、骨架文件缺失等）：
 
 - **不中断后续步骤**，直接跳过骨架注入，extract-docs以无全局上下文模式运行
-- 记录警告：`⚠️ [Step 3.5] 架构骨架生成失败，后续步骤将以无全局上下文模式运行`
+- 记录警告：`⚠️ [generate-skeleton] 架构骨架生成失败，后续步骤将以无全局上下文模式运行`
 - 在 `cache/progress.json` 中记录 `phases.skeleton.status: "failed"`
 
 ---

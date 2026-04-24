@@ -12,16 +12,16 @@
 | `meta.json` | 生成器版本、时间戳、每个模块的元数据（质量等级、章节数、最后更新时间） |
 | `cache/checksums.json` | 文件哈希值，用于增量变更检测（含 `cache_schema_version` 版本控制） |
 | `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈，含 `cache_schema_version` 版本控制） |
-| `cache/project-digest.md` | 精简项目概要（第 2 步自动生成），约 3K tokens，供 AI 步骤复用，避免重复读取完整 structure.json |
+| `cache/project-digest.md` | 精简项目概要（`analyze-project` 自动生成），约 3K tokens，供 AI 步骤复用，避免重复读取完整 structure.json |
 | `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
 | `cache/import-relations.json` | 文件级导入关系图（作为 AI 依赖分析的可信基线） |
-| `cache/architecture-skeleton-input.json` | 第 3.5 步脚本提取的精简摘要，供 AI 生成全局架构骨架时读取（约 5-15K tokens） |
-| `cache/architecture-skeleton.json` | 第 3.5 步 AI 生成的全局架构骨架，供第 5-8 步注入全局上下文（含模块分组、架构分层、关键数据流） |
-| `cache/module-analysis.json` | 第 5 步语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供第 6 步和第 9 步复用 |
+| `cache/architecture-skeleton-input.json` | `generate-skeleton` 脚本段提取的精简摘要，供 AI 生成全局架构骨架时读取（约 5-15K tokens） |
+| `cache/architecture-skeleton.json` | `generate-skeleton` AI段生成的全局架构骨架，供 `extract-docs`～`generate-module-docs` 注入全局上下文（含模块分组、架构分层、关键数据流） |
+| `cache/module-analysis.json` | `extract-docs` 语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供 `synthesize-deps` 和 `generate-module-docs` 复用 |
 | `cache/progress.json` | 分阶段任务状态机（overview/menu/details 三阶段，每模块 pending/in_progress/completed/failed，含 subagent/serial 模式标记） |
-| `wiki/overview.md` | 项目概览文档，含项目定位、技术栈、系统架构图、模块列表（第 7 步生成） |
+| `wiki/overview.md` | 项目概览文档，含项目定位、技术栈、系统架构图、模块列表（`generate-overview` 生成） |
 | `wiki/getting-started.md` | 快速开始文档，含前置条件、安装步骤、第一个示例、常见问题 |
-| `wiki/doc-map.md` | 文档关系图、阅读路径、依赖矩阵（第 7 步基于 menu.json 生成） |
+| `wiki/doc-map.md` | 文档关系图、阅读路径、依赖矩阵（`generate-menu` 生成） |
 | `wiki/menu.json` | 层级化导航菜单（概览 → 模块 → 更多），自动由 `generate_menu.py` 生成 |
 | `wiki/modules/` | 每个项目模块一个文件，含深度分析 |
 | `wiki/api/` | 每个模块的 API 参考，含签名、类型和示例 |
@@ -32,18 +32,18 @@
 
 ### 脚本列表
 
-| 脚本 | 用途 |
-|------|------|
-| `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
-| `scripts/analyze_project.py <项目路径>` | 分析项目结构和技术栈（同时生成 `cache/project-digest.md`） |
-| `scripts/extract_structure.py <项目路径>` | 提取调用图、代码模式、关键时序和导入关系 |
-| `scripts/generate_architecture_skeleton.py <项目路径>` | **第 3.5 步**：从确定性缓存文件提取精简摘要，输出 `cache/architecture-skeleton-input.json` |
-| `scripts/detect_changes.py <项目路径>` | 检测文件变更，用于增量更新（含反向依赖传播） |
-| `scripts/extract_docs.py <文件路径>` | 从源码提取文档注释 |
-| `scripts/check_analysis_quality.py <项目路径>` | **第 4.5 步**：检查 `module-analysis.json` 是否满足最低质量标准（支持 `--verbose` 和 `--json`） |
-| `scripts/check_quality.py <.deepwiki路径>` | 检查文档质量（含源码链接有效性验证） |
-| `scripts/generate_menu.py <wiki目录路径> [项目名称]` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
-| `scripts/fix_mermaid.py <.deepwiki路径>` | 修复 Mermaid 图表语法错误（支持 `--dry-run` 和 `--json`） |
+| 脚本 | 工作流工具名 | 用途 |
+|------|------------|------|
+| `scripts/init_wiki.py <项目路径>` | `init-wiki` | 初始化 .deepwiki 目录 |
+| `scripts/analyze_project.py <项目路径>` | `analyze-project` | 分析项目结构和技术栈（同时生成 `cache/project-digest.md`） |
+| `scripts/extract_structure.py <项目路径>` | `extract-structure` | 提取调用图、代码模式、关键时序和导入关系 |
+| `scripts/generate_architecture_skeleton.py <项目路径>` | `generate-skeleton` | 从确定性缓存文件提取精简摘要，输出 `cache/architecture-skeleton-input.json` |
+| `scripts/detect_changes.py <项目路径>` | `detect-changes` | 检测文件变更，用于增量更新（含反向依赖传播） |
+| `scripts/extract_docs.py <文件路径>` | `extract-docs`（预提取子步骤） | 从源码提取文档注释 |
+| `scripts/check_analysis_quality.py <项目路径>` | `check-analysis-quality` | 检查 `module-analysis.json` 是否满足最低质量标准（支持 `--verbose` 和 `--json`） |
+| `scripts/check_quality.py <.deepwiki路径>` | `generate-module-docs`（收尾质检） | 检查文档质量（含源码链接有效性验证） |
+| `scripts/generate_menu.py <wiki目录路径> [项目名称]` | `generate-menu` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
+| `scripts/fix_mermaid.py <.deepwiki路径>` | `generate-module-docs`（Mermaid 修复子步骤） | 修复 Mermaid 图表语法错误（支持 `--dry-run` 和 `--json`） |
 
 ### 使用示例
 
@@ -62,7 +62,7 @@ python scripts/init_wiki.py $PROJECT_DIR --force
 # 分析项目结构
 python scripts/analyze_project.py $PROJECT_DIR
 
-# 第 3.5 步：提取架构骨架输入数据（AI 再根据输出生成 architecture-skeleton.json）
+# generate-skeleton：提取架构骨架输入数据（AI 再根据输出生成 architecture-skeleton.json）
 python scripts/generate_architecture_skeleton.py $PROJECT_DIR
 
 # 检测文件变更
@@ -74,7 +74,7 @@ python scripts/extract_structure.py $PROJECT_DIR
 # 提取源码注释
 python scripts/extract_docs.py /path/to/src/utils.ts
 
-# 第 4.5 步：检查分析质量门控
+# check-analysis-quality：检查分析质量门控
 python scripts/check_analysis_quality.py $PROJECT_DIR
 python scripts/check_analysis_quality.py $PROJECT_DIR --verbose
 python scripts/check_analysis_quality.py $PROJECT_DIR --json gate-report.json
@@ -87,7 +87,7 @@ python scripts/check_quality.py $PROJECT_DIR/.deepwiki --json report.json
 # 生成导航菜单
 python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称"
 
-# Reconcile 模式：步骤 8 完成后校验并修正菜单
+# generate-menu --reconcile：generate-module-docs 全部完成后校验并修正菜单
 python scripts/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称" --reconcile --verbose
 
 # 修复 Mermaid 图表语法
@@ -98,9 +98,9 @@ python scripts/fix_mermaid.py $PROJECT_DIR/.deepwiki --json report.json
 
 ### generate_menu.py --reconcile 模式说明
 
-`--reconcile` 模式在第 8 步所有详细文档生成完毕后运行，执行以下操作：
+`--reconcile` 模式在 `generate-module-docs` 所有详细文档生成完毕后运行，执行以下操作：
 
-1. 读取已有的 `menu.json`（步骤 7 生成的规划菜单）
+1. 读取已有的 `menu.json`（`generate-menu` 生成的规划菜单）
 2. 扫描 `wiki/` 目录下的实际文件
 3. **校验并修正**：
    - 用实际文件的 H1 标题替换预设的模块名称
