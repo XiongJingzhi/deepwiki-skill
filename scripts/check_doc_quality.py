@@ -14,6 +14,84 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 
 
+def _infer_doc_type(file_path: str) -> str:
+    """从文件路径推断文档类型。
+
+    Returns: 'overview' | 'getting-started' | 'api' | 'module'
+    """
+    from pathlib import Path as P
+    name = P(file_path).stem.lower()
+    parent = P(file_path).parent.name.lower()
+    if name in ('overview', 'index'):
+        return 'overview'
+    if name in ('getting-started', 'quickstart'):
+        return 'getting-started'
+    if parent == 'api':
+        return 'api'
+    return 'module'
+
+
+DOC_TYPE_WEIGHTS = {
+    "overview":  {"must_pct": 40, "should_pct": 30, "nice_pct": 30},
+    "getting-started": {"must_pct": 50, "should_pct": 30, "nice_pct": 20},
+    "api":       {"must_pct": 50, "should_pct": 30, "nice_pct": 20},
+    "module":    {"must_pct": 50, "should_pct": 30, "nice_pct": 20},
+}
+
+# 不同文档类型的 must/should 项定义
+DOC_TYPE_CRITERIA = {
+    "overview": {
+        "must": [
+            lambda m: m.section_count >= 3,
+            lambda m: m.has_source_tracing,
+        ],
+        "should": [
+            lambda m: m.diagram_count >= 1,
+            lambda m: m.cross_link_count >= 1,
+            lambda m: m.table_count >= 1,
+        ],
+        "nice": [
+            lambda m: m.has_best_practices,
+            lambda m: m.has_performance,
+            lambda m: m.class_diagram_count >= 1,
+        ],
+    },
+    "getting-started": {
+        "must": [
+            lambda m: m.section_count >= 3,
+            lambda m: m.code_example_count >= 1,
+        ],
+        "should": [
+            lambda m: m.diagram_count >= 1,
+            lambda m: m.cross_link_count >= 1,
+            lambda m: m.table_count >= 1,
+        ],
+        "nice": [
+            lambda m: m.has_troubleshooting,
+            lambda m: m.code_example_count >= 2,
+            lambda m: m.has_source_tracing,
+        ],
+    },
+    "api": {
+        "must": [
+            lambda m: m.section_count >= 3,
+            lambda m: m.code_example_count >= 1,
+        ],
+        "should": [
+            lambda m: m.cross_link_count >= 1,
+            lambda m: m.table_count >= 1,
+            lambda m: m.has_source_tracing,
+        ],
+        "nice": [
+            lambda m: m.has_best_practices,
+            lambda m: m.code_example_count >= 2,
+            lambda m: m.class_diagram_count >= 1,
+        ],
+    },
+    "module": None,  # uses the existing logic (backward compatible)
+}
+
+
 @dataclass
 class QualityMetrics:
     """单个文档的质量指标"""
@@ -259,39 +337,36 @@ def evaluate_quality_level(m: QualityMetrics) -> str:
     if m.has_source_tracing and m.source_link_valid_count == 0 and m.source_link_broken_count > 0:
         return "basic"
 
-    must_total = 2
-    must_met = 0
+    # 文档类型感知评分
+    doc_type = _infer_doc_type(m.file_path)
+    weights = DOC_TYPE_WEIGHTS.get(doc_type, DOC_TYPE_WEIGHTS["module"])
+    criteria = DOC_TYPE_CRITERIA.get(doc_type)
 
-    # 必须有（源码追溯已通过门槛，不再计入评分）
-    if m.code_example_count >= 1:
-        must_met += 1
-    if m.section_count >= 3:
-        must_met += 1
+    # ── 评分 ──────────────────────────────────────────────────────────
+    if criteria is not None:
+        # 使用文档类型特定的评分标准
+        must_met = sum(1 for check in criteria["must"] if check(m))
+        must_total = len(criteria["must"])
+        should_met = sum(1 for check in criteria["should"] if check(m))
+        should_total = len(criteria["should"])
+        nice_met = sum(1 for check in criteria["nice"] if check(m))
+        nice_total = len(criteria["nice"])
+    else:
+        # module 类型：使用原有逻辑（向后兼容）
+        must_met = int(m.code_example_count >= 1) + int(m.section_count >= 3)
+        must_total = 2
+        should_met = int(m.diagram_count >= 1) + int(m.cross_link_count >= 1) + int(m.has_troubleshooting)
+        should_total = 3
+        nice_met = int(m.has_best_practices) + int(m.has_performance) + int(m.class_diagram_count >= 1)
+        nice_total = 3
 
-    should_total = 3
-    should_met = 0
-
-    # 建议有
-    if m.diagram_count >= 1:
-        should_met += 1
-    if m.cross_link_count >= 1:
-        should_met += 1
-    if m.has_troubleshooting:
-        should_met += 1
-
-    nice_total = 3
-    nice_met = 0
-
-    # 加分项
-    if m.has_best_practices:
-        nice_met += 1
-    if m.has_performance:
-        nice_met += 1
-    if m.class_diagram_count >= 1:
-        nice_met += 1
-
-    # 加权评分: must 50%, should 30%, nice 20%
-    score = (must_met / must_total) * 50 + (should_met / should_total) * 30 + (nice_met / nice_total) * 20
+    score = 0
+    if must_total > 0:
+        score = (must_met / must_total) * weights["must_pct"]
+    if should_total > 0:
+        score += (should_met / should_total) * weights["should_pct"]
+    if nice_total > 0:
+        score += (nice_met / nice_total) * weights["nice_pct"]
 
     # 置信度标注加分：至少 3 个标注可额外加 5 分
     total_confidence = m.confidence_high_count + m.confidence_medium_count + m.confidence_low_count

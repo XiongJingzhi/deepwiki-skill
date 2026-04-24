@@ -6,18 +6,41 @@ from typing import Dict, List, Any, Optional, Union
 
 # ---- 维度权重配置 ----
 # 各维度权重（path / identity / language / size / import_degree）
-WEIGHTS = {"path": 0.30, "identity": 0.25, "language": 0.30, "size": 0.15, "import_degree": 0.15}
+DEFAULT_WEIGHTS = {"path": 0.30, "identity": 0.25, "language": 0.30, "size": 0.15, "import_degree": 0.15}
+
+ARCHETYPE_WEIGHTS = {
+    "web-service":          {"path": 0.20, "identity": 0.25, "language": 0.30, "size": 0.10, "import_degree": 0.15},
+    "agent-project":        {"path": 0.20, "identity": 0.30, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "ml-project":           {"path": 0.15, "identity": 0.20, "language": 0.35, "size": 0.15, "import_degree": 0.15},
+    "cli-tool":             {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
+    "sdk-library":          {"path": 0.15, "identity": 0.20, "language": 0.35, "size": 0.15, "import_degree": 0.15},
+    "spa-frontend":         {"path": 0.20, "identity": 0.20, "language": 0.30, "size": 0.15, "import_degree": 0.15},
+    "fullstack-framework":  {"path": 0.20, "identity": 0.25, "language": 0.30, "size": 0.10, "import_degree": 0.15},
+    "monorepo":             {"path": 0.20, "identity": 0.20, "language": 0.30, "size": 0.10, "import_degree": 0.20},
+    "microservice":         {"path": 0.20, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.20},
+    "data-pipeline":        {"path": 0.15, "identity": 0.20, "language": 0.35, "size": 0.15, "import_degree": 0.15},
+}
+
+
+def _get_weights(archetype: Optional[str] = None) -> dict:
+    """获取 archetype 对应的权重，未匹配时返回默认权重。"""
+    if archetype and archetype in ARCHETYPE_WEIGHTS:
+        return ARCHETYPE_WEIGHTS[archetype]
+    return DEFAULT_WEIGHTS
 
 
 def _compute_weighted_score(path_score, identity_score, lang_score,
-                            size_score, import_deg_score) -> float:
+                            size_score, import_deg_score,
+                            weights=None) -> float:
     """计算五维度加权求和（路径、身份、语言、大小、入度）。"""
+    if weights is None:
+        weights = DEFAULT_WEIGHTS
     return (
-        path_score * WEIGHTS["path"] +
-        identity_score * WEIGHTS["identity"] +
-        lang_score * WEIGHTS["language"] +
-        size_score * WEIGHTS["size"] +
-        import_deg_score * WEIGHTS["import_degree"]
+        path_score * weights["path"] +
+        identity_score * weights["identity"] +
+        lang_score * weights["language"] +
+        size_score * weights["size"] +
+        import_deg_score * weights["import_degree"]
     )
 
 
@@ -177,8 +200,10 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
     import_degree_score = min(import_degree / 10.0, 1.0)
 
     # ── 加权求和 ──────────────────────────────────────────────────────────
+    weights = _get_weights(archetype)
     score = _compute_weighted_score(path_score, identity_score, lang_score,
-                                    size_score, import_degree_score)
+                                    size_score, import_degree_score,
+                                    weights=weights)
     final_score = round(min(score, 1.0), 4)
 
     if return_breakdown:
@@ -189,7 +214,7 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
             'lang_score': lang_score,
             'size_score': size_score,
             'import_degree_score': import_degree_score,
-            'weights': dict(WEIGHTS),
+            'weights': weights,
         }
     return final_score
 
@@ -253,10 +278,9 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
                     f.get('raw_lang_score', 0.0),
                     f.get('raw_size_score', 0.0),
                     import_deg_score,
+                    weights=_get_weights(archetype),
                 )
                 f['importance_score'] = round(min(new_score, 1.0), 2)
-                f['is_core'] = f['importance_score'] >= 0.5
-                f['is_high_priority'] = f['importance_score'] >= 0.6
             continue
 
         # 计算百分位排名
@@ -275,9 +299,36 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
                 f.get('raw_lang_score', 0.0),
                 f.get('raw_size_score', 0.0),
                 import_deg_score,
+                weights=_get_weights(archetype),
             )
             f['importance_score'] = round(min(new_score, 1.0), 2)
-            f['is_core'] = f['importance_score'] >= 0.5
-            f['is_high_priority'] = f['importance_score'] >= 0.6
 
+    # 动态计算 is_core / is_high_priority 阈值（百分位制）
+    _apply_dynamic_thresholds(files)
     return files
+
+
+def _apply_dynamic_thresholds(files: List[Dict[str, Any]]) -> None:
+    """基于项目分数分布动态设置 is_core 和 is_high_priority。
+
+    大项目（>= 20 文件）：top 35% 为 core，top 15% 为 high_priority
+    小项目（< 20 文件）：使用固定阈值 0.5/0.6 作为 fallback
+    """
+    if not files:
+        return
+    scores = [f['importance_score'] for f in files if 'importance_score' in f]
+    if len(scores) < 20:
+        core_threshold = 0.5
+        high_priority_threshold = 0.6
+    else:
+        sorted_scores = sorted(scores, reverse=True)
+        n = len(sorted_scores)
+        high_priority_threshold = sorted_scores[max(0, int(n * 0.15))]
+        core_threshold = sorted_scores[max(0, int(n * 0.35))]
+        # 确保阈值合理（不低于 0.2，不高于 0.9）
+        high_priority_threshold = max(0.2, min(0.9, high_priority_threshold))
+        core_threshold = max(0.2, min(0.9, core_threshold))
+
+    for f in files:
+        f['is_core'] = f.get('importance_score', 0) >= core_threshold
+        f['is_high_priority'] = f.get('importance_score', 0) >= high_priority_threshold

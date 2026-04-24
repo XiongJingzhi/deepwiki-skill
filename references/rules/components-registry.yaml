@@ -221,3 +221,57 @@ components:
     required_context:
       - 模块公开接口
       - 业务场景
+
+# ── Archetype 覆写规则 ─────────────────────────────────────────────
+# 当项目 archetype 匹配时，对基础组件映射进行增删调整。
+# 触发条件支持: always / CodePurpose 枚举
+# 优先级: archetype_overrides > CodePurpose 基础映射 > 条件触发
+archetype_overrides:
+  agent-project:
+    add:
+      - component: state-diagram
+        trigger: "always"
+        reason: "Agent 项目状态流转是核心关注点"
+      - component: decision-table
+        trigger: "CodePurpose in [Service, Agent]"
+        reason: "Agent 决策逻辑适合决策表展示"
+    remove:
+      - component: sequence-diagram
+        trigger: "CodePurpose not in [Api, Entry, Service]"
+        reason: "Agent 非 API 模块通常无请求-响应时序"
+
+  ml-project:
+    add:
+      - component: decision-table
+        trigger: "CodePurpose in [Service, Config]"
+        reason: "ML 超参数/配置策略适合决策表"
+    remove:
+      - component: sequence-diagram
+        trigger: "CodePurpose not in [Api, Entry]"
+        reason: "ML 模块通常无请求-响应时序"
+
+  cli-tool:
+    add:
+      - component: architecture-diagram
+        trigger: "CodePurpose == Entry"
+        reason: "CLI 命令树用 flowchart 展示更清晰"
+    remove:
+      - component: state-diagram
+        trigger: "CodePurpose not in [Agent]"
+        reason: "CLI 工具通常无状态管理"
+
+  sdk-library:
+    add:
+      - component: usage-patterns
+        trigger: "always"
+        reason: "SDK 使用模式是核心内容"
+    remove:
+      - component: sequence-diagram
+        trigger: "CodePurpose not in [Api]"
+        reason: "库函数调用通常不需要时序图"
+
+  monorepo:
+    add:
+      - component: dependency-diagram
+        trigger: "always"
+        reason: "Monorepo 包间依赖关系是核心关注点"

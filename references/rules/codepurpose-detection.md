@@ -111,3 +111,20 @@
 | **Database** | overview, er-diagram, nav-links |
 | **Test** | overview, api-table, code-example, nav-links |
 | **Other** | overview, api-table, nav-links |
+
+### Archetype 覆写（步骤 3）
+
+在 CodePurpose 基础映射 + 条件触发之后，根据项目 archetype 进行最终调整：
+
+1. 读取 `components-registry.yaml` 的 `archetype_overrides` 段
+2. 匹配当前 archetype，执行 `add` 和 `remove` 规则
+3. `remove` 不覆盖 P0（Required）组件
+4. 无匹配 archetype 或无覆写规则时，跳过此步骤
+
+| Archetype | 典型添加 | 典型移除 |
+|-----------|---------|---------|
+| agent-project | state-diagram, decision-table | sequence-diagram（非 API 模块） |
+| ml-project | decision-table | sequence-diagram（非 API 模块） |
+| cli-tool | architecture-diagram（Entry 模块） | state-diagram（非 Agent 模块） |
+| sdk-library | usage-patterns | sequence-diagram（非 API 模块） |
+| monorepo | dependency-diagram | — |

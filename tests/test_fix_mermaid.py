@@ -114,6 +114,27 @@ class TestFixMermaidBlock:
         assert count == 0
 
 
+class TestStateDiagram:
+    def test_state_diagram_preserved(self):
+        block = 'stateDiagram-v2\n    [*] --> Idle\n    Idle --> Processing : start\n    Processing --> Idle : done'
+        result, count = fix_mermaid.fix_mermaid_block(block)
+        assert 'stateDiagram-v2' in result
+
+    def test_er_diagram_safe_id(self):
+        block = 'erDiagram\nUSER ||--o{ ORDER : places\nORDER ||--|{ LINE_ITEM : contains'
+        result, count = fix_mermaid.fix_mermaid_block(block)
+        assert 'erDiagram' in result
+        assert 'USER' in result
+
+
+class TestHyphenatedIds:
+    def test_hyphenated_id_not_quoted(self):
+        """IDs with hyphens like auth-service should be treated as safe."""
+        assert fix_mermaid._needs_quoting('auth-service') == False
+        assert fix_mermaid._needs_quoting('user-controller') == False
+        assert fix_mermaid._needs_quoting('my_component') == False  # underscore is in \w, safe ID
+
+
 class TestFixMermaidInFile:
     """Tests for fix_mermaid_in_file()."""
 

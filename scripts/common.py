@@ -44,8 +44,6 @@ HASH_TRUNCATE_LENGTH = 16          # SHA256 hash 截断长度（位）
 MAX_CALLS_PER_FUNCTION = 20        # 每个函数最多追踪的被调用函数数
 MAX_BFS_DEPTH = 6                  # 调用图 BFS 最大遍历深度
 MAX_CORE_FILES_PER_MODULE = 20    # 每个模块最多记录的核心文件数
-CORE_FILE_THRESHOLD = 0.5          # 核心文件重要性最低阈值
-HIGH_PRIORITY_THRESHOLD = 0.6      # 高优先级文件重要性最低阈值
 
 
 class GitignoreCache:

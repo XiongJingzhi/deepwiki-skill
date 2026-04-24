@@ -31,12 +31,23 @@
 - 架构风格说明（分层/微服务/事件驱动等）
 
 ### 2. 系统架构图（architecture-diagram 组件）
-Mermaid `flowchart TB`，要求：
-- 分层展示（UI 层、业务层、数据层等）
-- 每层内的模块用 subgraph 分组
-- 箭头标注数据流向和依赖关系
-- 不同颜色区分模块类型
-- 标注关键接口和协议
+- 根据项目 archetype 选择对应的架构图模板：
+
+  | archetype | 图类型 | 结构 |
+  |-----------|--------|------|
+  | web-service, fullstack-framework | `flowchart TB` | 分层架构：UI → API → 业务 → 数据 |
+  | agent-project | `flowchart TB` | hub-and-spoke：Agent 中心，tools/modules 放射 |
+  | cli-tool | `flowchart LR` | 命令树：入口 → 子命令 → 处理器 |
+  | ml-project | `flowchart LR` | pipeline：数据采集 → 预处理 → 训练 → 推理 |
+  | sdk-library | `flowchart TB` | feature-based：按功能域组织，无层级 |
+  | monorepo | `flowchart TB` | package topology：包间依赖拓扑 |
+  | spa-frontend | `flowchart TB` | 页面-组件-状态：pages → components → store |
+  | generic | `flowchart TB` | 分层架构（默认） |
+
+- 用 subgraph 分组（若适用）
+- 箭头标注数据流方向和关键接口/协议
+- 不同模块类型用颜色区分
+- 模块数 < 4 或项目极小时，可简化为纯文本架构描述
 
 ### 3. 技术栈（api-table 组件）
 | 类别 | 技术 | 版本 | 选型原因 | 文档链接 |
@@ -99,9 +110,10 @@ Mermaid `flowchart LR`，展示所有模块间的依赖方向和类型。
 
 ---
 
+<!-- 架构图类型根据 archetype 选择，见上方模板表 -->
 ## 系统架构
 
-[architecture-diagram 组件：flowchart TB 分层架构图，P0 必需]
+[architecture-diagram 组件：按 archetype 选择图类型和结构，P0 必需]
 
 [分层说明：每层职责一句话，来自第 5 步 RelationshipSummary]
 

@@ -172,6 +172,18 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 ---
 
+### 文档骨架分档
+
+根据模块的 `CodePurpose` 选择对应档位的骨架，避免对所有模块强制相同的 10+ 节结构。
+
+| 档位 | 适用 CodePurpose | 节数 | 说明 |
+|------|-----------------|------|------|
+| **重型** | Entry, Agent, Service, Api | 8-10 | 完整骨架，含时序图、代码走读、状态管理 |
+| **标准** | Page, Widget, Dao, Model, Command, Database | 5-7 | 去掉强时序图和代码走读，保留核心节 |
+| **轻量** | Config, Util, Test, Other | 3-4 | 仅 overview + 接口/配置表 + 依赖 + 导航 |
+
+以下骨架标注了每节的适用档位。生成时只渲染对应档位的节。
+
 ## 页面骨架
 
 ## 模块文档骨架
@@ -185,66 +197,77 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 ---
 
+<!-- HEAVY | STANDARD | LIGHT -->
 ## 概述
 
 [overview 组件：模块职责、设计理念、架构位置]
 
 ---
 
+<!-- HEAVY | STANDARD -->
 ## 核心类与函数（条件：模块包含 class/struct/interface/enum 定义）
 
 [class-diagram 组件：展示类关系]
 
 ---
 
+<!-- HEAVY | STANDARD -->
 ## 文件结构（条件：模块包含 2+ 源文件）
 
 [file-structure 组件：目录树 + 职责表]
 
 ---
 
+<!-- HEAVY | STANDARD | LIGHT -->
 ## 公开接口
 
 [api-table 组件：接口总览表]
 
 ---
 
+<!-- HEAVY（或满足触发条件时 STANDARD 也包含） -->
 ## 请求/数据处理流程（条件：CodePurpose in [Api, Service, Agent, Entry]）
 
 [sequence-diagram 组件：展示处理链]
 
 ---
 
+<!-- HEAVY（仅当 complexity >= 50 或 CodePurpose in [Agent, Service, Api] 时） -->
 ## 核心实现（条件：复杂度 >= 50 或 CodePurpose in [Agent, Service, Api]）
 
 [code-walkthrough 组件：关键代码讲解]
 
 ---
 
+<!-- HEAVY（仅当存在状态管理时） -->
 ## 状态管理（条件：有显式状态管理）
 
 [state-diagram 组件：状态机或生命周期]
 
 ---
 
+<!-- HEAVY | STANDARD（仅当存在依赖关系时） -->
 ## 依赖关系（条件：有内部依赖或被依赖）
 
 [dependency-diagram 组件：依赖图 + 依赖表]
 
 ---
 
+<!-- HEAVY（仅当存在错误处理逻辑时） -->
 ## 错误处理（条件：有自定义错误类型）
 
 [error-table 组件：错误类型 + 处理方式]
 
 ---
 
+<!-- HEAVY（仅当存在可独立运行的代码时） -->
 ## 代码示例
 
 [code-example 组件：使用示例]
 
 ---
 
+<!-- HEAVY | STANDARD | LIGHT -->
 ## 相关文档
 
 [nav-links 组件]

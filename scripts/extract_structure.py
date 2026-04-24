@@ -65,7 +65,8 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
 
     archetype = detect_archetype(project_path)
     call_graph = extract_call_graph(all_files)
-    patterns = detect_patterns(all_files)
+    languages = structure.get("languages", [])
+    patterns = detect_patterns(all_files, archetype=archetype, languages=languages)
 
     # Import 关系（可信基线，供依赖综合阶段交叉验证）
     import_relations = extract_import_relations(all_files, project_path)
@@ -679,22 +680,94 @@ def _collect_parse_summaries(
 # 3. 代码模式检测（保留 regex，适合高层语义模式扫描）
 # ══════════════════════════════════════════════════════════════════════
 
-_PATTERN_RULES = [
-    ("middleware_chain", re.compile(r"\bapp\.use\s*\(|router\.use\s*\(|@app\.middleware|koa\.use\s*\(")),
-    ("http_route",       re.compile(r"\b(?:app|router)\s*\.\s*(?:get|post|put|delete|patch)\s*\(")),
-    ("orm_usage",        re.compile(r"\bprisma\.\w+\.|\b(?:repository|dao)\s*\.\s*(?:find|save|insert|create|update|delete)\s*\(|\borm\.\w+\s*\(")),
-    ("react_component",  re.compile(r"export\s+(?:default\s+)?(?:function|class)\s+\w+|=>\s*<\w+|React\.createElement")),
-    ("state_management", re.compile(r"\buseState\s*\(|\buseReducer\s*\(|createSlice\s*\(|createStore\s*\(|\breactive\s*\(|\bref\s*\(")),
-    ("event_system",     re.compile(r"\.on\s*\(['\"\w]|\.emit\s*\(|EventEmitter|addEventListener\s*\(")),
-    ("auth_pattern",     re.compile(r"jwt\.verify|bearerToken|requireAuth|@LoginRequired|session\.user|checkPermission")),
-    ("dependency_injection", re.compile(r"@Injectable|@Inject\(|@Service\(|@Component\(|provide\s*\(|inject\s*\(")),
-]
+_PATTERN_RULES: Dict[str, List[Tuple[str, 're.Pattern']]] = {
+    "web": [
+        ("middleware_chain", re.compile(
+            r"\bapp\.use\s*\(|router\.use\s*\(|@app\.middleware|koa\.use\s*\(")),
+        ("http_route", re.compile(
+            r"\b(?:app|router)\s*\.\s*(?:get|post|put|delete|patch)\s*\(")),
+        ("react_component", re.compile(
+            r"export\s+(?:default\s+)?(?:function|class)\s+\w+|=>\s*<\w+|React\.createElement")),
+        ("state_management", re.compile(
+            r"\buseState\s*\(|\buseReducer\s*\(|createSlice\s*\(|createStore\s*\("
+            r"|\breactive\s*\(|\bref\s*\(")),
+    ],
+    "general": [
+        ("event_system", re.compile(
+            r"\.on\s*\(['\"\w]|\.emit\s*\(|EventEmitter|addEventListener\s*\(")),
+        ("auth_pattern", re.compile(
+            r"jwt\.verify|bearerToken|requireAuth|@LoginRequired|session\.user"
+            r"|checkPermission")),
+        ("dependency_injection", re.compile(
+            r"@Injectable|@Inject\(|@Service\(|@Component\(|provide\s*\("
+            r"|inject\s*\(")),
+        ("orm_usage", re.compile(
+            r"\bprisma\.\w+\.|"
+            r"\b(?:repository|dao)\s*\.\s*(?:find|save|insert|create|update|delete)\s*\(|"
+            r"\borm\.\w+\s*\(")),
+    ],
+    "go": [
+        ("http_route", re.compile(
+            r"\b(?:gin|echo|fiber|chi|http)\.\w*?(?:GET|POST|PUT|DELETE|Handle|HandleFunc)"
+            r"|\w+\.(?:Get|Post|Put|Delete|Handle|HandleFunc)\s*\(")),
+        ("middleware_chain", re.compile(
+            r"\b\w+\.Use\s*\(")),
+        ("orm_usage", re.compile(
+            r"\b(?:gorm|ent|sqlx|sql\.DB)\.")),
+    ],
+    "rust": [
+        ("http_route", re.compile(
+            r"#\[.*?(?:get|post|put|delete|route)\b")),
+        ("async_runtime", re.compile(
+            r"#\[tokio::main|async fn main")),
+        ("orm_usage", re.compile(
+            r"\b(?:diesel|sea_orm|sqlx)\.")),
+    ],
+    "java_kotlin": [
+        ("http_route", re.compile(
+            r"@(?:Get|Post|Put|Delete|Request)Mapping")),
+        ("dependency_injection", re.compile(
+            r"@(?:Autowired|Inject|Service|Component|RestController)")),
+        ("orm_usage", re.compile(
+            r"@(?:Entity|Table|Repository)\b|(?:JpaRepository|CrudRepository)")),
+    ],
+}
 
 
-def detect_patterns(files: List[Path]) -> List[Dict[str, Any]]:
-    """检测代码模式，返回 [{type, files, evidence}] 列表。"""
+def detect_patterns(files: List[Path], archetype: str = None,
+                    languages: List[str] = None) -> List[Dict[str, Any]]:
+    """检测代码模式，返回 [{type, files, evidence}] 列表。
+
+    根据项目 archetype/语言激活对应的 pattern 组。
+    """
+    # 确定激活哪些语言组
+    active_groups = {"general"}
+    if languages:
+        lang_lower = [l.lower() for l in languages]
+        if any(l in lang_lower for l in ("typescript", "javascript", "vue", "svelte")):
+            active_groups.add("web")
+        if "go" in lang_lower:
+            active_groups.add("go")
+        if "rust" in lang_lower:
+            active_groups.add("rust")
+        if any(l in lang_lower for l in ("java", "kotlin", "scala")):
+            active_groups.add("java_kotlin")
+    if archetype:
+        # 按 archetype 补充语言组
+        if archetype in ("web-service", "fullstack-framework", "spa-frontend", "microservice"):
+            active_groups.add("web")
+        if archetype == "agent-project":
+            active_groups.add("general")
+        if archetype in ("ml-project", "data-pipeline"):
+            pass  # 主要用 general 组
+
+    # 收集激活的 pattern 规则
+    active_patterns: List[Tuple[str, 're.Pattern']] = []
+    for group_name, patterns in _PATTERN_RULES.items():
+        if group_name in active_groups:
+            active_patterns.extend(patterns)
+
     found: Dict[str, Dict[str, Any]] = {}
-
     for fpath in files:
         if not fpath.exists():
             continue
@@ -702,8 +775,7 @@ def detect_patterns(files: List[Path]) -> List[Dict[str, Any]]:
             text = fpath.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
-
-        for ptype, pattern in _PATTERN_RULES:
+        for ptype, pattern in active_patterns:
             m = pattern.search(text)
             if m:
                 if ptype not in found:

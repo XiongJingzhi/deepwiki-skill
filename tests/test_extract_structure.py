@@ -140,7 +140,7 @@ class TestDetectPatterns:
             "app.use(express.json());\n"
             "app.get('/users', authMiddleware, userController.list);\n"
         )
-        patterns = extract_structure.detect_patterns([f])
+        patterns = extract_structure.detect_patterns([f], languages=["typescript"])
         types = [p["type"] for p in patterns]
         assert "middleware_chain" in types
         assert "http_route" in types
@@ -164,7 +164,7 @@ class TestDetectPatterns:
             "  return <button onClick={onClick}>{active}</button>;\n"
             "}\n"
         )
-        patterns = extract_structure.detect_patterns([f])
+        patterns = extract_structure.detect_patterns([f], languages=["typescript"])
         types = [p["type"] for p in patterns]
         assert "react_component" in types
         assert "state_management" in types
@@ -183,7 +183,7 @@ class TestDetectPatterns:
     def test_pattern_includes_file_reference(self, tmp_path):
         f = tmp_path / "routes.ts"
         f.write_text("router.get('/health', (req, res) => res.json({ ok: true }));\n")
-        patterns = extract_structure.detect_patterns([f])
+        patterns = extract_structure.detect_patterns([f], languages=["typescript"])
         for p in patterns:
             assert "files" in p
             assert isinstance(p["files"], list)

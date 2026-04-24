@@ -109,6 +109,16 @@ IF dependency_count >= 2:
 }
 ```
 
+**Layer 3：Archetype 覆写**
+
+读取当前项目的 archetype，按 `components-registry.yaml` 的 `archetype_overrides` 增删组件：
+
+1. 若 archetype 有对应的 `add` 规则，且 `trigger` 条件满足（`always` 或 CodePurpose 匹配），则添加对应组件
+2. 若 archetype 有对应的 `remove` 规则，且 `trigger` 条件满足，则移除对应组件（除非 Layer 1/2 已将其标记为 Required）
+3. `remove` 不会覆盖 Required 组件（P0），仅影响 Recommended 和 Optional 组件
+
+示例：`agent-project` archetype 下，`state-diagram` 对所有模块添加；`sequence-diagram` 对非 API/Entry/Service 模块移除。
+
 ---
 
 ## 降级策略

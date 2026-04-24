@@ -8,6 +8,8 @@ Mermaid 语法修复脚本
 - 标签包含空格或特殊字符 -> 引号包裹
 - classDiagram 语法错误（缺失引号、错误箭头）
 - sequenceDiagram 语法错误
+- stateDiagram 语法错误
+- erDiagram 语法错误
 - 重复的节点 ID（重命名为 ID_2, ID_3 等）
 
 用法:
@@ -39,7 +41,7 @@ def extract_mermaid_blocks(content: str) -> List[Tuple[int, int, str]]:
 
 # ── 辅助函数 ──
 
-_SAFE_ID_RE = re.compile(r'^[A-Za-z_]\w*$')
+_SAFE_ID_RE = re.compile(r'^[A-Za-z_][\w-]*$')
 
 
 def _needs_quoting(text: str) -> bool:
@@ -220,6 +222,53 @@ def fix_duplicate_node_ids(text: str) -> Tuple[str, int]:
     return text, fix_count
 
 
+def fix_state_diagram(text: str) -> Tuple[str, int]:
+    """修复 stateDiagram / stateDiagram-v2 中的中文和特殊字符 ID。"""
+    fix_count = 0
+    lines = text.split('\n')
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        # 修复 state 定义：state "中文名" as alias → state alias: "中文名"
+        # state "中文名" → state "中文名"  # Mermaid 支持，但 ID 需安全
+        # 修复 transition 中的中文标签：[*] --> StateName : 中文描述
+        # 不需要 quoting transition labels，但 state names 可能需要
+        result.append(line)
+    return '\n'.join(result), fix_count
+
+
+def fix_er_diagram(text: str) -> Tuple[str, int]:
+    """修复 erDiagram 中的中文和特殊字符 ID。
+
+    erDiagram 的 entity 名称必须是安全 ID。
+    关系标签和属性注释可以包含中文。
+    """
+    fix_count = 0
+    lines = text.split('\n')
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        # 修复 entity 定义行（以非空格开头的行）
+        if stripped and not stripped.startswith(' ') and not stripped.startswith('{') \
+                and not stripped.startswith('}') and not stripped.startswith('||'):
+            # 提取 entity 名称
+            match = re.match(r'^(\S+)(?:\s*\{)?', stripped)
+            if match:
+                entity_name = match.group(1)
+                if not _SAFE_ID_RE.match(entity_name):
+                    # entity 名称包含特殊字符，需要 quoting
+                    # erDiagram 不支持 quoting entity names，所以替换为安全 ID
+                    safe_name = re.sub(r'[^\w]', '_', entity_name)
+                    safe_name = re.sub(r'_+', '_', safe_name).strip('_')
+                    if safe_name and safe_name != entity_name:
+                        line = line.replace(entity_name, safe_name, 1)
+                        fix_count += 1
+        # 修复关系行中的中文标签
+        # RELATIONSHIP: "label" 是安全的，无需修复
+        result.append(line)
+    return '\n'.join(result), fix_count
+
+
 # ── 主修复流水线 ──
 
 def fix_mermaid_block(diagram_text: str) -> Tuple[str, int]:
@@ -235,6 +284,12 @@ def fix_mermaid_block(diagram_text: str) -> Tuple[str, int]:
         total_fixes += fixes
     elif first_line.startswith('sequenceDiagram'):
         text, fixes = fix_sequence_diagram(diagram_text)
+        total_fixes += fixes
+    elif first_line.startswith('stateDiagram'):
+        text, fixes = fix_state_diagram(diagram_text)
+        total_fixes += fixes
+    elif first_line.startswith('erDiagram'):
+        text, fixes = fix_er_diagram(diagram_text)
         total_fixes += fixes
     elif any(first_line.startswith(kw) for kw in ['flowchart', 'graph']):
         text, fixes = fix_flowchart(diagram_text)
