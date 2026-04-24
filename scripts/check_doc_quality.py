@@ -513,6 +513,42 @@ def generate_issues(m: QualityMetrics, structure_path: str = None) -> List[str]:
     return issues
 
 
+def _page_id_for_doc(md_file: Path, wiki_dir: Path) -> str:
+    rel = md_file.relative_to(wiki_dir).as_posix()
+    stem = md_file.stem
+    if rel == "overview.md":
+        return "overview"
+    if rel == "getting-started.md":
+        return "getting-started"
+    if rel == "doc-map.md":
+        return "doc-map"
+    if rel.startswith("modules/"):
+        return f"module:{stem}"
+    if rel.startswith("api/"):
+        return f"api:{stem}"
+    return stem
+
+
+def _load_evidence_claims(deepwiki_dir: Path) -> Optional[Dict[str, List[Dict[str, object]]]]:
+    evidence_path = deepwiki_dir / "cache" / "evidence-index.json"
+    if not evidence_path.exists():
+        return None
+    try:
+        with open(evidence_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    claims_by_page: Dict[str, List[Dict[str, object]]] = {}
+    for claim in data.get("claims", []):
+        if not isinstance(claim, dict):
+            continue
+        page_id = claim.get("page_id")
+        if page_id:
+            claims_by_page.setdefault(str(page_id), []).append(claim)
+    return claims_by_page
+
+
 def check_wiki_quality(wiki_path: str) -> QualityReport:
     """检查整个 Wiki 目录的质量"""
     report = QualityReport(
@@ -528,6 +564,9 @@ def check_wiki_quality(wiki_path: str) -> QualityReport:
     # 自动定位 structure.json 用于模块重要性查询
     structure_path = Path(wiki_path) / "cache" / "structure.json"
     structure_str = str(structure_path) if structure_path.exists() else None
+    evidence_claims = _load_evidence_claims(Path(wiki_path))
+    if evidence_claims is None:
+        report.summary_issues.append("缺少 evidence-index.json，跳过证据一致性校验")
 
     # 推断项目根目录（.deepwiki 的父目录）
     deepwiki_dir = Path(wiki_path)
@@ -540,6 +579,13 @@ def check_wiki_quality(wiki_path: str) -> QualityReport:
             structure_path=structure_str,
             project_root=project_root,
         )
+        if evidence_claims is not None:
+            page_id = _page_id_for_doc(md_file, wiki_dir)
+            claims = evidence_claims.get(page_id, [])
+            if not claims:
+                metrics.issues.append(f"缺少证据索引: {page_id}")
+            elif any(not claim.get("evidence") for claim in claims):
+                metrics.issues.append(f"证据索引缺少源码证据: {page_id}")
         report.docs.append(metrics)
         report.total_docs += 1
         

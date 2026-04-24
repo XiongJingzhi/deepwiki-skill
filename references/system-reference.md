@@ -60,6 +60,7 @@
 | `scripts/detect_changes.py <项目路径>` | `detect-changes` | 检测文件变更，用于增量更新（含反向依赖传播） |
 | `scripts/extract_doc_comments.py <文件路径>` | `extract-docs`（预提取子步骤） | 从源码提取文档注释 |
 | `scripts/check_analysis_quality.py <项目路径>` | `check-analysis-quality` | 检查 `module-analysis.json` 是否满足最低质量标准（支持 `--verbose` 和 `--json`） |
+| `scripts/build_evidence_index.py <项目路径>` | `build-evidence-index` | 从 `module-analysis.json` 构建 `cache/evidence-index.json`，供文档质量检查验证源码证据 |
 | `scripts/finalize.py mermaid <.deepwiki路径>` | `finalize mermaid` | 修复 Mermaid 图表语法错误（支持 `--dry-run` 和 `--json`） |
 | `scripts/finalize.py quality <.deepwiki路径>` | `finalize quality` | 检查文档质量（含源码链接有效性验证） |
 | `scripts/finalize.py consistency <.deepwiki路径>` | `finalize consistency` | 跨模块一致性检查（接口覆盖率、依赖方向） |
@@ -98,6 +99,9 @@ python scripts/extract_doc_comments.py /path/to/src/utils.ts
 python scripts/check_analysis_quality.py $PROJECT_DIR
 python scripts/check_analysis_quality.py $PROJECT_DIR --verbose
 python scripts/check_analysis_quality.py $PROJECT_DIR --json gate-report.json
+
+# 构建证据索引
+python scripts/build_evidence_index.py $PROJECT_DIR
 
 # 文档质量检查（基本 / 详细报告 / 导出 JSON）
 python scripts/finalize.py quality $PROJECT_DIR/.deepwiki

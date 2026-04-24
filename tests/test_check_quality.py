@@ -7,6 +7,7 @@ import pytest
 
 import check_doc_quality
 import check_analysis_quality
+import build_evidence_index
 
 
 # ---------------------------------------------------------------------------
@@ -479,6 +480,64 @@ class TestCheckWikiQuality:
         # core.md with importance 0.8 expects min_lines=200; our doc has far fewer lines
         doc = report.docs[0]
         assert any("行数不足" in i for i in doc.issues)
+
+    def test_missing_evidence_index_adds_summary_issue(self, tmp_path):
+        deepwiki = tmp_path / ".deepwiki"
+        wiki = deepwiki / "wiki"
+        wiki.mkdir(parents=True)
+        (wiki / "overview.md").write_text("# Overview\n\n## A\n", encoding="utf-8")
+
+        report = check_doc_quality.check_wiki_quality(str(deepwiki))
+        assert any("evidence-index.json" in issue for issue in report.summary_issues)
+
+    def test_evidence_index_flags_page_without_claims(self, tmp_path):
+        deepwiki = tmp_path / ".deepwiki"
+        cache = deepwiki / "cache"
+        wiki = deepwiki / "wiki"
+        for d in [cache, wiki]:
+            d.mkdir(parents=True)
+        (wiki / "overview.md").write_text("# Overview\n\n## A\n", encoding="utf-8")
+        (cache / "evidence-index.json").write_text(
+            json.dumps({"claims": []}), encoding="utf-8"
+        )
+
+        report = check_doc_quality.check_wiki_quality(str(deepwiki))
+        assert any("缺少证据索引" in issue for issue in report.docs[0].issues)
+
+
+class TestBuildEvidenceIndex:
+    """Tests for build_evidence_index.py."""
+
+    def test_builds_claims_from_module_analysis(self, tmp_path):
+        deepwiki = tmp_path / ".deepwiki"
+        cache = deepwiki / "cache"
+        cache.mkdir(parents=True)
+        (cache / "module-analysis.json").write_text(
+            json.dumps(
+                {
+                    "auth": {
+                        "module_path": "src/auth",
+                        "module_summary": "Handles authentication.",
+                        "module_role": "Owns sign-in decisions.",
+                        "semantic_group": "Authentication",
+                        "files": [
+                            {
+                                "path": "src/auth/service.py",
+                                "summary": "Auth service.",
+                            }
+                        ],
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = build_evidence_index.build_evidence_index(tmp_path)
+        claims = result["claims"]
+        assert claims
+        assert claims[0]["page_id"] == "module:auth"
+        assert claims[0]["evidence"]
+        assert (cache / "evidence-index.json").exists()
 
 
 # ---------------------------------------------------------------------------
