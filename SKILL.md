@@ -120,6 +120,8 @@ python scripts/extract_docs.py <文件绝对路径>  # 预提取文档注释（�
 
 > 字段用途、图表类型选择、分档读取深度、语义分析流程见 [`references/step4-source-analysis.md`](references/step4-source-analysis.md)。
 
+> **并行调度**：模块总数 > 5 时，使用 subagent 并行批次（每批 3 个模块）。详见 [`references/step4-parallel-strategy.md`](references/step4-parallel-strategy.md)。
+
 ### 第 5 步：依赖关系综合
 
 将孤立的文件分析转化为连贯的依赖图，输出结构化的 `RelationshipSummary`，供第 6、7、8 步使用。
