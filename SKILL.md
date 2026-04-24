@@ -49,6 +49,8 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `generate-overview` | [references/workflow/generate-overview.md](references/workflow/generate-overview.md) |
 | `generate-menu` | [references/workflow/generate-menu.md](references/workflow/generate-menu.md) |
 | `generate-module-docs` | [references/workflow/generate-module-docs.md](references/workflow/generate-module-docs.md) |
+| `file-role-classification`（规则） | [references/rules/file-role-classification.md](references/rules/file-role-classification.md) |
+| `analysis-output-spec`（规范） | [references/rules/analysis-output-spec.md](references/rules/analysis-output-spec.md) |
 
 ## 不适用场景
 
