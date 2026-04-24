@@ -662,9 +662,18 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
         mod_files = [f for f in files if f['path'].startswith(mod_prefix) or f['path'] == mod_path]
 
         if len(mod_files) < 2:
-            # 模块内少于 2 个文件，跳过归一化
+            # 模块内少于 2 个文件，跳过百分位计算，但仍需设置归一化字段和重算评分
             for f in mod_files:
                 f['path_score_normalized'] = f.get('raw_path_score', 1.0)
+                new_score = (
+                    f['path_score_normalized'] * 0.30 +
+                    f.get('raw_identity_score', 0.0) * 0.25 +
+                    f.get('raw_lang_score', 0.0) * 0.30 +
+                    f.get('raw_size_score', 0.0) * 0.15
+                )
+                f['importance_score'] = round(min(new_score, 1.0), 2)
+                f['is_core'] = f['importance_score'] >= 0.5
+                f['is_high_priority'] = f['importance_score'] >= 0.6
             continue
 
         # 计算百分位排名
