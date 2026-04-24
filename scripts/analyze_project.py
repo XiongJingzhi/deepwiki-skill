@@ -18,6 +18,7 @@ from module_discovery import discover_modules
 from scanner import (scan_files, scan_directories, compute_file_stats,
                      find_documentation)
 from import_relations import compute_in_degree
+from extract_structure import detect_archetype
 
 
 def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, Any]:
@@ -47,17 +48,24 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
         except Exception:
             logger.warning("Failed to load parse-results.json, skipping parse cache")
 
-    # 检测 archetype 并计算 import_degree（来自 code-structure.json，如已存在）
-    archetype = None
+    # 检测 archetype（直接扫描 manifest 文件，而非从缓存读取旧值）
+    archetype = detect_archetype(root)
+
+    # 尝试从 code-structure.json 读取 import_degrees（如已存在）
     import_degrees: Dict[str, int] = {}
     cs_path = cache_path(root, 'code-structure.json')
     if cs_path.exists():
         try:
             cs_data = json.loads(cs_path.read_text('utf-8'))
-            archetype = cs_data.get('archetype')
-            import_relations = cs_data.get('import_relations', {})
-            if import_relations:
-                import_degrees = compute_in_degree(import_relations)
+            # 优先使用 code-structure.json 中已计算的 import_degrees
+            precomputed = cs_data.get('import_degrees')
+            if precomputed:
+                import_degrees = precomputed
+            else:
+                # 兼容旧版 code-structure.json（无 import_degrees 字段）
+                import_relations = cs_data.get('import_relations', {})
+                if import_relations:
+                    import_degrees = compute_in_degree(import_relations)
         except Exception:
             logger.warning("Failed to load code-structure.json, skipping import degrees")
 

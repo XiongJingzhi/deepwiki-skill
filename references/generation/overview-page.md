@@ -57,11 +57,31 @@
 ### 4. 模块说明
 对每个模块：名称 + 链接、职责描述、核心接口列表、依赖关系。
 
-### 5. 数据流（sequence-diagram 组件，条件：项目涉及 API 调用或跨组件数据传递）
-Mermaid `sequenceDiagram`，展示典型场景的完整数据流。
+### 5. 数据流（根据 archetype 选择合适的图类型）
 
-### 6. 模块依赖图（dependency-diagram 组件）
-Mermaid `flowchart LR`，展示所有模块间的依赖方向和类型。
+| archetype | 推荐图类型 | 说明 |
+|-----------|-----------|------|
+| web-service, fullstack-framework, generic | `sequenceDiagram` | 请求 → 中间件 → 处理器 → 数据库 → 响应 |
+| agent-project | `flowchart LR` | 用户输入 → Agent → 工具调用 → 响应 |
+| ml-project, data-pipeline | `flowchart LR` | 数据输入 → 预处理 → 模型 → 输出 |
+| cli-tool | `flowchart LR` | 参数解析 → 配置加载 → 命令执行 → 输出 |
+| spa-frontend | `sequenceDiagram` | 用户交互 → 组件 → Store → API → 响应 |
+| sdk-library | 文字描述 + 代码示例 | 库函数调用流程不适合图表化 |
+| monorepo, microservice | `flowchart TB` | 跨服务/跨包调用拓扑 |
+
+> 项目涉及 API 调用或跨组件数据传递时生成。模块数 < 4 或数据流简单时可省略。
+
+### 6. 模块依赖图（根据 archetype 选择合适的展示方式）
+
+| archetype | 推荐图类型 | 说明 |
+|-----------|-----------|------|
+| monorepo | `flowchart TB`（按 workspace 分组） | 包间依赖拓扑是核心 |
+| microservice | `flowchart LR`（按服务分组） | 服务间通信关系 |
+| web-service, fullstack-framework | `flowchart LR`（按层分组） | 分层依赖方向 |
+| agent-project | `flowchart LR`（按 Agent/Tool 分组） | Agent-Tool 调用拓扑 |
+| 其他 | `flowchart LR` | 通用依赖方向图 |
+
+> 模块数 < 4 时可省略此节，依赖信息已在"模块说明"节体现。
 
 ### 7. 目录结构（file-structure 组件）
 带注释的目录树 + 职责说明。
@@ -127,15 +147,15 @@ Mermaid `flowchart LR`，展示所有模块间的依赖方向和类型。
 
 ---
 
-## 数据流（条件：项目涉及 API 调用或跨组件数据传递）
+## 数据流（条件：项目涉及数据传递且模块数 ≥ 4，图类型按 archetype 选择）
 
-[sequence-diagram 组件：展示最核心的一条调用链]
+[sequence-diagram 或 flowchart 组件：按上方 archetype 图类型表选择，展示最核心的一条数据流]
 
 ---
 
-## 模块依赖图（条件：模块数 ≥ 4）
+## 模块依赖图（条件：模块数 ≥ 4，图类型按 archetype 选择）
 
-[dependency-diagram 组件：flowchart LR]
+[dependency-diagram 组件：按上方 archetype 图类型表选择展示方式]
 
 ---
 

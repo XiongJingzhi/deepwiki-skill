@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Set, Tuple
 
 from common import CODE_EXTENSIONS, CACHE_SCHEMA_VERSION, cache_path, MAX_CALLS_PER_FUNCTION, MAX_BFS_DEPTH
+from import_relations import compute_in_degree
 from import_relations import extract_import_relations
 from parsers import get_manager, get_lang_for_ext
 
@@ -64,12 +65,15 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
             all_files.append(p)
 
     archetype = detect_archetype(project_path)
-    call_graph = extract_call_graph(all_files)
+    call_graph, parse_cache = extract_call_graph(all_files, project_path, return_parse_cache=True)
     languages = structure.get("languages", [])
     patterns = detect_patterns(all_files, archetype=archetype, languages=languages)
 
     # Import 关系（可信基线，供依赖综合阶段交叉验证）
     import_relations = extract_import_relations(all_files, project_path)
+
+    # 预计算 import_degrees，写入 code-structure.json 供 analyze_project 复用
+    import_degrees = compute_in_degree(import_relations)
 
     # 构建入口点
     entry_points = _build_entry_points(structure, call_graph)
@@ -83,6 +87,7 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
         "key_sequences": key_sequences,
         "entry_points": entry_points,
         "import_relations": import_relations,
+        "import_degrees": import_degrees,
     }
 
     out_path = cache_path(project_path, "code-structure.json")
@@ -92,7 +97,7 @@ def run_extract_structure(project_path: Path) -> Dict[str, Any]:
 
     # 输出 parse-results.json（AST 摘要缓存，供后续步骤复用，避免重复 tree-sitter 解析）
     # 使用 merge 模式：保留已有缓存中不在本次分析范围内的文件数据
-    parse_summaries = _collect_parse_summaries(all_files, project_path)
+    parse_summaries = _collect_parse_summaries(all_files, project_path, parse_cache=parse_cache)
     pr_path = cache_path(project_path, "parse-results.json")
     pr_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -515,9 +520,22 @@ def _extract_calls_from_body(body: bytes, func_name: str, lang_name: str) -> Lis
     return calls[:MAX_CALLS_PER_FUNCTION]
 
 
-def extract_call_graph(files: List[Path]) -> Dict[str, Any]:
-    """从源文件列表中提取调用图，使用 tree-sitter AST 解析。"""
+def extract_call_graph(files: List[Path], project_path: Path = None,
+                       return_parse_cache: bool = False):
+    """从源文件列表中提取调用图，使用 tree-sitter AST 解析。
+
+    Args:
+        files: 待分析的文件列表
+        project_path: 项目根路径（用于生成 rel_path 键）
+        return_parse_cache: 是否返回解析缓存供 _collect_parse_summaries 复用
+
+    Returns:
+        默认返回 call_graph dict。
+        当 return_parse_cache=True 时返回 (call_graph, parse_cache) 元组，
+        parse_cache 格式: {rel_path: {"source": bytes, "tree": Tree, "lang": str, "defs": list}}
+    """
     graph: Dict[str, Any] = {}
+    parse_cache: Dict[str, Dict[str, Any]] = {}
 
     for fpath in files:
         if not fpath.exists():
@@ -548,6 +566,24 @@ def extract_call_graph(files: List[Path]) -> Dict[str, Any]:
                 "line": line_no,
             }
 
+        # 构建 parse cache 供 _collect_parse_summaries 复用
+        if return_parse_cache and project_path is not None:
+            try:
+                mgr = get_manager()
+                parser = mgr.get_parser(lang_name)
+                tree = parser.parse(source)
+                rel_path = str(fpath.relative_to(project_path)).replace("\\", "/")
+                parse_cache[rel_path] = {
+                    "source": source,
+                    "tree": tree,
+                    "lang": lang_name,
+                    "defs": file_defs,
+                }
+            except Exception:
+                pass
+
+    if return_parse_cache:
+        return graph, parse_cache
     return graph
 
 
@@ -556,18 +592,23 @@ def extract_call_graph(files: List[Path]) -> Dict[str, Any]:
 # ══════════════════════════════════════════════════════════════════════
 
 def _collect_parse_summaries(
-    files: List[Path], project_path: Path
+    files: List[Path], project_path: Path,
+    parse_cache: Dict[str, Dict[str, Any]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """收集每个文件的 tree-sitter AST 摘要，供后续步骤复用。
 
-    在 extract_call_graph 已解析过的文件上做一轮轻量补充收集，
-    提取 definitions / complexity_nodes / important_lines，
-    写入 cache/parse-results.json，避免后续步骤重复 tree-sitter 解析。
+    当 parse_cache 由 extract_call_graph 传入时，直接复用已解析的 tree 和 defs，
+    跳过重复的 parser.parse 和 _parse_definitions 调用。
+
+    Args:
+        files: 待分析的文件列表
+        project_path: 项目根路径
+        parse_cache: {rel_path: {"source", "tree", "lang", "defs"}} 来自 extract_call_graph
 
     Returns:
         {rel_path: {
             "language": "python",
-            "definitions": [{"name": "func", "kind": "function", "line": 10, "end_line": 25}],
+            "definitions": [...],
             "complexity_nodes": 15,
             "complexity_score": 42,
             "important_lines": [1, 3, 10],
@@ -589,25 +630,30 @@ def _collect_parse_summaries(
             continue
 
         try:
-            source = fpath.read_bytes()
-            if not source.strip():
-                continue
-        except Exception:
-            continue
+            rel_path = str(fpath.relative_to(project_path)).replace("\\", "/")
 
-        try:
-            parser = mgr.get_parser(lang_name)
-            tree = parser.parse(source)
-            root = tree.root_node
+            # 尝试从 parse_cache 复用已解析的 tree 和 defs
+            cached = parse_cache.get(rel_path) if parse_cache else None
+            if cached:
+                source = cached["source"]
+                tree = cached["tree"]
+                root = tree.root_node
+                defs = cached["defs"]
+            else:
+                source = fpath.read_bytes()
+                if not source.strip():
+                    continue
+                parser = mgr.get_parser(lang_name)
+                tree = parser.parse(source)
+                root = tree.root_node
+                defs = _parse_definitions(source, lang_name, str(fpath))
 
             if root.has_error and root.child_count == 0:
                 continue
 
-            rel_path = str(fpath.relative_to(project_path)).replace("\\", "/")
             summary: Dict[str, Any] = {"language": lang_name}
 
-            # 1. 提取定义列表（复用 _parse_definitions）
-            defs = _parse_definitions(source, lang_name, str(fpath))
+            # 1. 定义列表
             summary["definitions"] = [
                 {
                     "name": name,

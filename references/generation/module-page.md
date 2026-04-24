@@ -237,6 +237,8 @@ CodePurpose: {{ CODE_PURPOSE }}
 <!-- HEAVY（仅当 complexity >= 50 或 CodePurpose in [Agent, Service, Api] 时） -->
 ## 核心实现（条件：复杂度 >= 50 或 CodePurpose in [Agent, Service, Api]）
 
+> **章节名自适应**：Config 模块改用"配置详解"，Util 模块改用"实现要点"，其他保持"核心实现"。
+
 [code-walkthrough 组件：关键代码讲解]
 
 ---
@@ -264,6 +266,8 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 <!-- HEAVY（仅当存在可独立运行的代码时） -->
 ## 代码示例
+
+> **语言选择**：代码示例优先使用项目主要语言；多语言项目可选择模块自身语言或最相关的语言。SDK/Library 模块应包含调用方语言示例。
 
 [code-example 组件：使用示例]
 

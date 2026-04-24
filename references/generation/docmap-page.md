@@ -42,11 +42,17 @@
 
 | archetype | 路径 1 | 路径 2 | 路径 3 |
 |-----------|--------|--------|--------|
+| web-service | API 速查 | 认证与权限 | 部署运维 |
+| fullstack-framework | 前端页面 | 后端 API | 数据层 |
+| agent-project | Agent 架构 | 工具注册 | 记忆系统 |
 | cli-tool | 命令速查 | 插件开发 | 配置详解 |
 | ml-project | 环境搭建 | 训练流程 | 推理部署 |
-| agent-project | Agent 架构 | 工具注册 | 记忆系统 |
-| monorepo | 工作区结构 | 核心包文档 | 跨包开发 |
 | sdk-library | 快速上手 | API 参考 | 高级用法 |
+| spa-frontend | 页面路由 | 状态管理 | API 集成 |
+| monorepo | 工作区结构 | 核心包文档 | 跨包开发 |
+| data-pipeline | 数据源配置 | 流水线构建 | 监控告警 |
+| microservice | 服务发现 | 服务间通信 | 数据库迁移 |
+| generic | 新手入门 | 架构理解 | API 查阅 |
 
 ---
 

@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional
 
 from common import IGNORE_DIRS, IGNORE_FILES, CODE_EXTENSIONS, HASH_TRUNCATE_LENGTH, should_ignore_path
 from importance_scoring import calculate_file_importance
-from code_metrics import estimate_complexity, count_important_lines
+from code_metrics import estimate_complexity, count_important_lines, compute_complexity_and_important_lines
 
 
 def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None,
@@ -82,8 +82,7 @@ def scan_files(root_path: Path, gitignore_cache=None, parse_cache=None,
                 complexity = cached.get("complexity_score", 0)
                 important_lines = cached.get("important_lines_count", 0)
             else:
-                complexity = estimate_complexity(f)
-                important_lines = count_important_lines(f)
+                complexity, important_lines = compute_complexity_and_important_lines(f)
         else:
             complexity = 0
             important_lines = 0

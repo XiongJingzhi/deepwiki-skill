@@ -215,7 +215,8 @@ def _group_modules_flat(wiki_path: Path, L: dict) -> List[Dict]:
     return [{'title': L['modules'], 'items': module_items}]
 
 
-def _group_modules(wiki_path: Path, cache_dir: str, L: dict) -> List[Dict]:
+def _group_modules(wiki_path: Path, cache_dir: str, L: dict,
+                   analysis: dict = None) -> List[Dict]:
     """数据驱动的模块分组。
 
     优先级：
@@ -223,6 +224,9 @@ def _group_modules(wiki_path: Path, cache_dir: str, L: dict) -> List[Dict]:
     2. module-analysis.json 的 semantic_group（语义标注）
     3. 纯依赖聚类（import_relations Union-Find）
     4. 平铺回退
+
+    Args:
+        analysis: 预加载的 module-analysis.json 数据，避免重复读取
     """
     module_files = _collect_module_files(wiki_path)
     if not module_files:
@@ -248,13 +252,14 @@ def _group_modules(wiki_path: Path, cache_dir: str, L: dict) -> List[Dict]:
                 }
                 if remaining:
                     fallback = _cluster_by_semantic_group_or_flat(
-                        remaining, cache_dir, L,
+                        remaining, cache_dir, L, analysis=analysis,
                     )
                     sections.extend(fallback)
                 return sections
 
     # --- 策略 2: semantic_group ---
-    analysis = _load_json(cache_path / 'module-analysis.json')
+    if analysis is None:
+        analysis = _load_json(cache_path / 'module-analysis.json')
     semantic_map = _extract_semantic_groups(analysis)
     if semantic_map:
         # 筛选在 semantic_map 中有标注的模块
@@ -272,7 +277,7 @@ def _group_modules(wiki_path: Path, cache_dir: str, L: dict) -> List[Dict]:
             # 将无标注的模块追加到末尾
             if unannotated:
                 fallback = _cluster_by_semantic_group_or_flat(
-                    unannotated, cache_dir, L,
+                    unannotated, cache_dir, L, analysis=analysis,
                 )
                 sections.extend(fallback)
             return sections
@@ -332,6 +337,10 @@ def _cluster_by_import_relations(
 
     将文件路径归一化为模块名（与 modules/*.md 的 stem 对应），
     然后通过导入关系做连通分量聚类。
+
+    注意：此处的 Union-Find 专注于「导航分组」，与
+    module_discovery.py:refine_modules 的 Union-Find（专注于「模块边界修正」）
+    目的不同但算法相似。两者共享 import_relations 数据源。
     """
     # Union-Find 实现
     parent: Dict[str, str] = {}
@@ -405,9 +414,11 @@ def _cluster_by_import_relations(
 
 def _cluster_by_semantic_group_or_flat(
     name_to_files: dict, cache_dir: str, L: dict,
+    analysis: dict = None,
 ) -> List[Dict]:
     """对一组模块先尝试 semantic_group 分组，无数据则平铺。"""
-    analysis = _load_json(Path(cache_dir) / 'module-analysis.json')
+    if analysis is None:
+        analysis = _load_json(Path(cache_dir) / 'module-analysis.json')
     semantic_map = _extract_semantic_groups(analysis)
     if semantic_map:
         filtered = {
@@ -497,7 +508,8 @@ def build_menu(wiki_dir: str, project_name: str = '', cache_dir: str = None) -> 
 
     # ---------- 模块分组（数据驱动 / 平铺回退） ----------
     if cache_dir:
-        groups = _group_modules(wiki_path, cache_dir, L)
+        analysis = _load_json(Path(cache_dir) / 'module-analysis.json')
+        groups = _group_modules(wiki_path, cache_dir, L, analysis=analysis)
     else:
         groups = _group_modules_flat(wiki_path, L)
     menu.extend(groups)

@@ -27,53 +27,17 @@
 | 5 | `config` | 配置、常量、环境设置 | 需要的上下文但非核心逻辑 |
 | 6（最低） | `test` | 测试基础设施、夹具、测试工具 | 理解测试是次要的 |
 
-## 批次调度（并行 / 串行）
+## 批次调度
 
-对于模块超过 10 个的项目，使用渐进式批次处理。**全部自动执行，不需要用户确认。**
-
-### 并行策略（subagent 可用时）
-
-当运行环境支持 subagent 时，按模块分派 subagent 并行生成详细文档：
-
-- **并行粒度**：每个 subagent 负责一个模块的 `modules/<name>.md` + `api/<name>.md`（同一模块的文档必须一起生成，保证交叉引用一致性）。
-- **批次控制**：同批次内启动的 subagent 数量不超过 3 个，避免并发过高导致输出质量下降。
-- **批次调度**：按模块优先级排序，每批从队列头部取 3 个无依赖关系的模块分派 subagent。同批次内所有 subagent 完成后，再启动下一批。
-- **自动继续**下一批，不暂停，直到所有模块都有文档。
-
-### 串行降级（subagent 不可用时）
-
-当运行环境不支持 subagent 时，自动降级为主 Agent 串行处理：
-
-- **降级触发条件**：subagent 启动失败、subagent 输出质量不达标（生成的文档缺少源码追溯或章节数不足）、或运行环境不提供 subagent 能力。
-- **串行策略**：每批 1-2 个模块，主 Agent 按优先级顺序依次处理。
-- **无需用户干预**：降级是自动的、静默的。
-
-### 进度追踪与断点续传
-
-每批完成后更新 `cache/progress.json`，确保中断后可从断点恢复：
-
-```json
-{
-  "last_updated": "2026-04-20T10:00:00Z",
-  "phases": {
-    "overview": {"status": "completed"},
-    "menu": {"status": "completed"},
-    "details": {
-      "status": "in_progress",
-      "mode": "subagent",
-      "modules": {
-        "core": {"status": "completed", "agent": "subagent-1"},
-        "auth": {"status": "in_progress", "agent": "subagent-3"},
-        "db": {"status": "pending"}
-      }
-    }
-  }
-}
-```
-
-每个模块的状态值：`pending` → `in_progress` → `completed` / `failed`。`mode` 字段标记当前批次模式：`"subagent"` 或 `"serial"`。`agent` 字段：`"main"` 表示主 Agent 生成，`"subagent-N"` 表示第 N 个 subagent 生成。
-
-如果因上下文限制或错误中断，下次运行时自动读取 `cache/progress.json`，跳过已完成模块，从中断处继续。全部完成后输出总结报告：已生成文档总数、质量检查结果、遇到的问题、使用模式（subagent/serial）。
+> 统一的批次调度规则（并行/串行策略、进度追踪、串行降级、写入安全）见 [`../rules/batch-scheduling.md`](../rules/batch-scheduling.md)。
+>
+> generate-module-docs 阶段适用以下特定规则：
+> - **排序依据**：按模块优先级排序（见上方优先级表格）
+> - **并行粒度**：每个 subagent 负责一个模块的 `modules/<name>.md` + `api/<name>.md`（同一模块的文档必须一起生成，保证交叉引用一致性）
+> - **progress.json 字段**：`phases.details`
+> - **降级触发条件**：subagent 启动失败、subagent 输出质量不达标（生成的文档缺少源码追溯或章节数不足）、或运行环境不提供 subagent 能力
+>
+> 如果因上下文限制或错误中断，下次运行时自动读取 `cache/progress.json`，跳过已完成模块，从中断处继续。全部完成后输出总结报告：已生成文档总数、质量检查结果、遇到的问题、使用模式（subagent/serial）。
 
 ## 失败重试
 

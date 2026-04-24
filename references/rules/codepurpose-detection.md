@@ -63,15 +63,45 @@
 | **Kotlin** | `@Entity`、`data class` | `Model` |
 | **Kotlin** | `@SpringBootApplication`、`fun main(` | `Entry` |
 | **Python** | `@app.route`、`@router.get`、`@router.post`、`@router.` | `Api` |
+| **Python** | `@app.get`、`@app.post`（FastAPI）、`@bp.route`（Flask Blueprint） | `Api` |
+| **Python** | `@app.middleware`、`@middleware`（FastAPI/Starlette） | `Service` |
 | **Python** | 继承 `BaseModel`（Pydantic）、`SQLModel`、`class.*BaseModel`、`class.*Schema` | `Model` |
+| **Python** | `@db.session`、`SessionLocal`、`async_session`（SQLAlchemy） | `Dao` |
 | **Python** | `if __name__ == "__main__"` | `Entry` |
 | **Python** | `@pytest.fixture`、`@pytest.mark`、函数名以 `test_` 开头 | `Test` |
+| **TypeScript/JavaScript** | `@RestController`、`@Get`、`@Post`（NestJS）、`app.get(`、`router.get(`（Express/Fastify） | `Api` |
+| **TypeScript/JavaScript** | `export default function`、`export default class` 且文件在 `pages/` 或 `app/` | `Page` |
+| **TypeScript/JavaScript** | `export function`、`export const` 且文件在 `components/`、`hooks/`、`composables/` | `Widget` |
+| **TypeScript/JavaScript** | `createContext`、`useContext`、`provide/inject`（React/Vue） | `Service` |
+| **TypeScript/JavaScript** | `useState`、`useReducer`、`createStore`、`defineStore` | `Service` |
+| **TypeScript/JavaScript** | `export interface`、`export type`、`z.object`（Zod）、`class.*Schema` | `Model` |
+| **TypeScript/JavaScript** | `.env.`、`process.env.`、`import.meta.env`（Vite） | `Config` |
+| **TypeScript/JavaScript** | `describe(`、`it(`、`test(`、`expect(`（Jest/Vitest） | `Test` |
+| **TypeScript/JavaScript** | `export default` 且文件名为 `main`、`index`、`server` | `Entry` |
+| **C#** | `[ApiController]`、`[HttpGet]`、`[HttpPost]`、`ControllerBase` | `Api` |
+| **C#** | `[Service]`、`IHostedService`、`BackgroundService` | `Service` |
+| **C#** | `[Repository]`、`DbContext`、`DbSet<>` | `Dao` |
+| **C#** | `[Entity]`、`[Table]`、`record` 类型 | `Model` |
+| **C#** | `IConfiguration`、`IOptions<>`、`appsettings.json` 引用 | `Config` |
+| **C#** | `static void Main`、`Program.cs` | `Entry` |
+| **C#** | `[Fact]`、`[Theory]`、`[TestMethod]`（xUnit/NUnit/MSTest） | `Test` |
 
 ---
 
 ## 应用顺序
 
 **Layer 1 路径/文件名规则** → **Layer 2 通用语义推理** → **语言特定信号表**。只有前两步都无法确定时才查语言特定信号表。
+
+---
+
+## 多语言混合项目
+
+项目包含多种编程语言时（如 fullstack-framework 的 TypeScript + Python），按以下规则处理：
+
+1. **语言特定信号按文件扩展名匹配**：每个文件只查其对应语言的信号行（`.ts` 文件查 TypeScript 行，`.py` 文件查 Python 行）
+2. **Layer 1 优先**：路径规则（如 `/pages/`、`/api/`）跨语言通用，始终优先于语言特定信号
+3. **模块级语言**：模块的主要语言由该模块内文件数最多的语言决定；代码示例使用模块自身语言
+4. **前端/后端分离检测**：`/frontend/`、`/client/`、`/web/` 目录下的模块优先使用 TypeScript/JavaScript 信号；`/backend/`、`/server/`、`/api/` 目录下的模块优先使用后端语言信号
 
 ---
 
@@ -128,3 +158,8 @@
 | cli-tool | architecture-diagram（Entry 模块） | state-diagram（非 Agent 模块） |
 | sdk-library | usage-patterns | sequence-diagram（非 API 模块） |
 | monorepo | dependency-diagram | — |
+| web-service | error-table（Api/Service）, decision-table（Config） | state-diagram（非 Agent） |
+| fullstack-framework | architecture-diagram（Entry）, code-example（前端模块） | er-diagram（前端模块） |
+| spa-frontend | state-diagram（Service/Page/Widget）, code-example（Widget/Page） | sequence-diagram（非 Api/Service） |
+| data-pipeline | decision-table | sequence-diagram（非 Api） |
+| microservice | dependency-diagram | — |

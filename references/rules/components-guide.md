@@ -176,6 +176,10 @@ IF dependency_count >= 2:
 
 ### 流程表格模板
 
+根据模块的 archetype 和 CodePurpose 选择合适的流程表格模板：
+
+**HTTP 请求处理（web-service / fullstack-framework / generic 的 Api 模块）**
+
 | 阶段 | 执行者 | 输入 | 输出 | 说明 |
 |------|--------|------|------|------|
 | 1 | Middleware | Request | - | 认证校验 |
@@ -183,6 +187,44 @@ IF dependency_count >= 2:
 | 3 | Service | DTO | Entity | 业务处理 |
 | 4 | Repository | Entity | Entity | 持久化 |
 | 5 | Handler | Entity | Response | 响应构建 |
+
+**Agent 决策流（agent-project 的 Agent 模块）**
+
+| 阶段 | 执行者 | 输入 | 输出 | 说明 |
+|------|--------|------|------|------|
+| 1 | Agent | 用户输入 | 意图识别 | LLM 解析用户意图 |
+| 2 | Planner | 意图 | 任务列表 | 拆分为可执行步骤 |
+| 3 | Tool | 任务 + 上下文 | 工具结果 | 调用外部工具/API |
+| 4 | Agent | 工具结果 | 最终响应 | 综合结果生成回复 |
+
+**数据处理流水线（ml-project / data-pipeline）**
+
+| 阶段 | 执行者 | 输入 | 输出 | 说明 |
+|------|--------|------|------|------|
+| 1 | Loader | 原始数据 | DataBatch | 数据加载和分批 |
+| 2 | Preprocessor | DataBatch | Features | 清洗、标准化、增强 |
+| 3 | Model | Features | Predictions | 推理/训练 |
+| 4 | Postprocessor | Predictions | Result | 后处理和格式化 |
+
+**前端渲染流（spa-frontend 的 Page/Widget 模块）**
+
+| 阶段 | 执行者 | 输入 | 输出 | 说明 |
+|------|--------|------|------|------|
+| 1 | Router | URL | PageProps | 路由匹配和参数解析 |
+| 2 | Store | PageProps | State | 获取全局状态 |
+| 3 | Component | State + Props | VNode | 渲染组件树 |
+| 4 | Effect | State | SideEffect | 副作用处理（API 调用等） |
+
+**CLI 命令执行（cli-tool 的 Command/Entry 模块）**
+
+| 阶段 | 执行者 | 输入 | 输出 | 说明 |
+|------|--------|------|------|------|
+| 1 | Parser | CLI args | ParsedOpts | 参数解析和验证 |
+| 2 | Config | ParsedOpts | Config | 加载配置文件和环境变量 |
+| 3 | Command | Config + Args | Result | 执行核心命令逻辑 |
+| 4 | Formatter | Result | Output | 格式化输出到终端 |
+
+> 选择原则：优先匹配当前 archetype 的专用模板；未匹配时使用 generic 的 HTTP 请求处理模板或根据模块特征自行设计。
 
 ---
 

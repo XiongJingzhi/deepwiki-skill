@@ -134,3 +134,62 @@ def count_important_lines(file_path: Path) -> int:
         return len(important_lines)
     except Exception:
         return 0
+
+
+def compute_complexity_and_important_lines(file_path: Path) -> tuple:
+    """单次 tree-sitter 解析同时计算 complexity_score 和 important_lines_count。
+
+    替代分别调用 estimate_complexity() + count_important_lines()，
+    将同一文件从解析 2 次降为 1 次。
+
+    Returns:
+        (complexity_score: int, important_lines_count: int)
+    """
+    try:
+        source = file_path.read_bytes()
+    except Exception:
+        return 0, 0
+
+    if not source.strip():
+        return 0, 0
+
+    from parsers import get_lang_for_ext, get_manager
+
+    ext = file_path.suffix.lower()
+    lang_name = get_lang_for_ext(ext)
+    if not lang_name:
+        # 无 tree-sitter 支持的语言，回退到行数统计
+        try:
+            lines = source.split(b"\n")
+            return 0, len([l for l in lines if l.strip()])
+        except Exception:
+            return 0, 0
+
+    try:
+        mgr = get_manager()
+        parser = mgr.get_parser(lang_name)
+        tree = parser.parse(source)
+        root = tree.root_node
+
+        if root.has_error and root.child_count == 0:
+            return 0, 0
+
+        # complexity
+        caps = mgr.run_query(lang_name, "complexity", root)
+        cf_count = len(caps.get("cf", []))
+        def_count = len(caps.get("def", []))
+        loc = count_loc(source)
+        complexity = compute_complexity_score(cf_count, def_count, loc)
+
+        # important lines
+        caps = mgr.run_query(lang_name, "important", root)
+        important_lines: set = set()
+        for category in ("imp", "exp", "decl"):
+            for node in caps.get(category, []):
+                important_lines.add(node.start_point[0])
+        for todo_line in scan_todo_lines(source):
+            important_lines.add(todo_line)
+
+        return complexity, len(important_lines)
+    except Exception:
+        return 0, 0

@@ -759,6 +759,27 @@ def _extract_doc_entries(source: bytes, lang_name: str, file_path: str, tree=Non
 # 缓存读取辅助函数
 # ---------------------------------------------------------------------------
 
+# 模块级缓存：避免 N 个文件调用时重复打开 parse-results.json
+_parse_results_cache: Optional[tuple] = None  # (project_root_str, {"files": {...}})
+
+
+def _load_parse_results_cache(project_root: str) -> Optional[dict]:
+    """加载并缓存 parse-results.json，同一会话内只读取一次。"""
+    global _parse_results_cache
+    if _parse_results_cache is not None and _parse_results_cache[0] == project_root:
+        return _parse_results_cache[1]
+    try:
+        cache_path = Path(project_root) / ".deepwiki" / "cache" / "parse-results.json"
+        if not cache_path.exists():
+            return None
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        _parse_results_cache = (project_root, data)
+        return data
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def _read_doc_entries_from_cache(file_path: str, project_root: str) -> Optional[List[DocEntry]]:
     """尝试从 parse-results.json 缓存中读取文档条目。
 
@@ -769,19 +790,17 @@ def _read_doc_entries_from_cache(file_path: str, project_root: str) -> Optional[
     Returns:
         缓存的 DocEntry 列表，如果缓存未命中则返回 None
     """
+    data = _load_parse_results_cache(project_root)
+    if data is None:
+        return None
     try:
-        cache_path = Path(project_root) / ".deepwiki" / "cache" / "parse-results.json"
-        if not cache_path.exists():
-            return None
-        with open(cache_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
         rel_path = str(Path(file_path).relative_to(project_root)).replace('\\', '/')
         files_data = data.get("files", {})
         if rel_path in files_data:
             cached = files_data[rel_path].get("doc_entries", [])
             if cached:
                 return [DocEntry(**entry) for entry in cached]
-    except (json.JSONDecodeError, KeyError, ValueError, OSError):
+    except (KeyError, ValueError, OSError):
         pass
     return None
 

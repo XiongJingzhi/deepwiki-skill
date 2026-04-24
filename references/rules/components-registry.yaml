@@ -275,3 +275,46 @@ archetype_overrides:
       - component: dependency-diagram
         trigger: "always"
         reason: "Monorepo 包间依赖关系是核心关注点"
+
+  web-service:
+    add:
+      - component: error-table
+        trigger: "CodePurpose in [Api, Service]"
+        reason: "Web 服务错误处理是核心关注点"
+      - component: decision-table
+        trigger: "CodePurpose in [Config]"
+        reason: "Web 服务配置策略适合决策表"
+    remove:
+      - component: state-diagram
+        trigger: "CodePurpose not in [Agent]"
+        reason: "Web 服务通常无复杂状态管理"
+
+  fullstack-framework:
+    add:
+      - component: architecture-diagram
+        trigger: "CodePurpose == Entry"
+        reason: "全栈框架需要清晰的分层架构图"
+      - component: code-example
+        trigger: "CodePurpose in [Page, Widget]"
+        reason: "前端组件需要使用示例"
+    remove:
+      - component: er-diagram
+        trigger: "CodePurpose in [Page, Widget]"
+        reason: "前端组件无实体关系"
+
+  spa-frontend:
+    add:
+      - component: state-diagram
+        trigger: "CodePurpose in [Service, Page, Widget]"
+        reason: "前端状态管理是核心关注点"
+      - component: code-example
+        trigger: "CodePurpose in [Widget, Page]"
+        reason: "UI 组件需要使用示例"
+    remove:
+      - component: sequence-diagram
+        trigger: "CodePurpose not in [Api, Service]"
+        reason: "前端模块通常无请求-响应时序"
+
+  generic:
+    remove: []  # 无覆写，使用 CodePurpose 基础映射
+    add: []
