@@ -37,3 +37,25 @@
 - 含数据库查询（`SELECT`、`.query(`、`ORM.find`）→ `Dao`
 - 含 UI 渲染逻辑（`render(`、`return <`、`template:`）→ `Widget` 或 `Page`
 - 含配置常量（大量 `const CONFIG_`、`env.`）→ `Config`
+
+### 语言特定信号（通用规则无法判断时适用）
+
+| 语言 | 代码信号 | 推断角色 |
+|------|---------|---------|
+| **Go** | 含 `http.HandleFunc`、`gin.GET`、`echo.GET`、`mux.Handle` | `Api` |
+| **Go** | 含 `sql.Query`、`db.Exec`、`gorm.Find`、`sqlx.Get` | `Dao` |
+| **Go** | 含 `func main()` 且在 `main` package | `Entry` |
+| **Rust** | 含 `#[tokio::main]` 或 `fn main()` | `Entry` |
+| **Rust** | 含 `impl Trait`（Trait 为外部接口名） | `Service` |
+| **Rust** | 含 `axum::Router`、`actix_web::HttpServer` | `Api` |
+| **Java/Kotlin** | 含 `@RestController`、`@Controller` 注解 | `Api` |
+| **Java/Kotlin** | 含 `@Repository`、`@Mapper` 注解 | `Dao` |
+| **Java/Kotlin** | 含 `@Service`、`@Component`（无 `@Controller`） | `Service` |
+| **Java/Kotlin** | 含 `@Entity`、`@Table` 注解 | `Model` |
+| **Java/Kotlin** | 含 `@SpringBootApplication`、`fun main(` | `Entry` |
+| **Python** | 含 `@app.route`、`@router.get`、`@router.post` | `Api` |
+| **Python** | 继承 `BaseModel`（Pydantic）、`SQLModel` | `Model` |
+| **Python** | 含 `if __name__ == "__main__"` 且调用核心业务函数 | `Entry` |
+| **Python** | 含 `@pytest.fixture` 或函数名以 `test_` 开头 | `Test` |
+
+> **应用顺序**：第一层路径规则 → 第二层通用语义规则 → 本语言特定信号表。只有前两步都无法确定时才查此表。
