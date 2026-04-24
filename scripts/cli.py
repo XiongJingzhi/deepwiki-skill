@@ -12,6 +12,7 @@ from detect_changes import detect_changes, print_changes
 from extract_structure import run_extract_structure
 from init_wiki import init_deep_wiki
 from plan_doc_topology import plan_doc_topology
+from validate_skill import validate_skill
 
 
 def _deepwiki_path(path: str) -> Path:
@@ -44,6 +45,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     p_quality = subparsers.add_parser("quality", help="Check generated wiki quality")
     p_quality.add_argument("path")
+
+    p_self_check = subparsers.add_parser("self-check", help="Validate skill package")
+    p_self_check.add_argument("skill_dir", nargs="?", default=str(Path(__file__).parent.parent))
 
     args = parser.parse_args(argv)
 
@@ -78,6 +82,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "quality":
         check_wiki_quality(str(_deepwiki_path(args.path)))
         return 0
+
+    if args.command == "self-check":
+        result = validate_skill(Path(args.skill_dir))
+        if result["ok"]:
+            print("DeepWiki skill self-check passed.")
+            return 0
+        print("DeepWiki skill self-check failed:")
+        for error in result["errors"]:
+            print(f"  - {error}")
+        return 1
 
     return 1
 

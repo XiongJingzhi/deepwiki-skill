@@ -123,8 +123,9 @@ deepwiki/
 
 | 脚本 | 说明 |
 |------|------|
-| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/plan-doc-topology/build-evidence-index/quality |
+| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/plan-doc-topology/build-evidence-index/quality/self-check |
 | `scripts/check_dependencies.py` | 检查 tree-sitter 与语言绑定等运行依赖 |
+| `scripts/validate_skill.py [技能目录]` | 检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
 | `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
 | `scripts/analyze_project.py <项目路径>` | 分析结构和技术栈 |
 | `scripts/extract_structure.py <项目路径>` | 提取调用图、模式、导入关系 |
