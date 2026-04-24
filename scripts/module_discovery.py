@@ -119,6 +119,9 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
                         'path': str(item.relative_to(root_path)).replace('\\', '/'),
                         'files': file_count,
                         'type': categorize_module(item.name),
+                        'is_candidate': True,
+                        'discovery_basis': 'workspace' if src_dir in workspace_dirs else 'directory',
+                        'refined_by': [],
                     })
 
     # ── 阶段二：扁平结构回退——扫描根目录一级子目录 ──────────────────────────
@@ -143,6 +146,9 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
                         'path': item.name,
                         'files': file_count,
                         'type': categorize_module(item.name),
+                        'is_candidate': True,
+                        'discovery_basis': 'fallback-root',
+                        'refined_by': [],
                     })
 
     # 计算模块重要性: 基于模块内文件的平均重要性

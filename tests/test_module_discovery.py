@@ -56,6 +56,15 @@ class TestCategorizeModule:
 
 
 class TestDiscoverModules:
+    def test_discovered_modules_marked_as_candidates(self, fake_project):
+        """Discovered modules should carry candidate metadata for later refinement."""
+        modules = discover_modules(fake_project)
+        assert modules
+        for mod in modules:
+            assert mod["is_candidate"] is True
+            assert mod["discovery_basis"] in {"directory", "workspace", "fallback-root"}
+            assert mod["refined_by"] == []
+
     def test_src_subdirs_discovered(self, tmp_path):
         """src/auth/login.py + src/api/routes.py -> 2 modules"""
         src = tmp_path / "src"
