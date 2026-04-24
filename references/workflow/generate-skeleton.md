@@ -7,7 +7,7 @@
 
 | 項 | 值 |
 |----|-----|
-| **脚本** | `python scripts/generate_skeleton.py <项目路径>`（脚本段）+ AI 生成（AI 段） |
+| **脚本** | 无（纯 AI 步骤） |
 | **输入** | `cache/structure.json`、`cache/code-structure.json` |
 | **输出** | `cache/architecture-skeleton.json` |
 | **前置** | `extract-structure` |
@@ -39,29 +39,17 @@ extract-docs的深度分析采用 batch-3 策略（每批 3 个模块），每�
 
 ## 执行流程
 
-### 第一步：运行数据提取脚本
+### 第一步：AI 生成全局架构骨架
 
-从技能目录运行以下脚本，提取精简摘要，输出 `cache/architecture-skeleton-input.json`：
-
-```bash
-python scripts/generate_skeleton.py <项目目录绝对路径>
-```
-
-**脚本输入**（全部来自确定性脚本，零 AI 成本）：
-- `cache/structure.json` — 模块列表、重要性排名、技术栈
-- `cache/code-structure.json` — archetype、patterns 摘要、key_sequences 参与者、`import_relations` 跨模块导入关系
-
-**脚本输出**：`cache/architecture-skeleton-input.json`（约 5-15K tokens）
-
-### 第二步：AI 生成全局架构骨架
-
-读取 `cache/architecture-skeleton-input.json`，使用以下提示词生成骨架：
+直接读取以下两个缓存文件，使用以下提示词生成骨架：
 
 ```
 你是一位架构师。根据以下项目分析数据，生成一份精简的全局架构骨架。
 
-输入数据：
-{{ SKELETON_INPUT_JSON }}
+输入数据（来自 structure.json + code-structure.json）：
+{{ STRUCTURE_JSON }}
+
+{{ CODE_STRUCTURE_JSON }}
 
 输出格式：严格遵循以下 JSON Schema，不要添加任何 Markdown 包装：
 
@@ -101,7 +89,7 @@ python scripts/generate_skeleton.py <项目目录绝对路径>
 4. 输出必须是合法 JSON，不含注释
 ```
 
-### 第三步：保存骨架文件
+### 第二步：保存骨架文件
 
 将 AI 输出的 JSON 保存为 `cache/architecture-skeleton.json`：
 
@@ -205,8 +193,7 @@ python scripts/generate_skeleton.py <项目目录绝对路径>
 
 | 操作 | 估算 token |
 |------|-----------|
-| 脚本提取（零 AI） | 0 |
-| AI 读取 skeleton-input.json | ~10-15K |
+| AI 读取 structure.json + code-structure.json | ~10-15K |
 | AI 生成 architecture-skeleton.json | ~2-3K |
 | 总计（一次性） | ~17K |
 | 每批 Step 5 注入骨架摘要 | +1K/batch |

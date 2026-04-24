@@ -1,7 +1,7 @@
 # Module 生成指南
 
 > **适用工具：** `generate-module-docs`
-> **关联规则：** `../rules/quality-standards.md`、`../rules/components.md`
+> **关联规则：** `../rules/quality-standards.md`、`../rules/components-guide.md`
 
 ---
 
@@ -264,7 +264,7 @@ Mermaid `flowchart TB`，展示所有文档之间的关系。
 
 ## 模块文档骨架
 
-> **重要**：模块文档的组件选择基于 CodePurpose。详见 [`components.md`](../rules/components.md) 的"CodePurpose 组件映射"章节。
+> **重要**：模块文档的组件选择基于 CodePurpose。详见 [`components-guide.md`](../rules/components-guide.md) 的"CodePurpose 组件映射"章节。
 
 ```markdown
 # {MODULE_NAME}
@@ -344,6 +344,6 @@ Mermaid `flowchart TB`，展示所有文档之间的关系。
 
 ### CodePurpose → 组件映射
 
-> 完整映射表详见 [`components.md`](../rules/components.md) 的"CodePurpose 组件映射"章节。
+> 完整映射表详见 [`components-guide.md`](../rules/components-guide.md) 的"CodePurpose 组件映射"章节。
 
 ---

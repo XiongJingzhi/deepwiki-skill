@@ -25,7 +25,7 @@ extract-docs（分析） → generate-module-docs（文档生成） → generate
                               ◀── 回到 extract-docs 重做（巨大浪费）
 ```
 
-当 `check_doc_quality.py` 在generate-module-docs 收尾质检发现大量 Basic 文档时，整个后半段流水线需要重头执行。根本原因是分析质量标准是在生成后检查的，而不是在生成前强制约束的。
+当 `finalize.py quality` 在generate-module-docs 收尾质检发现大量 Basic 文档时，整个后半段流水线需要重头执行。根本原因是分析质量标准是在生成后检查的，而不是在生成前强制约束的。
 
 ### 优化后流程
 

@@ -1,7 +1,7 @@
 # Api 生成指南
 
 > **适用工具：** `generate-module-docs`
-> **关联规则：** `../rules/quality-standards.md`、`../rules/components.md`
+> **关联规则：** `../rules/quality-standards.md`、`../rules/components-guide.md`
 
 ---
 

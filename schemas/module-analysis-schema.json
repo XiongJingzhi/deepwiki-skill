@@ -48,7 +48,7 @@
         },
         "selected_components": {
           "type": "array",
-          "description": "Document components selected for this module (from components.md). Step 8 uses this directly without re-deciding.",
+          "description": "Document components selected for this module (from components-registry.yaml / components-guide.md). Step 8 uses this directly without re-deciding.",
           "items": { "type": "string" },
           "examples": [["overview", "api-table", "sequence-diagram", "code-walkthrough", "nav-links"]]
         },

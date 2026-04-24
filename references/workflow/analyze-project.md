@@ -9,7 +9,7 @@
 |----|-----|
 | **脚本** | `python scripts/analyze_project.py <项目路径>` |
 | **输入** | 项目源代码目录 |
-| **输出** | `cache/structure.json`、`cache/project-digest.md` |
+| **输出** | `cache/structure.json` |
 | **前置** | `init-wiki` |
 | **后置** | `extract-structure` |
 

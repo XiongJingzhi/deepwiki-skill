@@ -52,7 +52,7 @@
 
 ## 质量等级
 
-`check_doc_quality.py` 基于行数、章节数、图表和示例综合评分，得出 `basic / standard / professional` 三级。
+`finalize.py quality` 基于行数、章节数、图表和示例综合评分，得出 `basic / standard / professional` 三级。
 
 ### 评分公式
 
@@ -137,7 +137,7 @@ Professional 级文档建议包含置信度标注（>= 3 个），每个标注 +
 
 ### 组件引用
 
-所有组件定义详见 [`components.md`](components.md)。关键组件：
+所有组件定义详见 [`components-registry.yaml`](components-registry.yaml)。关键组件：
 
 | 组件 | 用途 | 优先级 |
 |------|------|:------:|

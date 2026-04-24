@@ -93,7 +93,7 @@
 
 ## CodePurpose → 默认组件集
 
-> 完整映射详见 [`components.md`](components.md) 的"CodePurpose 组件映射"章节。
+> 完整映射详见 [`components-guide.md`](components-guide.md) 的"CodePurpose 组件映射"章节。
 
 | CodePurpose | 必需组件 |
 |-------------|----------|

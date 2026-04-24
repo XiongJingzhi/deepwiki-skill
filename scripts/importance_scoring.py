@@ -4,26 +4,9 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 
 
-# ---- archetype 感知权重配置 ----
-# 各 archetype 对应的维度权重（path / identity / language / size / import_degree）
-ARCHETYPE_WEIGHTS: Dict[str, Dict[str, float]] = {
-    "fullstack-framework": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
-    "agent-project": {"path": 0.20, "identity": 0.30, "language": 0.20, "size": 0.10, "import_degree": 0.20},
-    "ml-project": {"path": 0.25, "identity": 0.20, "language": 0.25, "size": 0.10, "import_degree": 0.20},
-    "web-service": {"path": 0.30, "identity": 0.25, "language": 0.20, "size": 0.10, "import_degree": 0.15},
-    "spa-frontend": {"path": 0.20, "identity": 0.20, "language": 0.25, "size": 0.15, "import_degree": 0.20},
-    "cli-tool": {"path": 0.20, "identity": 0.30, "language": 0.25, "size": 0.10, "import_degree": 0.15},
-    "sdk-library": {"path": 0.15, "identity": 0.20, "language": 0.30, "size": 0.10, "import_degree": 0.25},
-    "data-pipeline": {"path": 0.25, "identity": 0.20, "language": 0.25, "size": 0.10, "import_degree": 0.20},
-    "microservice": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
-    "desktop-app": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
-    "mobile-app": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
-    "serverless": {"path": 0.25, "identity": 0.25, "language": 0.25, "size": 0.10, "import_degree": 0.15},
-    "generic": {"path": 0.30, "identity": 0.25, "language": 0.30, "size": 0.15, "import_degree": 0.00},
-}
-
-# 默认权重（无 archetype 或未识别时使用，import_degree 权重为 0 以保持向后兼容）
-DEFAULT_WEIGHTS = ARCHETYPE_WEIGHTS["generic"]
+# ---- 维度权重配置 ----
+# 各维度权重（path / identity / language / size / import_degree）
+WEIGHTS = {"path": 0.30, "identity": 0.25, "language": 0.30, "size": 0.15, "import_degree": 0.15}
 
 
 # ---- 文件重要性评分因子 ----
@@ -181,15 +164,13 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
     # 归一化到 0-1，10 次以上 import = 最高分
     import_degree_score = min(import_degree / 10.0, 1.0)
 
-    # ── 加权求和（archetype 感知）─────────────────────────────────────────────
-    weights = ARCHETYPE_WEIGHTS.get(archetype, DEFAULT_WEIGHTS) if archetype else DEFAULT_WEIGHTS
-
+    # ── 加权求和 ──────────────────────────────────────────────────────────
     score = (
-        path_score             * weights["path"] +
-        identity_score         * weights["identity"] +
-        lang_score             * weights["language"] +
-        size_score             * weights["size"] +
-        import_degree_score    * weights["import_degree"]
+        path_score             * WEIGHTS["path"] +
+        identity_score         * WEIGHTS["identity"] +
+        lang_score             * WEIGHTS["language"] +
+        size_score             * WEIGHTS["size"] +
+        import_degree_score    * WEIGHTS["import_degree"]
     )
     final_score = round(min(score, 1.0), 4)
 
@@ -201,7 +182,7 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
             'lang_score': lang_score,
             'size_score': size_score,
             'import_degree_score': import_degree_score,
-            'weights': dict(weights),
+            'weights': dict(WEIGHTS),
         }
     return final_score
 
@@ -244,9 +225,6 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
     if not files or not modules:
         return files
 
-    # 获取 archetype 对应权重
-    weights = ARCHETYPE_WEIGHTS.get(archetype, DEFAULT_WEIGHTS) if archetype else DEFAULT_WEIGHTS
-
     # 按模块分组文件
     for mod in modules:
         mod_path = mod.get('path', '').replace('\\', '/')
@@ -263,11 +241,11 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
                 f['path_score_normalized'] = f.get('raw_path_score', 1.0)
                 import_deg_score = f.get('raw_import_degree_score', 0.0)
                 new_score = (
-                    f['path_score_normalized'] * weights["path"] +
-                    f.get('raw_identity_score', 0.0) * weights["identity"] +
-                    f.get('raw_lang_score', 0.0) * weights["language"] +
-                    f.get('raw_size_score', 0.0) * weights["size"] +
-                    import_deg_score * weights["import_degree"]
+                    f['path_score_normalized'] * WEIGHTS["path"] +
+                    f.get('raw_identity_score', 0.0) * WEIGHTS["identity"] +
+                    f.get('raw_lang_score', 0.0) * WEIGHTS["language"] +
+                    f.get('raw_size_score', 0.0) * WEIGHTS["size"] +
+                    import_deg_score * WEIGHTS["import_degree"]
                 )
                 f['importance_score'] = round(min(new_score, 1.0), 2)
                 f['is_core'] = f['importance_score'] >= 0.5
@@ -282,14 +260,14 @@ def normalize_path_scores(files: List[Dict[str, Any]], modules: List[Dict[str, A
             percentile = sum(1 for s in path_scores if s < raw_score) / len(path_scores)
             f['path_score_normalized'] = _percentile_to_score(percentile)
 
-            # 重新计算重要性评分（使用归一化后的 path_score + archetype 动态权重）
+            # 重新计算重要性评分（使用归一化后的 path_score）
             import_deg_score = f.get('raw_import_degree_score', 0.0)
             new_score = (
-                f['path_score_normalized'] * weights["path"] +
-                f.get('raw_identity_score', 0.0) * weights["identity"] +
-                f.get('raw_lang_score', 0.0) * weights["language"] +
-                f.get('raw_size_score', 0.0) * weights["size"] +
-                import_deg_score * weights["import_degree"]
+                f['path_score_normalized'] * WEIGHTS["path"] +
+                f.get('raw_identity_score', 0.0) * WEIGHTS["identity"] +
+                f.get('raw_lang_score', 0.0) * WEIGHTS["language"] +
+                f.get('raw_size_score', 0.0) * WEIGHTS["size"] +
+                import_deg_score * WEIGHTS["import_degree"]
             )
             f['importance_score'] = round(min(new_score, 1.0), 2)
             f['is_core'] = f['importance_score'] >= 0.5

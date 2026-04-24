@@ -7,7 +7,7 @@
 
 | 項 | 値 |
 |----|-----|
-| **脚本** | `python scripts/generate_menu.py ... --reconcile`、`fix_mermaid.py`、`check_doc_quality.py`、`check_cross_module_consistency.py` |
+| **脚本** | `python scripts/generate_menu.py ... --reconcile`、`finalize.py mermaid`、`finalize.py quality`、`finalize.py consistency` |
 | **输入** | `cache/module-analysis.json`、`wiki/menu.json`、RelationshipSummary |
 | **输出** | `wiki/modules/*.md`、`wiki/api/*.md`、`wiki/menu.json`（校验后） |
 | **前置** | `generate-menu` |
@@ -157,7 +157,7 @@ python scripts/generate_menu.py <项目目录绝对路径>/.deepwiki/wiki [项�
 所有文档保存完毕后，**先**运行 Mermaid 语法修复脚本，自动修正 AI 生成的 Mermaid 图表中的常见语法问题：
 
 ```bash
-python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki
+python scripts/finalize.py mermaid <项目目录绝对路径>/.deepwiki
 ```
 
 修复内容包括：
@@ -168,8 +168,8 @@ python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki
 支持 `--dry-run`（仅报告不修改）和 `--json <file>`（输出修复报告）：
 
 ```bash
-python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --dry-run
-python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report.json
+python scripts/finalize.py mermaid <项目目录绝对路径>/.deepwiki --dry-run
+python scripts/finalize.py mermaid <项目目录绝对路径>/.deepwiki --json report.json
 ```
 
 > **重要**：Mermaid 修复必须在质量检查之前运行，避免可修复的语法问题触发质量降级。
@@ -179,7 +179,7 @@ python scripts/fix_mermaid.py <项目目录绝对路径>/.deepwiki --json report
 从**技能目录**运行质量检查，确认生成的文档符合质量标准（源码链接、Mermaid 图表、章节完整性）：
 
 ```bash
-python scripts/check_doc_quality.py <项目目录绝对路径>/.deepwiki
+python scripts/finalize.py quality <项目目录绝对路径>/.deepwiki
 ```
 
 ### 质量等级说明
@@ -197,7 +197,7 @@ python scripts/check_doc_quality.py <项目目录绝对路径>/.deepwiki
 1. 加 `--verbose` 查看具体 Basic 文档的缺失项（源码链接、图表、章节数不足等）
 2. 将这些模块在 `cache/progress.json` 中对应条目状态重置为 `pending`
 3. **跳过 init-wiki 到 extract-structure**，直接从 **extract-docs** 重新执行 → generate-module-docs（生成阶段），仅针对 Basic 模块
-4. 重新生成后再次运行 `check_doc_quality.py` 确认达标
+4. 重新生成后再次运行 `finalize.py quality` 确认达标
 5. 若二次生成仍为 Basic，记录到 `meta.json` 的 `quality_issues` 字段并告知用户，不再强制重试
 
 ## 跨模块一致性检查
@@ -205,7 +205,7 @@ python scripts/check_doc_quality.py <项目目录绝对路径>/.deepwiki
 在文档质量检查之后，运行跨模块一致性检查，确认模块间接口引用和依赖方向的一致性：
 
 ```bash
-python scripts/check_cross_module_consistency.py <项目目录绝对路径>/.deepwiki
+python scripts/finalize.py consistency <项目目录绝对路径>/.deepwiki
 ```
 
 ### 检查维度
