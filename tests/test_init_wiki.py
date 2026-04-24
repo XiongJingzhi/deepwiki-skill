@@ -177,3 +177,15 @@ def test_progress_json_has_analysis_phase(tmp_path):
         "progress.json 应包含 analysis 阶段"
     assert progress["phases"]["analysis"]["status"] == "pending"
     assert progress["phases"]["analysis"].get("modules") == {}
+
+
+def test_progress_json_overview_documents(tmp_path):
+    """progress.json 的 overview.documents 应包含 overview.md 而非 index.md/architecture.md"""
+    import json
+    init_wiki.init_deep_wiki(str(tmp_path))
+    progress_path = tmp_path / ".deepwiki" / "cache" / "progress.json"
+    progress = json.loads(progress_path.read_text(encoding="utf-8"))
+    docs = progress["phases"]["overview"]["documents"]
+    assert "overview.md" in docs, "overview.md 应在 overview.documents 中"
+    assert "index.md" not in docs, "index.md 不应再出现在 overview.documents 中"
+    assert "architecture.md" not in docs, "architecture.md 不应再出现在 overview.documents 中"

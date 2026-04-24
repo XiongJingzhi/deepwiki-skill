@@ -227,8 +227,7 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
                     "overview": {
                         "status": "pending",
                         "documents": {
-                            "index.md": "pending",
-                            "architecture.md": "pending",
+                            "overview.md": "pending",
                             "getting-started.md": "pending",
                             "doc-map.md": "pending"
                         }
