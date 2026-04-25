@@ -20,12 +20,16 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 
 ## 工作流
 
-**主路径（全量/增量）：**
+**外部主路径（9 步，全量/增量）：**
 
-`init-wiki` → `analyze-project` → `extract-structure` → `refine-modules` → `generate-skeleton`（纯 AI）→ `detect-changes` → `extract-docs` → `plan-doc-topology` → `check-analysis-quality`
+`init-wiki` → `analyze-project` → `extract-structure` → `generate-skeleton`（纯 AI）→ `extract-docs` → `validate-analysis` → `plan-doc-topology` → `generate-overview` → `generate-module-docs`
 
-- **pass（exit=0）**：→ `build-evidence-index` → `synthesize-deps` → `generate-overview` → `generate-menu` → `generate-module-docs` → `check-cross-module-consistency` → 完成
-- **fail（exit≠0）**：增量补充分析 → 重跑 `check-analysis-quality`
+- `analyze-project` 可吸收 `refine-modules` 作为候选模块优化，不作为必经心智步骤。
+- `extract-docs` 在增量模式下读取 `detect-changes` 结果；全量模式可跳过独立变更检测。
+- `validate-analysis` 封装 `check-analysis-quality` 与 `build-evidence-index`，通过后生成 `evidence-index.json`。
+- `generate-overview` 复用 `synthesize-deps` 的依赖综合规则，并负责全局阅读路径。
+- `generate-module-docs` 结束后运行 `generate-menu`、`finalize quality`、`check-cross-module-consistency` 收尾。
+- **fail（exit≠0）**：增量补充分析 → 重跑 `validate-analysis`
 
 **快捷路径：**
 
@@ -45,6 +49,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `detect-changes` | [references/workflow/detect-changes.md](references/workflow/detect-changes.md) |
 | `extract-docs` | [references/workflow/extract-docs.md](references/workflow/extract-docs.md) |
 | `plan-doc-topology` | [references/workflow/plan-doc-topology.md](references/workflow/plan-doc-topology.md) |
+| `validate-analysis` | [references/workflow/validate-analysis.md](references/workflow/validate-analysis.md) |
 | `build-evidence-index` | [references/workflow/build-evidence-index.md](references/workflow/build-evidence-index.md) |
 | `parallel-analysis` | [references/workflow/parallel-analysis.md](references/workflow/parallel-analysis.md) |
 | `check-analysis-quality` | [references/workflow/check-analysis-quality.md](references/workflow/check-analysis-quality.md) |

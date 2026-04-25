@@ -20,6 +20,7 @@ REQUIRED_FILES = [
     "scripts/validate_skill.py",
     "references/system-reference.md",
     "references/rules/file-role-classification.md",
+    "references/workflow/validate-analysis.md",
     "references/workflow/build-evidence-index.md",
 ]
 
@@ -29,6 +30,7 @@ REQUIRED_CLI_COMMANDS = [
     "extract-structure",
     "detect-changes",
     "plan-doc-topology",
+    "validate-analysis",
     "build-evidence-index",
     "quality",
     "self-check",

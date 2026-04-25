@@ -117,9 +117,26 @@ class TestPipelineIntegration:
             "cache_schema_version": CACHE_SCHEMA_VERSION,
             "modules": {
                 "app": {
+                    "module_path": "app.py",
                     "module_summary": "Application entry module",
+                    "semantic_group": "Application",
+                    "selected_components": ["overview"],
                     "module_role": "Coordinates startup",
-                    "files": [{"path": "app.py"}],
+                    "upstream_inputs": ["CLI arguments"],
+                    "downstream_outputs": ["Application result"],
+                    "risk_points": ["Startup configuration"],
+                    "extension_points": ["Add subcommands"],
+                    "code_purpose": "Entry",
+                    "analysis_depth": "standard",
+                    "dependency_hints": {"imports": [], "imported_by": []},
+                    "files": [
+                        {
+                            "path": "app.py",
+                            "summary": "Application entrypoint",
+                            "public_interfaces": [{"name": "main"}],
+                            "key_insights": ["Owns process startup"],
+                        }
+                    ],
                 }
             },
         }
@@ -127,7 +144,7 @@ class TestPipelineIntegration:
             json.dumps(module_analysis),
             encoding="utf-8",
         )
-        assert cli.main(["build-evidence-index", str(fake_python_project)]) == 0
+        assert cli.main(["validate-analysis", str(fake_python_project)]) == 0
         assert cli.main(["quality", str(fake_python_project / ".deepwiki")]) == 0
 
         cache = fake_python_project / ".deepwiki" / "cache"
@@ -142,3 +159,28 @@ class TestPipelineIntegration:
         result = check_dependencies.check_dependencies()
         assert "ok" in result
         assert "missing" in result
+
+    def test_validate_analysis_stops_before_evidence_when_quality_fails(self, fake_python_project):
+        """validate-analysis should not build evidence for failed module analysis."""
+        import cli
+        from common import CACHE_SCHEMA_VERSION
+
+        cache = fake_python_project / ".deepwiki" / "cache"
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / "module-analysis.json").write_text(
+            json.dumps(
+                {
+                    "cache_schema_version": CACHE_SCHEMA_VERSION,
+                    "modules": {
+                        "app": {
+                            "module_summary": "Missing required cognitive fields.",
+                            "files": [{"path": "app.py", "summary": "Entry"}],
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        assert cli.main(["validate-analysis", str(fake_python_project)]) == 1
+        assert not (cache / "evidence-index.json").exists()

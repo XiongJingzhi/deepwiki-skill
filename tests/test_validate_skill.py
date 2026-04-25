@@ -27,6 +27,7 @@ def _write_minimal_skill(root: Path, cli_text: str) -> None:
         "scripts/validate_skill.py",
         "references/system-reference.md",
         "references/rules/file-role-classification.md",
+        "references/workflow/validate-analysis.md",
         "references/workflow/build-evidence-index.md",
     ]:
         (root / rel_path).write_text("placeholder\n", encoding="utf-8")
@@ -59,7 +60,7 @@ def test_validate_skill_checks_cli_help_not_just_source_text(tmp_path):
 
     command_names = (
         "init analyze extract-structure detect-changes plan-doc-topology "
-        "build-evidence-index quality self-check"
+        "validate-analysis build-evidence-index quality self-check"
     )
     _write_minimal_skill(
         tmp_path,
@@ -90,6 +91,7 @@ def test_validate_skill_reports_broken_entrypoint_markdown_links(tmp_path):
         "extract-structure",
         "detect-changes",
         "plan-doc-topology",
+        "validate-analysis",
         "build-evidence-index",
         "quality",
         "self-check",

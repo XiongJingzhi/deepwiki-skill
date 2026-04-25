@@ -92,7 +92,7 @@ DeepWiki 是一个 [skills.sh](https://skills.sh) 兼容的技能包，让 AI Ag
 
 ```
 deepwiki/
-├── SKILL.md              # 主指令（11 步工作流）
+├── SKILL.md              # 主指令（9 步外部工作流）
 ├── scripts/              # Python 工具脚本
 │   ├── init_wiki.py
 │   ├── analyze_project.py
@@ -123,7 +123,7 @@ deepwiki/
 
 | 脚本 | 说明 |
 |------|------|
-| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/plan-doc-topology/build-evidence-index/quality/self-check |
+| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/validate-analysis/plan-doc-topology/build-evidence-index/quality/self-check |
 | `scripts/check_dependencies.py` | 检查 tree-sitter 与语言绑定等运行依赖 |
 | `scripts/validate_skill.py [技能目录]` | 检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
 | `scripts/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
@@ -133,6 +133,7 @@ deepwiki/
 | `scripts/detect_changes.py <项目路径>` | 增量变更检测 |
 | `scripts/extract_doc_comments.py <文件路径>` | 从源码提取文档注释（tree-sitter） |
 | `scripts/check_analysis_quality.py <项目路径>` | **Step 4.5**：分析质量门控 |
+| `scripts/cli.py validate-analysis <项目路径>` | 对外推荐入口：运行分析质量门控，通过后构建 `evidence-index.json` |
 | `scripts/build_evidence_index.py <项目路径>` | 从模块分析缓存生成 `evidence-index.json` |
 | `scripts/finalize.py quality <.deepwiki路径>` | 文档质量检查 |
 | `scripts/finalize.py consistency <.deepwiki路径>` | 跨模块一致性检查 |
