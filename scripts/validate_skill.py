@@ -3,6 +3,7 @@
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -80,10 +81,19 @@ def validate_skill(skill_dir: Path) -> Dict[str, Any]:
 
     cli_path = root / "scripts" / "cli.py"
     if cli_path.exists():
-        cli_text = cli_path.read_text(encoding="utf-8")
+        help_result = subprocess.run(
+            [sys.executable, str(cli_path), "--help"],
+            cwd=str(root),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if help_result.returncode != 0:
+            errors.append("CLI help command failed")
+        help_text = f"{help_result.stdout}\n{help_result.stderr}"
         for command in REQUIRED_CLI_COMMANDS:
-            if command not in cli_text:
-                errors.append(f"CLI is missing command: {command}")
+            if command not in help_text:
+                errors.append(f"CLI help is missing command: {command}")
 
     if (root / ".git").exists():
         git_result = subprocess.run(
