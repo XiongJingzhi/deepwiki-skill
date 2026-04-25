@@ -1,6 +1,6 @@
-# 分析质量门控
+# check-analysis-quality：分析质量门控子步骤
 
-> 本文档描述分析质量门控的完整规则：在extract-docs 完成后、synthesize-deps 开始前，用脚本自动检查 `module-analysis.json` 是否满足最低质量标准，消除"事后大规模返工"循环。
+> 本文档描述 `validate-analysis` 内部的质量门控规则：在 `extract-docs` 完成后，用脚本自动检查 `module-analysis.json` 是否满足最低质量标准。它通常不作为外部主流程步骤单独执行，除非需要调试质量门控。
 
 
 ## 契約
@@ -11,7 +11,7 @@
 | **输入** | `cache/module-analysis.json` |
 | **输出** | 质量报告（stdout），退出码（0/1/2） |
 | **前置** | `extract-docs` |
-| **后置** | exit=0 → `synthesize-deps`；exit=1 → 增量补充后重跑本工具；exit=2 → 重跑 `extract-docs` |
+| **后置** | exit=0 → `validate-analysis` 继续构建证据索引；exit=1 → 增量补充后重跑本工具；exit=2 → 重跑 `extract-docs` |
 
 ## 目标与收益
 
@@ -32,12 +32,12 @@ extract-docs（分析） → generate-module-docs（文档生成） → generate
 ```
 extract-docs（分析）→ module-analysis.json
                        │
-                  check-analysis-quality（门控）← 新增：脚本检查，零 AI 成本
+                 validate-analysis（对外质量门）
                        │
           ┌────通过────┤
           │           └───不通过→ 增量补充分析（只补缺失字段）
           ▼
-      synthesize-deps→ 继续流水线
+      plan-doc-topology / generate-overview → 继续流水线
 ```
 
 ### 预期收益
@@ -66,7 +66,7 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 
 | 字段 | 失败条件 | 原因 |
 |------|---------|------|
-| `module_path` | 缺失或为空 | synthesize-deps依赖关系综合需要此字段定位模块 |
+| `module_path` | 缺失或为空 | 依赖综合规则和模块文档需要此字段定位模块 |
 | `module_summary` | 缺失或为空 | generate-overview/generate-module-docs 文档生成的核心输入 |
 | `semantic_group` | 缺失或为空 | 菜单分组和跨模块一致性的基础 |
 | `selected_components` | 缺失、为空或不是列表 | generate-module-docs 直接使用，缺失则退化为重新决策 |
@@ -87,7 +87,7 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 |------|---------|
 | `code_purpose` | generate-module-docs 组件选择可能不准确 |
 | `analysis_depth` | 无法判断分析质量基线 |
-| `dependency_hints` | synthesize-deps综合将依赖 AI 重新推断 |
+| `dependency_hints` | generate-overview / generate-module-docs 的依赖综合摘要将降级为从结构化 import 关系推断 |
 
 ### 文件级必需字段（缺失 → 其所属模块标记为"需补充"）
 
@@ -109,7 +109,7 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 
 | 退出码 | 含义 | 处理方式 |
 |--------|------|---------|
-| 0 | 全部模块通过最低质量标准 | 继续synthesize-deps |
+| 0 | 全部模块通过最低质量标准 | `validate-analysis` 继续构建 `evidence-index.json` |
 | 1 | 存在需补充的模块 | 对失败模块增量补充分析，再重跑门控 |
 | 2 | `module-analysis.json` 不存在或格式错误 | 重新运行 extract-docs |
 

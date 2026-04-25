@@ -7,10 +7,10 @@
 | 項 | 值 |
 |----|-----|
 | **脚本** | `python scripts/plan_doc_topology.py <项目路径>` |
-| **输入** | `cache/structure.json`、`cache/code-structure.json`（可选增强） |
+| **输入** | `cache/structure.json`、`cache/code-structure.json`（可选增强）、`cache/module-analysis.json`、`cache/evidence-index.json`（可选增强） |
 | **输出** | `cache/doc-topology.json`、`cache/generation-plan.json` |
-| **前置** | `extract-docs` |
-| **后置** | `check-analysis-quality`、`generate-overview`、`generate-menu`、`generate-module-docs` |
+| **前置** | `validate-analysis` |
+| **后置** | `generate-overview`、初始 `generate-menu`、`generate-module-docs` |
 
 ## 目标
 
@@ -32,4 +32,4 @@
 ## 降级
 
 - 若 `code-structure.json` 缺失，可仅基于 `structure.json` 生成基础拓扑
-- 若模块分析尚不完整，也应先生成最小页面集合，后续页面内容阶段再补充深度
+- 若模块分析尚不完整，应先回到 `validate-analysis` 补齐质量门控；只有在调试或灾备场景下才生成最小页面集合

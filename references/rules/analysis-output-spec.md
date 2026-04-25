@@ -94,7 +94,7 @@
 
 ```
 ⚠️ [extract-docs] 写入 module-analysis.json 失败（模块：<name>）：<错误信息>
-   synthesize-deps 和 generate-module-docs 将降级为从上下文窗口读取分析结果。
+   validate-analysis 将无法通过；依赖综合规则和 generate-module-docs 只能降级为从上下文窗口读取分析结果。
 ```
 
 ---

@@ -170,7 +170,7 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 ---
 
-> 依赖关系分析由独立管线步骤 `synthesize-deps` 完成，详见 [synthesize-deps.md](../workflow/synthesize-deps.md)。模块文档引用其输出的 `dependency_summary` 字段。
+> 依赖关系分析复用内部依赖综合规则，详见 [synthesize-deps.md](../workflow/synthesize-deps.md)。模块文档应从 `module-analysis.json.dependency_hints`、`code-structure.json.import_relations` 和概览阶段的依赖综合摘要中提取依赖说明。
 
 ---
 

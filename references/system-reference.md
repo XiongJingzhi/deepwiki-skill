@@ -16,7 +16,7 @@
 | `cache/parse-results.json` | tree-sitter AST 摘要缓存（定义列表、复杂度统计、重要行、文档注释），供后续步骤复用避免重复解析 |
 | `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
 | `cache/architecture-skeleton.json` | `generate-skeleton` AI段生成的全局架构骨架，供 `extract-docs`～`generate-module-docs` 注入全局上下文（含模块分组、架构分层、关键数据流） |
-| `cache/module-analysis.json` | `extract-docs` 语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供 `synthesize-deps` 和 `generate-module-docs` 复用 |
+| `cache/module-analysis.json` | `extract-docs` 语义分析结果缓存（每模块：CodePurpose、公开接口列表、已选文档组件、设计洞察、依赖提示），供 `validate-analysis`、`generate-overview`、依赖综合规则和 `generate-module-docs` 复用 |
 | `cache/doc-topology.json` | 文档拓扑规划结果：页面列表、页面类型、阅读顺序、页面覆盖的模块或主题。供 `generate-overview`、`generate-menu`、`generate-module-docs` 优先读取；缺失时允许退回磁盘扫描和骨架推断 |
 | `cache/generation-plan.json` | 本轮编译计划：要生成的页面、依赖的缓存文件、受影响页面、可跳过页面。供增量更新、菜单生成和页面编译阶段复用 |
 | `cache/evidence-index.json` | 证据索引：关键结论到源码事实的映射（文件、行号、调用链、导入关系、入口链路）。供质量检查和跨页面一致性检查使用 |
@@ -42,7 +42,7 @@
 | `cache/module-analysis.json` | `extract-docs` | `validate-analysis`、`generate-overview`、`plan-doc-topology`、`generate-module-docs` | 是 | 是，按模块增量覆盖 |
 | `cache/doc-topology.json` | `plan-doc-topology` | `generate-overview`、`generate-menu`、`generate-module-docs`、增量更新 | 是，建议以结构化模板输出 | 是，需按页面或主题局部重算 |
 | `cache/generation-plan.json` | `plan-doc-topology` | `generate-overview`、`generate-menu`、`generate-module-docs`、`detect-changes` | 否，优先由脚本生成 | 是 |
-| `cache/evidence-index.json` | `build-evidence-index` 或文档编译后处理 | `check_doc_quality`、`check_cross_module_consistency` | 否，优先由脚本生成 | 是，按页面或 claim 局部更新 |
+| `cache/evidence-index.json` | `validate-analysis`（内部调用 `build-evidence-index`）或文档编译后处理 | `check_doc_quality`、`check_cross_module_consistency` | 否，优先由脚本生成 | 是，按页面或 claim 局部更新 |
 | `cache/checksums.json` | `detect-changes` | `detect-changes` | 否 | 是 |
 | `cache/progress.json` | 多阶段协作更新 | 全流程恢复与重试 | 否 | 是 |
 
@@ -84,24 +84,30 @@ python scripts/init_wiki.py $PROJECT_DIR --force
 # 分析项目结构
 python scripts/analyze_project.py $PROJECT_DIR
 
-# generate-skeleton：纯 AI 步骤，直接读取 structure.json + code-structure.json 生成骨架
-# 无需运行脚本
-
-# 检测文件变更
-python scripts/detect_changes.py $PROJECT_DIR
-
 # 提取代码结构（调用图、模式、导入关系）
 python scripts/extract_structure.py $PROJECT_DIR
 
-# 提取源码注释
+# generate-skeleton：纯 AI 步骤，直接读取 structure.json + code-structure.json 生成骨架
+# 无需运行脚本
+
+# 检测文件变更（增量更新时使用；全量生成可跳过或由 extract-docs 内部触发）
+python scripts/detect_changes.py $PROJECT_DIR
+
+# extract-docs 阶段的源码注释预提取子步骤
 python scripts/extract_doc_comments.py /path/to/src/utils.ts
 
-# check-analysis-quality：检查分析质量门控
+# validate-analysis：对外推荐入口，先检查分析质量，再构建证据索引
+python scripts/cli.py validate-analysis $PROJECT_DIR
+
+# plan-doc-topology：生成文档拓扑和本轮编译计划
+python scripts/cli.py plan-doc-topology $PROJECT_DIR
+
+# check-analysis-quality：仅用于调试质量门控子步骤
 python scripts/check_analysis_quality.py $PROJECT_DIR
 python scripts/check_analysis_quality.py $PROJECT_DIR --verbose
 python scripts/check_analysis_quality.py $PROJECT_DIR --json gate-report.json
 
-# 构建证据索引
+# build-evidence-index：仅用于调试证据索引子步骤
 python scripts/build_evidence_index.py $PROJECT_DIR
 
 # 文档质量检查（基本 / 详细报告 / 导出 JSON）

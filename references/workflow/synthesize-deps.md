@@ -1,21 +1,21 @@
-# 依赖关系综合
+# synthesize-deps：依赖关系综合规则
 
-> 本文件描述工作流synthesize-deps的完整规则：从结构化数据中聚合模块依赖图并验证可信性。
+> 本文件描述依赖关系综合规则：从结构化数据中聚合模块依赖图并验证可信性。它不是外部 9 步主流程中的独立步骤，而是 `generate-overview`、`generate-menu` 和 `generate-module-docs` 复用的内部规则。
 
 
 ## 契約
 
 | 項 | 值 |
 |----|-----|
-| **脚本** | 无（AI 执行） |
+| **脚本** | 无（AI 规则，由下游生成步骤内联执行） |
 | **输入** | `cache/code-structure.json`（`import_relations` 字段）、`cache/module-analysis.json`（`dependency_hints` 字段）、`cache/architecture-skeleton.json`（可选） |
-| **输出** | RelationshipSummary（AI 上下文，供后续工具使用） |
-| **前置** | `check-analysis-quality`（exit=0） |
-| **后置** | `generate-overview` |
+| **输出** | RelationshipSummary（AI 上下文摘要，供当前生成步骤使用） |
+| **前置** | `validate-analysis`（确保 `module-analysis.json` 质量达标） |
+| **后置** | 无独立后置；结果被 `generate-overview`、初始 `generate-menu`、`generate-module-docs` 消费 |
 
 ## 核心工作流：聚合 + 验证
 
-本步骤采用**聚合 + 验证**模式，而非让 AI 从零重新推理依赖关系。核心思想：AST 提取的结构化数据已经包含了完整的文件级导入关系，AI 的工作是从已有数据中**聚合**模块级依赖图，并对 AI 分析阶段产生的语义标注进行**验证**。
+依赖综合采用**聚合 + 验证**模式，而非让 AI 从零重新推理依赖关系。核心思想：AST 提取的结构化数据已经包含了完整的文件级导入关系，AI 的工作是从已有数据中**聚合**模块级依赖图，并对 AI 分析阶段产生的语义标注进行**验证**。
 
 ### 步骤 1：读取 AST 可信基线
 

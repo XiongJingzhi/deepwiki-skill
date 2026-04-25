@@ -9,7 +9,7 @@
 | **输入** | `cache/structure.json`、`cache/code-structure.json`、`cache/architecture-skeleton.json`（可选） |
 | **输出** | `cache/module-analysis.json` |
 | **前置** | `detect-changes`，可选 `generate-skeleton` |
-| **后置** | `check-analysis-quality`；并行策略见 `parallel-analysis.md` |
+| **后置** | `validate-analysis`；并行策略见 `parallel-analysis.md` |
 
 ## 文件角色分类
 
@@ -141,7 +141,7 @@ python scripts/extract_doc_comments.py <文件绝对路径>
 2. 理解语义：追踪函数调用、控制流、数据流、错误处理和设计模式
 3. 提取公共接口、内部逻辑和模块依赖
 4. 参考 `../generation/module-page.md` 获取分析提示词模板（代码深度分析 / 模块文档 / 依赖分析）
-5. 为每个模块输出结构化分析结果，供 synthesize-deps 和 generate-module-docs 使用
+5. 为每个模块输出结构化分析结果，供 `validate-analysis`、依赖综合规则和 `generate-module-docs` 使用
 
 ---
 

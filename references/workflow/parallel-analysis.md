@@ -11,7 +11,7 @@
 | **输入** | `cache/structure.json`（模块列表+重要性评分） |
 | **输出** | `cache/module-analysis.json`（增量写入） |
 | **前置** | `detect-changes` |
-| **后置** | `check-analysis-quality` |
+| **后置** | `validate-analysis` |
 
 ## 批次调度
 
@@ -24,7 +24,7 @@
 ## 模块独立性说明
 
 extract-docs 语义分析每个模块**天然独立**——分析模块 A 不需要模块 B 已完成分析。
-（注：synthesize-deps才需要等extract-docs全部完成）
+（注：`validate-analysis` 和依赖综合规则才需要等 `extract-docs` 全部完成）
 
 ## subagent 任务模板
 

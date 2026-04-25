@@ -71,19 +71,19 @@
 | 无依赖 | 是 | high | 平行列出 |
 | 无依赖 | 否/low | 任意 | 孤岛，层3兜底 |
 
-**层3：孤岛兜底（AI 手动参考）**
+**层3：孤岛兜底（规则参考）**
 
-`../rules/menu-archetypes.md` 保留为 AI 的手动兜底参考。当 Python 脚本生成的分组中出现孤岛模块时，AI 可参考该文件中当前 `archetype` 的常见语义主题，按模块的 `code_purpose` 和 `module_summary` 判断最接近的主题进行归类。
+`../rules/menu-archetypes.md` 保留为孤岛模块的兜底参考。当 Python 脚本生成的分组中出现孤岛模块时，优先按当前 `archetype` 的常见语义主题、模块的 `code_purpose` 和 `module_summary` 选择最接近的主题。
 
 ---
 
-## AI 角色：微调
+## 菜单质量检查
 
-Python 脚本已自动按 semantic_group 生成 menu.json。AI 的职责是：
+Python 脚本已自动按 `doc-topology.json`、依赖聚类和 `semantic_group` 生成 `menu.json`。默认不再进行 AI 微调；只在发现明显结构问题时，才按以下标准做最小修正：
 1. 检查分区命名是否面向读者（非技术术语）
 2. 检查分区粒度（3-8 个顶层，每组 2-6 模块）
 3. 检查读者旅程顺序是否自然
-4. 仅当发现明显问题时才修改，否则保持脚本输出
+4. 仅修正明显错误，不重新设计文档拓扑
 
 ### 粒度收敛规则
 

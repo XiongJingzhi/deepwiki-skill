@@ -22,7 +22,7 @@ extract-docs的深度分析采用 batch-3 策略（每批 3 个模块），每�
 
 - `dependency_hints.imports` 和 `semantic_group` 的跨模块一致性下降
 - 不同 batch 分析同一依赖方向时可能得出相互矛盾的结论
-- synthesize-deps、generate-overview、generate-menu 生成的文档缺乏统一的架构叙述
+- 依赖综合规则、generate-overview、generate-menu 生成的文档缺乏统一的架构叙述
 
 全局骨架以约 **17K tokens 的一次性成本**，换取后续所有步骤的一致性提升和 token 节省（预计净节省 15-20%）。
 
@@ -31,7 +31,7 @@ extract-docs的深度分析采用 batch-3 策略（每批 3 个模块），每�
 | 步骤 | 骨架带来的收益 |
 |------|--------------|
 | extract-docs | 每个 subagent 注入骨架摘要（~1K tokens），使模块分析具备全局视野 |
-| synthesize-deps | 从"从零推断"变为"验证修正"，AI 工作量减少约 50% |
+| 依赖综合规则 | 从"从零推断"变为"验证修正"，AI 工作量减少约 50% |
 | generate-overview | 直接复用骨架内容，减少 30-40% 的 AI token 消耗 |
 | generate-menu | `module_groups` 已由骨架完成，三层分组的第一层无需重新推断 |
 
@@ -161,7 +161,7 @@ extract-docs的深度分析采用 batch-3 策略（每批 3 个模块），每�
 当前你正在分析的模块属于：{{ current_module_group }}
 ```
 
-### 在synthesize-deps中复用骨架
+### 在依赖综合规则中复用骨架
 
 - 骨架的 `cross_domain_dependencies` 作为验证基线：AI 综合出的依赖边必须与骨架方向一致
 - `architecture_layers` 作为分层分组的初始结构，AI 只需补充细节
