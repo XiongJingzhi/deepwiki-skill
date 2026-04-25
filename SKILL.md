@@ -44,16 +44,16 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `init-wiki` | [references/workflow/init-wiki.md](references/workflow/init-wiki.md) |
 | `analyze-project` | [references/workflow/analyze-project.md](references/workflow/analyze-project.md) |
 | `extract-structure` | [references/workflow/extract-structure.md](references/workflow/extract-structure.md) |
-| `refine-modules` | [references/workflow/refine-modules.md](references/workflow/refine-modules.md) |
+| `refine-modules` | [references/workflow/refine-modules.md](references/workflow/refine-modules.md)（`analyze-project` 的可选子步骤） |
 | `generate-skeleton` | [references/workflow/generate-skeleton.md](references/workflow/generate-skeleton.md)（纯 AI 步骤，无脚本） |
 | `detect-changes` | [references/workflow/detect-changes.md](references/workflow/detect-changes.md) |
 | `extract-docs` | [references/workflow/extract-docs.md](references/workflow/extract-docs.md) |
 | `plan-doc-topology` | [references/workflow/plan-doc-topology.md](references/workflow/plan-doc-topology.md) |
 | `validate-analysis` | [references/workflow/validate-analysis.md](references/workflow/validate-analysis.md) |
-| `build-evidence-index` | [references/workflow/build-evidence-index.md](references/workflow/build-evidence-index.md) |
+| `build-evidence-index` | [references/workflow/build-evidence-index.md](references/workflow/build-evidence-index.md)（`validate-analysis` 的子步骤） |
 | `parallel-analysis` | [references/workflow/parallel-analysis.md](references/workflow/parallel-analysis.md) |
-| `check-analysis-quality` | [references/workflow/check-analysis-quality.md](references/workflow/check-analysis-quality.md) |
-| `synthesize-deps` | [references/workflow/synthesize-deps.md](references/workflow/synthesize-deps.md) |
+| `check-analysis-quality` | [references/workflow/check-analysis-quality.md](references/workflow/check-analysis-quality.md)（`validate-analysis` 的子步骤） |
+| `synthesize-deps` | [references/workflow/synthesize-deps.md](references/workflow/synthesize-deps.md)（`generate-overview` 的内部规则） |
 | `generate-overview` | [references/workflow/generate-overview.md](references/workflow/generate-overview.md) |
 | `generate-menu` | [references/workflow/generate-menu.md](references/workflow/generate-menu.md) |
 | `generate-module-docs` | [references/workflow/generate-module-docs.md](references/workflow/generate-module-docs.md) |

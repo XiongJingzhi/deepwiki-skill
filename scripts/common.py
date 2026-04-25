@@ -165,7 +165,7 @@ def manifest_has_dependency(project_path: Path, names: Set[str]) -> bool:
             continue
         for name in names:
             escaped = re.escape(name.lower())
-            pattern = re.compile(r'(?<![.\w-])' + escaped + r'(?![.\w])')
+            pattern = re.compile(r'(?<![.\w-])' + escaped + r'(?![.\w-])')
             if pattern.search(text):
                 return True
     return False

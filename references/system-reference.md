@@ -37,9 +37,9 @@
 | `cache/structure.json` | `analyze-project` | `extract-structure`、`generate-skeleton`、`detect-changes`、`plan-doc-topology` | 否 | 是 |
 | `cache/file-hashes.json` | `analyze-project` | `detect-changes` | 否 | 是 |
 | `cache/parse-results.json` | `extract-structure` | `analyze-project`、后续 AST 相关步骤 | 否 | 是 |
-| `cache/code-structure.json` | `extract-structure` | `generate-skeleton`、`extract-docs`、`synthesize-deps`、`plan-doc-topology`、质量检查 | 否 | 是 |
+| `cache/code-structure.json` | `extract-structure` | `generate-skeleton`、`extract-docs`、`generate-overview`、`plan-doc-topology`、质量检查 | 否 | 是 |
 | `cache/architecture-skeleton.json` | `generate-skeleton` | `extract-docs`、`generate-overview`、`generate-module-docs`、`generate-menu` | 是 | 有条件，建议结合变更重新生成 |
-| `cache/module-analysis.json` | `extract-docs` | `check-analysis-quality`、`synthesize-deps`、`plan-doc-topology`、`generate-module-docs` | 是 | 是，按模块增量覆盖 |
+| `cache/module-analysis.json` | `extract-docs` | `validate-analysis`、`generate-overview`、`plan-doc-topology`、`generate-module-docs` | 是 | 是，按模块增量覆盖 |
 | `cache/doc-topology.json` | `plan-doc-topology` | `generate-overview`、`generate-menu`、`generate-module-docs`、增量更新 | 是，建议以结构化模板输出 | 是，需按页面或主题局部重算 |
 | `cache/generation-plan.json` | `plan-doc-topology` | `generate-overview`、`generate-menu`、`generate-module-docs`、`detect-changes` | 否，优先由脚本生成 | 是 |
 | `cache/evidence-index.json` | `build-evidence-index` 或文档编译后处理 | `check_doc_quality`、`check_cross_module_consistency` | 否，优先由脚本生成 | 是，按页面或 claim 局部更新 |

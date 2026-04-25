@@ -25,7 +25,7 @@
 | **Database** | 路径含 `/db/`、`/database/`、`/migrations/`、扩展名 `.sql`、`.prisma` |
 | **Other** | 以上均不匹配时的兜底分类 |
 
-> **文件级分类入口**：当路径/文件名模式无法匹配时，先参见 [`file-role-classification.md`](file-role-classification.md) 的双层分类规则和语言特定信号，再回到本文选择组件触发规则。
+> **`file-role-classification.md`** 已合并入本文，仅保留为兼容指针，不再包含规则内容。
 
 ---
 

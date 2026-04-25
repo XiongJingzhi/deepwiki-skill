@@ -6,7 +6,7 @@
 
 | 项 | 内容 |
 |----|------|
-| **前置** | `extract-docs` |
+| **前置** | `extract-docs`（依赖 `architecture-skeleton.json` 时需 `generate-skeleton` 已完成） |
 | **后置** | `plan-doc-topology`、`generate-overview`、`generate-module-docs` |
 | **输入** | `cache/module-analysis.json` |
 | **输出** | 质量门禁结果、`cache/evidence-index.json` |

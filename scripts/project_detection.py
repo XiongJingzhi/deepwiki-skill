@@ -1,11 +1,10 @@
 """项目类型检测、包管理器识别、入口文件发现"""
 
 import json
-import re
 from pathlib import Path
 from typing import List
 
-from common import IGNORE_DIRS
+from common import IGNORE_DIRS, manifest_has_dependency
 
 
 # 项目类型检测规则
@@ -19,7 +18,6 @@ PROJECT_INDICATORS = {
     'ruby': ['Gemfile'],
     'php': ['composer.json'],
     'dotnet': ['*.csproj', '*.fsproj', '*.sln'],
-    'react': ['package.json'],  # 需进一步检查依赖
     'vue': ['vue.config.js', 'vite.config.ts', 'nuxt.config.ts'],
     'nextjs': ['next.config.js', 'next.config.mjs', 'next.config.ts'],
 }
@@ -120,27 +118,12 @@ def detect_project_types(root_path: Path) -> List[str]:
                     elif 'flit' in build_backend:
                         types.append('flit')
 
-                    # Detect specific python frameworks in dependencies
-                    # Poetry
-                    deps = pyproject.get('tool', {}).get('poetry', {}).get('dependencies', {})
-                    # Standard project.dependencies
-                    deps_std = pyproject.get('project', {}).get('dependencies', [])
-
-                    all_deps = set()
-                    if isinstance(deps, dict):
-                        all_deps.update(deps.keys())
-                    if isinstance(deps_std, list):
-                        # Simple parsing for "package>=1.0"
-                        for d in deps_std:
-                            match = re.match(r'^([a-zA-Z0-9_-]+)', d)
-                            if match:
-                                all_deps.add(match.group(1))
-
-                    if 'fastapi' in all_deps:
+                    # Detect specific python frameworks
+                    if manifest_has_dependency(root_path, {'fastapi'}):
                         types.append('fastapi')
-                    if 'django' in all_deps:
+                    if manifest_has_dependency(root_path, {'django'}):
                         types.append('django')
-                    if 'flask' in all_deps:
+                    if manifest_has_dependency(root_path, {'flask'}):
                         types.append('flask')
 
             except Exception:
@@ -148,52 +131,38 @@ def detect_project_types(root_path: Path) -> List[str]:
 
     # Node.js 深度检测 (package.json)
     if 'nodejs' in types or (root_path / 'package.json').exists():
-        pkg_path = root_path / 'package.json'
-        if pkg_path.exists():
-            try:
-                with open(pkg_path, 'r', encoding='utf-8') as f:
-                    pkg = json.load(f)
-                    deps = {**pkg.get('dependencies', {}), **pkg.get('devDependencies', {})}
-
-                    if 'react' in deps and 'react' not in types:
-                        types.append('react')
-                    if 'vue' in deps and 'vue' not in types:
-                        types.append('vue')
-                    if 'next' in deps and 'nextjs' not in types:
-                        types.append('nextjs')
-                    if 'nuxt' in deps or '@nuxt/core' in deps:
-                        types.append('nuxt')
-            except Exception:
-                pass
+        if manifest_has_dependency(root_path, {'react'}) and 'react' not in types:
+            types.append('react')
+        if manifest_has_dependency(root_path, {'vue'}) and 'vue' not in types:
+            types.append('vue')
+        if manifest_has_dependency(root_path, {'next'}) and 'nextjs' not in types:
+            types.append('nextjs')
+        if manifest_has_dependency(root_path, {'nuxt', '@nuxt/core'}):
+            types.append('nuxt')
 
     # Rust 深度检测 (Cargo.toml)
-    cargo_path = root_path / 'Cargo.toml'
-    if cargo_path.exists():
-        try:
-            with open(cargo_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                # Simple TOML parsing for dependencies
-                # Note: A real TOML parser would be better but requires external lib
-                if 'actix-web' in content: types.append('actix-web')
-                if 'axum' in content: types.append('axum')
-                if 'tokio' in content: types.append('tokio')
-                if 'tauri' in content: types.append('tauri')
-                if 'rocket' in content: types.append('rocket')
-        except Exception:
-            pass
+    if (root_path / 'Cargo.toml').exists():
+        if manifest_has_dependency(root_path, {'actix-web'}):
+            types.append('actix-web')
+        if manifest_has_dependency(root_path, {'axum'}):
+            types.append('axum')
+        if manifest_has_dependency(root_path, {'tokio'}):
+            types.append('tokio')
+        if manifest_has_dependency(root_path, {'tauri'}):
+            types.append('tauri')
+        if manifest_has_dependency(root_path, {'rocket'}):
+            types.append('rocket')
 
     # Go 深度检测 (go.mod)
-    go_mod_path = root_path / 'go.mod'
-    if go_mod_path.exists():
-        try:
-            with open(go_mod_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                if 'github.com/gin-gonic/gin' in content: types.append('gin')
-                if 'github.com/labstack/echo' in content: types.append('echo')
-                if 'github.com/gofiber/fiber' in content: types.append('fiber')
-                if 'gorm.io/gorm' in content: types.append('gorm')
-        except Exception:
-            pass
+    if (root_path / 'go.mod').exists():
+        if manifest_has_dependency(root_path, {'github.com/gin-gonic/gin'}):
+            types.append('gin')
+        if manifest_has_dependency(root_path, {'github.com/labstack/echo'}):
+            types.append('echo')
+        if manifest_has_dependency(root_path, {'github.com/gofiber/fiber'}):
+            types.append('fiber')
+        if manifest_has_dependency(root_path, {'gorm.io/gorm'}):
+            types.append('gorm')
 
     return list(set(types))
 

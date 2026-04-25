@@ -68,6 +68,51 @@ class TestDetectProjectTypes:
         )
         assert "fastapi" in detect_project_types(tmp_path)
 
+    def test_node_react_does_not_match_react_native(self, tmp_path):
+        (tmp_path / "package.json").write_text(
+            '{"dependencies": {"react-native-web": "^0.19"}}\n',
+            encoding="utf-8",
+        )
+        types = detect_project_types(tmp_path)
+        assert "react" not in types
+
+    def test_node_react_matches_exact_name(self, tmp_path):
+        (tmp_path / "package.json").write_text(
+            '{"dependencies": {"react": "^18.2", "react-dom": "^18.2"}}\n',
+            encoding="utf-8",
+        )
+        assert "react" in detect_project_types(tmp_path)
+
+    def test_rust_tokio_does_not_match_tokio_stream(self, tmp_path):
+        (tmp_path / "Cargo.toml").write_text(
+            '[dependencies]\ntokio-stream = "0.1"\n',
+            encoding="utf-8",
+        )
+        types = detect_project_types(tmp_path)
+        assert "tokio" not in types
+
+    def test_rust_axum_matches_exact_name(self, tmp_path):
+        (tmp_path / "Cargo.toml").write_text(
+            '[dependencies]\naxum = "0.7"\n',
+            encoding="utf-8",
+        )
+        assert "axum" in detect_project_types(tmp_path)
+
+    def test_go_gin_does_not_match_gin_contrib(self, tmp_path):
+        (tmp_path / "go.mod").write_text(
+            "module app\n\ngo 1.21\n\nrequire github.com/gin-contrib/cors v1.5\n",
+            encoding="utf-8",
+        )
+        types = detect_project_types(tmp_path)
+        assert "gin" not in types
+
+    def test_go_gin_matches_exact_name(self, tmp_path):
+        (tmp_path / "go.mod").write_text(
+            "module app\n\ngo 1.21\n\nrequire github.com/gin-gonic/gin v1.9\n",
+            encoding="utf-8",
+        )
+        assert "gin" in detect_project_types(tmp_path)
+
 
 # =====================================================================
 # 3. detect_package_manager

@@ -23,7 +23,7 @@
 | 数据源 | 作用 | 优先级 |
 |--------|------|--------|
 | `cache/doc-topology.json`、`cache/generation-plan.json` | 文档页面拓扑和本轮编译计划 | **最高** |
-| `cache/code-structure.json` → `import_relations` | 模块间依赖强度，最客观的聚合信号 | **最高** |
+| `cache/code-structure.json` → `import_relations` | 模块间依赖强度，最客观的聚合信号 | **高** |
 | `cache/module-analysis.json` → `dependency_hints` | 步骤 5 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
 | `cache/module-analysis.json` → `semantic_group` | AI 的语义主题标注，验证并命名分组 | 中 |
 | `cache/code-structure.json` → `patterns` | 同类 pattern 的模块有结构亲缘，可辅助归组 | 中 |
