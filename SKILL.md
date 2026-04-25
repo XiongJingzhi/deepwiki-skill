@@ -22,9 +22,9 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 
 **主路径（全量/增量）：**
 
-`init-wiki` → `analyze-project` → `extract-structure` → `refine-modules` → `generate-skeleton`（纯 AI）→ `detect-changes` → `extract-docs` → `plan-doc-topology` → `check-analysis-quality` → `build-evidence-index`
+`init-wiki` → `analyze-project` → `extract-structure` → `refine-modules` → `generate-skeleton`（纯 AI）→ `detect-changes` → `extract-docs` → `plan-doc-topology` → `check-analysis-quality`
 
-- **pass（exit=0）**：→ `synthesize-deps` → `generate-overview` → `generate-menu` → `generate-module-docs` → `check-cross-module-consistency` → 完成
+- **pass（exit=0）**：→ `build-evidence-index` → `synthesize-deps` → `generate-overview` → `generate-menu` → `generate-module-docs` → `check-cross-module-consistency` → 完成
 - **fail（exit≠0）**：增量补充分析 → 重跑 `check-analysis-quality`
 
 **快捷路径：**
