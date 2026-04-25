@@ -8,9 +8,9 @@
 | 項 | 値 |
 |----|-----|
 | **脚本** | `python scripts/generate_menu.py ... --reconcile`、`finalize.py mermaid`、`finalize.py quality`、`finalize.py consistency` |
-| **输入** | `cache/module-analysis.json`、`wiki/menu.json`、RelationshipSummary |
+| **输入** | `cache/module-analysis.json`、`cache/evidence-index.json`、`wiki/menu.json`、项目上下文摘要、依赖综合摘要 |
 | **输出** | `wiki/modules/*.md`、`wiki/api/*.md`、`wiki/menu.json`（校验后） |
-| **前置** | `generate-menu` |
+| **前置** | `generate-overview`、初始 `generate-menu` |
 | **后置** | 完成 |
 | **生成规则** | 见 `../generation/module-page.md`、`../generation/api-page.md` |
 
@@ -94,7 +94,7 @@ flowchart LR
 | 项目上下文摘要 | generate-overview 产出 | 理解项目定位和技术栈 |
 | 该模块的导航位置 | `menu.json` | 生成面包屑和前后导航链接 |
 | 该模块的源码分析数据 | `cache/module-analysis.json` 中对应模块的条目（extract-docs 写入） | 直接使用 `public_interfaces`、`selected_components`、`key_insights`，无需重新读取源码 |
-| 该模块的依赖关系 | synthesize-deps输出 | 生成依赖关系章节 |
+| 该模块的依赖关系 | `dependency_hints`、`code-structure.json` 和依赖综合摘要 | 生成依赖关系章节 |
 | 配置要求 | `config.yaml` | 语言、图表开关、源码链接等 |
 
 > **降级说明**：若 `cache/module-analysis.json` 不存在，或当前模块的条目缺失，降级为重新读取该模块的源码文件进行分析，再生成文档。

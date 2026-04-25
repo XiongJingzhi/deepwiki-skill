@@ -52,6 +52,22 @@ class TestDetectProjectTypes:
         types = detect_project_types(tmp_path)
         assert types == []
 
+    def test_fastapi_does_not_match_fastapi_utils(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\ndependencies = ["fastapi-utils>=0.2"]\n',
+            encoding="utf-8",
+        )
+        types = detect_project_types(tmp_path)
+        assert "python" in types
+        assert "fastapi" not in types
+
+    def test_fastapi_dependency_matches_exact_name(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\ndependencies = ["fastapi>=0.100"]\n',
+            encoding="utf-8",
+        )
+        assert "fastapi" in detect_project_types(tmp_path)
+
 
 # =====================================================================
 # 3. detect_package_manager

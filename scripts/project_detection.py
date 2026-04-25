@@ -136,9 +136,12 @@ def detect_project_types(root_path: Path) -> List[str]:
                             if match:
                                 all_deps.add(match.group(1))
 
-                    if 'fastapi' in all_deps: types.append('fastapi')
-                    if 'django' in all_deps: types.append('django')
-                    if 'flask' in all_deps: types.append('flask')
+                    if 'fastapi' in all_deps:
+                        types.append('fastapi')
+                    if 'django' in all_deps:
+                        types.append('django')
+                    if 'flask' in all_deps:
+                        types.append('flask')
 
             except Exception:
                 pass

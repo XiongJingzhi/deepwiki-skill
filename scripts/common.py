@@ -5,6 +5,7 @@
 """
 
 import fnmatch
+import re
 from pathlib import Path
 from typing import Optional, Set, Tuple
 
@@ -43,7 +44,6 @@ CACHE_SCHEMA_VERSION = 2
 HASH_TRUNCATE_LENGTH = 16          # SHA256 hash 截断长度（位）
 MAX_CALLS_PER_FUNCTION = 20        # 每个函数最多追踪的被调用函数数
 MAX_BFS_DEPTH = 6                  # 调用图 BFS 最大遍历深度
-MAX_CORE_FILES_PER_MODULE = 20    # 每个模块最多记录的核心文件数
 
 
 class GitignoreCache:
@@ -140,6 +140,34 @@ def should_ignore_path(path: Path, cache: GitignoreCache,
         return True
     if cache.globs and any(fnmatch.fnmatch(path.name, p) for p in cache.globs):
         return True
+    return False
+
+
+def manifest_has_dependency(project_path: Path, names: Set[str]) -> bool:
+    """Return True when a manifest contains any dependency name as a token.
+
+    The boundary avoids false positives such as matching ``vue`` inside
+    ``vuepress`` while still allowing package paths like ``github.com/gin-gonic``.
+    """
+    manifests = [
+        project_path / "package.json",
+        project_path / "requirements.txt",
+        project_path / "pyproject.toml",
+        project_path / "go.mod",
+        project_path / "Cargo.toml",
+    ]
+    for manifest in manifests:
+        if not manifest.exists():
+            continue
+        try:
+            text = manifest.read_text(encoding="utf-8", errors="ignore").lower()
+        except Exception:
+            continue
+        for name in names:
+            escaped = re.escape(name.lower())
+            pattern = re.compile(r'(?<![.\w-])' + escaped + r'(?![.\w])')
+            if pattern.search(text):
+                return True
     return False
 
 

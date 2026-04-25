@@ -28,7 +28,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 - `extract-docs` 在增量模式下读取 `detect-changes` 结果；全量模式可跳过独立变更检测。
 - `validate-analysis` 封装 `check-analysis-quality` 与 `build-evidence-index`，通过后生成 `evidence-index.json`。
 - `generate-overview` 复用 `synthesize-deps` 的依赖综合规则，并负责全局阅读路径。
-- `generate-module-docs` 结束后运行 `generate-menu`、`finalize quality`、`check-cross-module-consistency` 收尾。
+- 初始 `generate-menu` 在模块文档前生成 `menu.json` / `doc-map.md`；`generate-module-docs` 结束后再运行 `generate-menu --reconcile`、`finalize quality`、`check-cross-module-consistency` 收尾。
 - **fail（exit≠0）**：增量补充分析 → 重跑 `validate-analysis`
 
 **快捷路径：**

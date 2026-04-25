@@ -66,22 +66,7 @@
 **输入**：CodePurpose、复杂度、依赖数、文件结构
 **输出**：必需组件列表 + 条件组件候选
 
-```
-IF CodePurpose == Agent:
-  components = [overview, sequence-diagram, code-walkthrough, state-diagram, nav-links]
-
-IF CodePurpose == Api:
-  components = [overview, api-table, sequence-diagram, code-walkthrough, error-table, nav-links]
-
-IF has_class_definition:
-  components.append(class-diagram)
-
-IF complexity >= 50:
-  components.append(code-walkthrough)
-
-IF dependency_count >= 2:
-  components.append(dependency-diagram)
-```
+规则触发由 [`components-registry.yaml`](components-registry.yaml) 的组件 `trigger` 字段和 `archetype_overrides` 统一维护。本文只说明选择流程，不重复定义条件逻辑。
 
 ### 第二层：AI 推荐（补充、语义性）
 

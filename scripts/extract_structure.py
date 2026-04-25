@@ -13,7 +13,14 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Set, Tuple
 
-from common import CODE_EXTENSIONS, CACHE_SCHEMA_VERSION, cache_path, MAX_CALLS_PER_FUNCTION, MAX_BFS_DEPTH
+from common import (
+    CODE_EXTENSIONS,
+    CACHE_SCHEMA_VERSION,
+    cache_path,
+    manifest_has_dependency,
+    MAX_CALLS_PER_FUNCTION,
+    MAX_BFS_DEPTH,
+)
 from import_relations import compute_in_degree
 from import_relations import extract_import_relations
 from parsers import get_manager, get_lang_for_ext
@@ -1011,27 +1018,8 @@ def _has_manifest(project_path: Path) -> bool:
 
 
 def _has_dep(project_path: Path, names: set) -> bool:
-    """使用词边界匹配检测依赖名，避免子字符串误匹配。"""
-    manifests = [
-        project_path / "package.json",
-        project_path / "requirements.txt",
-        project_path / "pyproject.toml",
-        project_path / "go.mod",
-        project_path / "Cargo.toml",
-    ]
-    for manifest in manifests:
-        if not manifest.exists():
-            continue
-        try:
-            text = manifest.read_text(encoding="utf-8", errors="ignore").lower()
-        except Exception:
-            continue
-        for name in names:
-            escaped = re.escape(name.lower())
-            pattern = re.compile(r'(?<![.\w-])' + escaped + r'(?![.\w])')
-            if pattern.search(text):
-                return True
-    return False
+    """使用共享 manifest 依赖检测，避免子字符串误匹配。"""
+    return manifest_has_dependency(project_path, names)
 
 
 def _cargo_has_bin(project_path: Path) -> bool:

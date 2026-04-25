@@ -1,6 +1,6 @@
 # generate-menu：生成导航菜单与文档地图
 
-> generate-menu，由 AI 直接生成 `menu.json` 和 `doc-map.md`，定义文档导航结构（此时模块文档尚未生成，脚本无法扫描，需 AI 基于结构提前生成）。
+> generate-menu 有两个调用点：模块文档生成前创建初始 `menu.json` / `doc-map.md`，模块文档生成后用 `--reconcile` 校验并修正菜单。外部 9 步流程中，初始菜单是 `generate-overview` 与 `generate-module-docs` 之间的内部子步骤，reconcile 是 `generate-module-docs` 的收尾子步骤。
 
 
 ## 契約
@@ -8,20 +8,21 @@
 | 項 | 值 |
 |----|-----|
 | **脚本** | `python scripts/generate_menu.py <wiki目录> [项目名] [--reconcile]` |
-| **输入** | `cache/structure.json`、`cache/module-analysis.json`、`cache/architecture-skeleton.json`（可选） |
+| **输入** | `cache/doc-topology.json`、`cache/generation-plan.json`、`cache/structure.json`、`cache/module-analysis.json`、`cache/architecture-skeleton.json`（可选） |
 | **输出** | `wiki/menu.json`、`wiki/doc-map.md` |
 | **前置** | `generate-overview` |
 | **后置** | `generate-module-docs` |
 | **生成规则** | 见 `../generation/docmap-page.md`、`../rules/menu-archetypes.md` |
 
-## 8.1：AI 生成 menu.json
+## 初始生成：menu.json
 
-> **重要变更**：`build_menu()` 现在支持 `cache_dir` 参数，自动读取 `module-analysis.json` 的 `semantic_group` 和 `architecture-skeleton.json` 的 `module_groups` 进行数据驱动分组。当分析数据存在时，分区名来自 AI 的项目理解，而非固定模板。
+> `build_menu()` 支持 `cache_dir` 参数，并优先读取 `doc-topology.json` / `generation-plan.json`。缺少文档拓扑时，自动读取 `module-analysis.json` 的 `semantic_group` 和 `architecture-skeleton.json` 的 `module_groups` 进行数据驱动分组。当分析数据存在时，分区名来自项目理解，而非固定模板。
 
 ### 输入数据（按优先级顺序读取）
 
 | 数据源 | 作用 | 优先级 |
 |--------|------|--------|
+| `cache/doc-topology.json`、`cache/generation-plan.json` | 文档页面拓扑和本轮编译计划 | **最高** |
 | `cache/code-structure.json` → `import_relations` | 模块间依赖强度，最客观的聚合信号 | **最高** |
 | `cache/module-analysis.json` → `dependency_hints` | 步骤 5 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
 | `cache/module-analysis.json` → `semantic_group` | AI 的语义主题标注，验证并命名分组 | 中 |
@@ -111,7 +112,7 @@ Python 脚本已自动按 semantic_group 生成 menu.json。AI 的职责是：
 
 ---
 
-## 8.2：AI 生成 doc-map.md
+## 初始生成：doc-map.md
 
 基于 `menu.json` 的导航结构和 `overview.md` 的架构信息，生成 `wiki/doc-map.md`：
 
@@ -120,9 +121,19 @@ Python 脚本已自动按 semantic_group 生成 menu.json。AI 的职责是：
 | 文档关系图（Mermaid flowchart） | `menu.json` 层级结构 |
 | 推荐阅读路径 | 按读者角色（新手/架构师/API 使用者） |
 | 完整文档索引 | `structure.json` 模块列表 + `menu.json` |
-| 模块间依赖矩阵 | synthesize-deps `core_dependencies` 输出 |
+| 模块间依赖矩阵 | `cache/code-structure.json`、`cache/module-analysis.json.dependency_hints` 或依赖综合摘要 |
 
 模板参考：`../generation/docmap-page.md` → 文档地图。
 
 完成后更新 `cache/progress.json` 的 `phases.menu.status` 为 `completed`。
+
+## 收尾校验：--reconcile
+
+`generate-module-docs` 全部完成后，必须再次运行：
+
+```bash
+python scripts/generate_menu.py <项目目录>/.deepwiki/wiki [项目名称] --reconcile --verbose
+```
+
+该模式只校验和修正已有 `menu.json`，确保菜单包含实际生成的模块/API 页面，不负责重新设计文档拓扑。
 

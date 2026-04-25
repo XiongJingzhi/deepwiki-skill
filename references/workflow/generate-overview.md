@@ -1,6 +1,6 @@
 # generate-overview：生成概览文档
 
-> generate-overview，基于 init-wiki 到 synthesize-deps 的分析结果生成全局概览文档。这些文档不依赖具体模块的详细文档，可直接产出。
+> generate-overview 基于确定性缓存、架构骨架、模块分析和依赖综合规则生成全局概览文档。这些文档不依赖具体模块的详细文档，可直接产出。
 
 
 ## 契約
@@ -8,10 +8,10 @@
 | 項 | 值 |
 |----|-----|
 | **脚本** | 无（AI 执行） |
-| **输入** | RelationshipSummary（来自 `synthesize-deps`）、`cache/architecture-skeleton.json`（可选） |
+| **输入** | `cache/structure.json`、`cache/code-structure.json`、`cache/module-analysis.json`、`cache/doc-topology.json`、`cache/architecture-skeleton.json`（可选） |
 | **输出** | `wiki/overview.md`、`wiki/getting-started.md` |
-| **前置** | `synthesize-deps` |
-| **后置** | `generate-menu` |
+| **前置** | `plan-doc-topology`、`validate-analysis` |
+| **后置** | 初始 `generate-menu`、`generate-module-docs` |
 | **生成规则** | 见 `../generation/overview-page.md`、`../generation/getting-started-page.md` |
 
 ## 优先复用架构骨架
@@ -28,7 +28,7 @@
 
 **效果**：直接使用骨架内容，AI 只需补充细节和排版，token 消耗减少 30-40%。
 
-**降级处理**：若骨架不存在，从 synthesize-deps 的 `RelationshipSummary` 和 `structure.json` 生成（原有逻辑）。
+**降级处理**：若骨架不存在，从 `code-structure.json`、`module-analysis.json.dependency_hints` 和 `structure.json` 生成依赖综合摘要。
 
 ## 概览文档列表
 

@@ -137,7 +137,7 @@
 
 [architecture-diagram 组件：按 archetype 选择图类型和结构，P0 必需]
 
-[分层说明：每层职责一句话，来自第 5 步 RelationshipSummary]
+[分层说明：每层职责一句话，来自 `architecture-skeleton.json`、`code-structure.json` 或依赖综合摘要]
 
 ---
 

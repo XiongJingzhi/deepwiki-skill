@@ -35,11 +35,11 @@ class TestCalculateFileHash:
         assert result == ""
 
     def test_result_is_16_hex_chars(self, tmp_path):
-        """Hash result is exactly 16 hexadecimal characters."""
+        """Hash result uses the shared truncation length."""
         f = tmp_path / "a.py"
         f.write_text("x", encoding="utf-8")
         h = detect_changes.calculate_file_hash(str(f))
-        assert len(h) == 16
+        assert len(h) == common.HASH_TRUNCATE_LENGTH
         assert all(c in "0123456789abcdef" for c in h)
 
 
@@ -69,6 +69,19 @@ class TestShouldIncludeFile:
         """config_excludes are merged into the exclusion set."""
         p = Path("src") / "main.py"
         assert detect_changes.should_include_file(p, set(), config_excludes={"src"}) is False
+
+    def test_gitignore_cache_uses_common_ignore_logic(self):
+        """should_include_file delegates ignore decisions to common.should_ignore_path."""
+        cache = common.GitignoreCache()
+        cache.dirs = {"generated"}
+        cache.globs = {"*.tmp"}
+
+        assert detect_changes.should_include_file(
+            Path("generated") / "main.py", set(), gitignore_cache=cache
+        ) is False
+        assert detect_changes.should_include_file(
+            Path("src") / "scratch.tmp", set(), gitignore_cache=cache
+        ) is False
 
     def test_csv_not_included(self):
         """.csv is neither a code nor a doc extension, so excluded."""

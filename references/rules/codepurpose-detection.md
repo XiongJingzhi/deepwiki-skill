@@ -107,6 +107,17 @@
 
 ---
 
+## 模块级汇总
+
+模块的主 `code_purpose` 由该模块内高重要性文件的角色综合得出：
+
+- 入口文件优先级最高，决定启动链路说明
+- `Api`、`Service`、`Agent` 文件决定主要运行路径
+- `Model`、`Dao`、`Config` 文件作为支撑结构，不应单独覆盖主职责
+- 若模块包含多种角色，使用最能解释读者任务的角色作为主 `code_purpose`
+
+---
+
 ## 条件组件触发规则
 
 根据模块特征添加条件组件：
@@ -123,45 +134,9 @@
 
 ---
 
-## CodePurpose → 默认组件集
+## 组件选择引用
 
-> 完整映射详见 [`components-guide.md`](components-guide.md) 的"CodePurpose 组件映射"章节。
+本文只维护 CodePurpose 检测信号和条件组件触发信号。
 
-| CodePurpose | 必需组件 |
-|-------------|----------|
-| **Entry** | overview, architecture-diagram, sequence-diagram, nav-links |
-| **Agent** | overview, sequence-diagram, code-walkthrough, state-diagram, nav-links |
-| **Page** | overview, architecture-diagram, api-table, nav-links |
-| **Widget** | overview, api-table, code-example, nav-links |
-| **Service** | overview, api-table, sequence-diagram, code-walkthrough, nav-links |
-| **Api** | overview, api-table, sequence-diagram, code-walkthrough, error-table, nav-links |
-| **Dao** | overview, api-table, nav-links |
-| **Model** | overview, class-diagram, api-table, nav-links |
-| **Config** | overview, api-table, nav-links |
-| **Util** | overview, api-table, code-example, nav-links |
-| **Command** | overview, architecture-diagram, api-table, code-example, nav-links |
-| **Database** | overview, er-diagram, nav-links |
-| **Test** | overview, api-table, code-example, nav-links |
-| **Other** | overview, api-table, nav-links |
-
-### Archetype 覆写（步骤 3）
-
-在 CodePurpose 基础映射 + 条件触发之后，根据项目 archetype 进行最终调整：
-
-1. 读取 `components-registry.yaml` 的 `archetype_overrides` 段
-2. 匹配当前 archetype，执行 `add` 和 `remove` 规则
-3. `remove` 不覆盖 P0（Required）组件
-4. 无匹配 archetype 或无覆写规则时，跳过此步骤
-
-| Archetype | 典型添加 | 典型移除 |
-|-----------|---------|---------|
-| agent-project | state-diagram, decision-table | sequence-diagram（非 API 模块） |
-| ml-project | decision-table | sequence-diagram（非 API 模块） |
-| cli-tool | architecture-diagram（Entry 模块） | state-diagram（非 Agent 模块） |
-| sdk-library | usage-patterns | sequence-diagram（非 API 模块） |
-| monorepo | dependency-diagram | — |
-| web-service | error-table（Api/Service）, decision-table（Config） | state-diagram（非 Agent） |
-| fullstack-framework | architecture-diagram（Entry）, code-example（前端模块） | er-diagram（前端模块） |
-| spa-frontend | state-diagram（Service/Page/Widget）, code-example（Widget/Page） | sequence-diagram（非 Api/Service） |
-| data-pipeline | decision-table | sequence-diagram（非 Api） |
-| microservice | dependency-diagram | — |
+- CodePurpose → 默认组件集：见 [`components-guide.md`](components-guide.md) 的"CodePurpose 组件映射"章节
+- Archetype 覆写规则：见 [`components-registry.yaml`](components-registry.yaml) 的 `archetype_overrides`

@@ -7,7 +7,6 @@
 import os
 import json
 import hashlib
-import fnmatch
 import yaml
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any
@@ -17,7 +16,7 @@ from common import (
     IGNORE_DIRS as DEFAULT_EXCLUDES,
     CODE_EXTENSIONS, DOC_EXTENSIONS,
     GitignoreCache, should_ignore_path,
-    CACHE_SCHEMA_VERSION, validate_cache_version,
+    CACHE_SCHEMA_VERSION, HASH_TRUNCATE_LENGTH, validate_cache_version,
     cache_path,
 )
 
@@ -70,7 +69,7 @@ def calculate_file_hash(file_path: str) -> str:
         with open(file_path, 'rb') as f:
             for chunk in iter(lambda: f.read(8192), b''):
                 sha256.update(chunk)
-        return sha256.hexdigest()[:16]  # 只取前16位
+        return sha256.hexdigest()[:HASH_TRUNCATE_LENGTH]
     except Exception:
         return ""
 
@@ -81,21 +80,11 @@ def should_include_file(file_path: Path, excludes: Set[str],
     """判断文件是否应该被包含（硬编码规则 + config.yaml 排除 + .gitignore）"""
     all_excludes = excludes | (config_excludes or set())
 
-    # 检查是否在排除目录中
-    for part in file_path.parts:
-        if part in all_excludes:
-            return False
-        # 检查 glob 模式
-        for pattern in all_excludes:
-            if '*' in pattern and fnmatch.fnmatch(file_path.name, pattern):
-                return False
-
-    # 检查 .gitignore 规则
     if gitignore_cache:
-        if gitignore_cache.dirs and any(part in gitignore_cache.dirs for part in file_path.parts):
+        if should_ignore_path(file_path, gitignore_cache, all_excludes):
             return False
-        if gitignore_cache.globs and any(fnmatch.fnmatch(file_path.name, p) for p in gitignore_cache.globs):
-            return False
+    elif any(part in all_excludes for part in file_path.parts):
+        return False
 
     # 只包含代码和文档文件
     return file_path.suffix in CODE_EXTENSIONS or file_path.suffix in DOC_EXTENSIONS

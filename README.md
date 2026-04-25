@@ -101,7 +101,7 @@ deepwiki/
 │   ├── plan_doc_topology.py
 │   ├── build_evidence_index.py
 │   ├── extract_doc_comments.py
-│   ├── check_analysis_quality.py          # Step 4.5
+│   ├── check_analysis_quality.py          # validate-analysis 子步骤
 │   ├── check_dependencies.py
 │   ├── check_doc_quality.py
 │   ├── check_cross_module_consistency.py
@@ -132,7 +132,7 @@ deepwiki/
 | `scripts/plan_doc_topology.py <项目路径>` | 生成 `doc-topology.json` 与 `generation-plan.json` |
 | `scripts/detect_changes.py <项目路径>` | 增量变更检测 |
 | `scripts/extract_doc_comments.py <文件路径>` | 从源码提取文档注释（tree-sitter） |
-| `scripts/check_analysis_quality.py <项目路径>` | **Step 4.5**：分析质量门控 |
+| `scripts/check_analysis_quality.py <项目路径>` | 分析质量门控（`validate-analysis` 的子步骤） |
 | `scripts/cli.py validate-analysis <项目路径>` | 对外推荐入口：运行分析质量门控，通过后构建 `evidence-index.json` |
 | `scripts/build_evidence_index.py <项目路径>` | 从模块分析缓存生成 `evidence-index.json` |
 | `scripts/finalize.py quality <.deepwiki路径>` | 文档质量检查 |
