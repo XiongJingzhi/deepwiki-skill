@@ -2,6 +2,7 @@
 """Validate that this directory is a usable DeepWiki skill package."""
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -33,6 +34,11 @@ REQUIRED_CLI_COMMANDS = [
     "self-check",
 ]
 
+ENTRYPOINT_MARKDOWN_FILES = [
+    "SKILL.md",
+    "README.md",
+]
+
 
 def _frontmatter(text: str) -> Dict[str, str]:
     if not text.startswith("---"):
@@ -47,6 +53,23 @@ def _frontmatter(text: str) -> Dict[str, str]:
         key, value = line.split(":", 1)
         data[key.strip()] = value.strip().strip('"')
     return data
+
+
+def _local_markdown_links(text: str) -> List[str]:
+    """Extract local markdown links that should resolve inside the skill package."""
+    links: List[str] = []
+    for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text):
+        target = match.group(1).strip()
+        if (
+            not target
+            or target.startswith("#")
+            or "://" in target
+            or target.startswith("mailto:")
+            or "{" in target
+        ):
+            continue
+        links.append(target.split("#", 1)[0])
+    return links
 
 
 def validate_skill(skill_dir: Path) -> Dict[str, Any]:
@@ -78,6 +101,20 @@ def validate_skill(skill_dir: Path) -> Dict[str, Any]:
         default_prompt = interface.get("default_prompt", "")
         if "$deepwiki" not in default_prompt:
             errors.append("agents/openai.yaml default_prompt must mention $deepwiki")
+
+    for rel_path in ENTRYPOINT_MARKDOWN_FILES:
+        doc_path = root / rel_path
+        if not doc_path.exists():
+            continue
+        for link in _local_markdown_links(doc_path.read_text(encoding="utf-8")):
+            target = (doc_path.parent / link).resolve()
+            try:
+                target.relative_to(root.resolve())
+            except ValueError:
+                errors.append(f"Markdown link escapes skill package: {rel_path} -> {link}")
+                continue
+            if not target.exists():
+                errors.append(f"Broken markdown link: {rel_path} -> {link}")
 
     cli_path = root / "scripts" / "cli.py"
     if cli_path.exists():

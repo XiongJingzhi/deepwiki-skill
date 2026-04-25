@@ -78,3 +78,41 @@ parser.parse_args()
 
     assert not result["ok"]
     assert any("CLI help is missing command" in error for error in result["errors"])
+
+
+def test_validate_skill_reports_broken_entrypoint_markdown_links(tmp_path):
+    """Entrypoint docs should not point future agents at missing files."""
+    from validate_skill import validate_skill
+
+    commands = [
+        "init",
+        "analyze",
+        "extract-structure",
+        "detect-changes",
+        "plan-doc-topology",
+        "build-evidence-index",
+        "quality",
+        "self-check",
+    ]
+    parser_lines = "\n".join(f'subparsers.add_parser("{command}")' for command in commands)
+    _write_minimal_skill(
+        tmp_path,
+        f"""#!/usr/bin/env python3
+import argparse
+
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(dest="command")
+{parser_lines}
+parser.parse_args()
+""",
+    )
+    (tmp_path / "SKILL.md").write_text(
+        "---\nname: deepwiki\ndescription: test skill\n---\n"
+        "# DeepWiki\n[Broken](references/workflow/missing.md)\n",
+        encoding="utf-8",
+    )
+
+    result = validate_skill(tmp_path)
+
+    assert not result["ok"]
+    assert any("Broken markdown link" in error for error in result["errors"])
