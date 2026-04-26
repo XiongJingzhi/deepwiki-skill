@@ -1,4 +1,4 @@
-# Api 生成指南
+# Reference 生成指南
 
 > **适用工具：** `generate-module-docs`
 > **关联规则：** `../rules/quality-standards.md`、`../rules/components-guide.md`
@@ -7,12 +7,12 @@
 
 ## 生成指导
 
-## API 文档
+## 参考资料页面
 
-生成 API 参考文档：
+生成接口、配置或 Schema 的查阅型参考页面。不要把它作为每个模块的默认独立页面；模块级 API 应优先并入对应能力页或内部实现页。
 
 ```
-为以下模块生成 **专业级 API 文档**：
+为以下主题生成 **专业级参考文档**：
 
 模块名: {{ MODULE_NAME }}
 CodePurpose: {{ CODE_PURPOSE }}
@@ -23,7 +23,7 @@ CodePurpose: {{ CODE_PURPOSE }}
 ## 生成原则
 
 1. **按组件生成**：根据已选组件列表生成对应章节。
-2. **API 文档侧重接口**：以接口签名和调用方式为核心，不重复模块文档的设计理念内容。
+2. **参考文档侧重查阅**：以接口签名、配置项、Schema 和调用方式为核心，不重复能力页/内部实现页的设计理念内容。
 3. **代码示例必须可运行**：包含完整的导入、初始化、调用和输出处理。
 
 ## 生成要求
@@ -71,10 +71,10 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 ## 页面骨架
 
-## API 文档骨架
+## 参考文档骨架
 
 ```markdown
-# API 参考：{MODULE_NAME}
+# 参考资料：{MODULE_NAME}
 
 > {模块描述}
 
@@ -142,7 +142,7 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 ---
 
-[<- 返回 API 列表](_index.md) | [模块文档 ->](../modules/{MODULE_NAME}.md)
+[<- 返回文档地图](../doc-map.md)
 ```
 
 ---

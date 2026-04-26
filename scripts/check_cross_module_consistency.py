@@ -119,12 +119,14 @@ def check_interface_coverage(wiki_dir: Path, module_analysis: Dict) -> List[Dict
             if not target_module or not interfaces:
                 continue
 
-            # 查找目标模块的文档文件
+            # 查找目标模块的文档文件。新结构中每个模块只对应一个学习页面，
+            # API、核心逻辑和风险说明都并入同一页。
             target_mod_name = Path(target_module).name
-            # 优先查找 modules/ 目录，其次 api/ 目录
-            target_doc = wiki_dir / "wiki" / "modules" / f"{target_mod_name}.md"
-            if not target_doc.exists():
-                target_doc = wiki_dir / "wiki" / "api" / f"{target_mod_name}.md"
+            candidates = [
+                wiki_dir / "wiki" / "capabilities" / f"{target_mod_name}.md",
+                wiki_dir / "wiki" / "internals" / f"{target_mod_name}.md",
+            ]
+            target_doc = next((path for path in candidates if path.exists()), candidates[0])
 
             if target_doc.exists():
                 documented = extract_documented_interfaces(target_doc)

@@ -34,4 +34,8 @@ class TestPlanDocTopology:
         topology = json.loads(topology_path.read_text(encoding="utf-8"))
         generation_plan = json.loads(plan_path.read_text(encoding="utf-8"))
         assert any(page["id"] == "overview" for page in topology["pages"])
+        page_titles = {page["id"]: page["title"] for page in topology["pages"]}
+        assert page_titles["overview"] == "项目概览"
+        assert page_titles["getting-started"] == "快速开始"
+        assert page_titles["doc-map"] == "文档地图"
         assert any(page["page_id"] == "overview" for page in generation_plan["pages"])

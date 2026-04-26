@@ -310,9 +310,9 @@ class TestDetectChanges:
             "recompile_all": False,
             "pages": [
                 {
-                    "page_id": "module:core",
+                    "page_id": "capability:core",
                     "affected_modules": ["src"],
-                    "output_path": "wiki/modules/core.md",
+                    "output_path": "wiki/capabilities/core.md",
                 },
                 {
                     "page_id": "overview",
@@ -330,7 +330,7 @@ class TestDetectChanges:
         (fake_python_project / "src" / "main.py").write_text("# changed\n", encoding="utf-8")
 
         result = detect_changes.detect_changes(str(fake_python_project))
-        assert result["affected_pages"] == ["module:core"]
+        assert result["affected_pages"] == ["capability:core"]
         assert result["recompile_all"] is False
 
 
@@ -358,12 +358,12 @@ class TestUpdateChecksumsCache:
         cache_dir = tmp_path / ".deepwiki" / "cache"
         cache_dir.mkdir(parents=True)
         current = {"src/a.py": "abcd1234efgh5678"}
-        doc_mapping = {"src/a.py": "wiki/modules/a.md"}
+        doc_mapping = {"src/a.py": "wiki/capabilities/a.md"}
         detect_changes.update_checksums_cache(str(tmp_path), current, doc_mapping)
 
         loaded = json.loads((cache_dir / "checksums.json").read_text(encoding="utf-8"))
         checksums = loaded.get("checksums", loaded)
-        assert checksums["src/a.py"]["doc"] == "wiki/modules/a.md"
+        assert checksums["src/a.py"]["doc"] == "wiki/capabilities/a.md"
 
     def test_creates_directory(self, tmp_path):
         """Cache directory is created if it does not exist."""

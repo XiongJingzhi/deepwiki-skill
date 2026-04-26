@@ -60,7 +60,7 @@
       "properties": {
         "title": {
           "type": "string",
-          "description": "Group display label (e.g., '概览', '模块文档', '更多')"
+          "description": "Group display label (e.g., '概览', '理解项目', '能力导览', '内部实现', '参考资料', '更多')"
         },
         "items": {
           "type": "array",
@@ -80,7 +80,7 @@
         },
         "path": {
           "type": "string",
-          "description": "Relative path from wiki/ directory (e.g., 'modules/core.md')"
+          "description": "Relative path from wiki/ directory (e.g., 'capabilities/core.md')"
         },
         "planned": {
           "type": "boolean",
@@ -89,7 +89,7 @@
         },
         "items": {
           "type": "array",
-          "description": "Nested items for module groups (e.g., API docs paired with module docs)",
+          "description": "Nested items for rare explicit submenu groups. Default DeepWiki pages should be one menu item per Markdown file.",
           "items": {
             "$ref": "#/definitions/MenuItem"
           }

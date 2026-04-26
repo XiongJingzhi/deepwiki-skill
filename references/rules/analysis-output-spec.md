@@ -118,7 +118,7 @@
 | `pages[].output_path` | 目标文档路径（如 `wiki/overview.md`） |
 | `pages[].depends_on` | 上游页面或缓存依赖 |
 | `reading_order` | 推荐阅读顺序 |
-| `groupings` | 页面分组，如 `overview` / `runtime` / `state` / `modules` / `api` |
+| `groupings` | 页面分组，如 `overview` / `concepts` / `capabilities` / `internals` / `reference` |
 
 ### 字段语义
 
@@ -130,7 +130,7 @@
 ### 降级策略
 
 - 若 `doc-topology.json` 不存在，`generate-menu` 和文档生成可退回骨架分组 + 磁盘扫描
-- 若内容不完整，至少保留 overview / getting-started / doc-map / modules / api 的基础页面集合
+- 若内容不完整，至少保留 overview / getting-started / doc-map / concepts / capabilities 或 internals 的基础页面集合
 
 ---
 

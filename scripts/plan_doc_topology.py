@@ -8,9 +8,10 @@
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from common import CACHE_SCHEMA_VERSION, cache_dir, cache_path, validate_cache_version
 
@@ -25,12 +26,52 @@ def _load_cache(path: Path) -> Dict[str, Any]:
     return data
 
 
-def _build_pages(structure: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _slug(value: str) -> str:
+    """Create a stable, readable file stem for generated wiki paths."""
+    slug = re.sub(r"[^0-9A-Za-z\u4e00-\u9fff_-]+", "-", value.strip())
+    slug = re.sub(r"-+", "-", slug).strip("-_")
+    return slug or "topic"
+
+
+def _module_analysis_map(module_analysis: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    modules = module_analysis.get("modules", {}) if isinstance(module_analysis, dict) else {}
+    if isinstance(modules, dict):
+        return {str(name): data for name, data in modules.items() if isinstance(data, dict)}
+    if isinstance(modules, list):
+        result: Dict[str, Dict[str, Any]] = {}
+        for item in modules:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("name") or Path(item.get("module_path", "")).name
+            if key:
+                result[str(key)] = item
+        return result
+    return {}
+
+
+def _page_bucket(module_name: str, analysis: Dict[str, Any]) -> Tuple[str, str, str]:
+    """Return (page_type, group_key, path_prefix) for a source module."""
+    purpose = analysis.get("code_purpose", "")
+    infrastructure_purposes = {"Dao", "Model", "Config", "Database", "Util", "Widget", "Other"}
+    if purpose in infrastructure_purposes:
+        return "internal", "internals", "internals"
+    return "capability", "capabilities", "capabilities"
+
+
+def _module_title(module_name: str, analysis: Dict[str, Any]) -> str:
+    semantic_group = str(analysis.get("semantic_group", "")).strip()
+    if semantic_group and semantic_group.lower() not in {"unknown", "other"}:
+        return semantic_group
+    return module_name
+
+
+def _build_pages(structure: Dict[str, Any], module_analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    analysis_by_module = _module_analysis_map(module_analysis)
     pages: List[Dict[str, Any]] = [
         {
             "id": "overview",
             "type": "overview",
-            "title": "Overview",
+            "title": "项目概览",
             "output_path": "wiki/overview.md",
             "source_modules": [],
             "depends_on": ["structure.json", "code-structure.json"],
@@ -38,7 +79,7 @@ def _build_pages(structure: Dict[str, Any]) -> List[Dict[str, Any]]:
         {
             "id": "getting-started",
             "type": "guide",
-            "title": "Getting Started",
+            "title": "快速开始",
             "output_path": "wiki/getting-started.md",
             "source_modules": [],
             "depends_on": ["structure.json"],
@@ -46,10 +87,34 @@ def _build_pages(structure: Dict[str, Any]) -> List[Dict[str, Any]]:
         {
             "id": "doc-map",
             "type": "map",
-            "title": "Doc Map",
+            "title": "文档地图",
             "output_path": "wiki/doc-map.md",
             "source_modules": [],
             "depends_on": ["doc-topology.json", "generation-plan.json"],
+        },
+        {
+            "id": "concept:architecture",
+            "type": "concept",
+            "title": "架构与设计视角",
+            "output_path": "wiki/concepts/architecture.md",
+            "source_modules": [],
+            "depends_on": ["structure.json", "code-structure.json", "architecture-skeleton.json"],
+        },
+        {
+            "id": "concept:development-guide",
+            "type": "concept",
+            "title": "继续开发指南",
+            "output_path": "wiki/concepts/development-guide.md",
+            "source_modules": [],
+            "depends_on": ["module-analysis.json", "evidence-index.json"],
+        },
+        {
+            "id": "reference:api-surface",
+            "type": "reference",
+            "title": "接口与配置索引",
+            "output_path": "wiki/reference/api-surface.md",
+            "source_modules": [],
+            "depends_on": ["module-analysis.json"],
         },
     ]
 
@@ -58,21 +123,18 @@ def _build_pages(structure: Dict[str, Any]) -> List[Dict[str, Any]]:
         module_path = module.get("path", module_name or "")
         if not module_name:
             continue
+        analysis = analysis_by_module.get(module_name, {})
+        page_type, _, prefix = _page_bucket(module_name, analysis)
+        title = _module_title(module_name, analysis)
+        page_id = f"{page_type}:{module_name}"
         pages.append({
-            "id": f"module:{module_name}",
-            "type": "module",
-            "title": module_name,
-            "output_path": f"wiki/modules/{module_name}.md",
+            "id": page_id,
+            "type": page_type,
+            "title": title,
+            "output_path": f"wiki/{prefix}/{_slug(module_name)}.md",
             "source_modules": [module_path],
             "depends_on": ["module-analysis.json", "code-structure.json"],
-        })
-        pages.append({
-            "id": f"api:{module_name}",
-            "type": "api",
-            "title": f"{module_name} API",
-            "output_path": f"wiki/api/{module_name}.md",
-            "source_modules": [module_path],
-            "depends_on": ["module-analysis.json"],
+            "source_view": "top-down + bottom-up + feynman",
         })
     return pages
 
@@ -82,11 +144,12 @@ def plan_doc_topology(project_root: Path) -> Dict[str, Any]:
     root = Path(project_root)
     structure = _load_cache(cache_path(root, "structure.json"))
     code_structure = _load_cache(cache_path(root, "code-structure.json"))
+    module_analysis = _load_cache(cache_path(root, "module-analysis.json"))
 
     if not structure:
         raise FileNotFoundError(f"structure.json not found: {cache_path(root, 'structure.json')}")
 
-    pages = _build_pages(structure)
+    pages = _build_pages(structure, module_analysis)
     generated_at = datetime.now(timezone.utc).isoformat()
 
     doc_topology = {
@@ -97,8 +160,10 @@ def plan_doc_topology(project_root: Path) -> Dict[str, Any]:
         "reading_order": [page["id"] for page in pages],
         "groupings": {
             "overview": ["overview", "getting-started", "doc-map"],
-            "modules": [page["id"] for page in pages if page["type"] == "module"],
-            "api": [page["id"] for page in pages if page["type"] == "api"],
+            "concepts": [page["id"] for page in pages if page["type"] == "concept"],
+            "capabilities": [page["id"] for page in pages if page["type"] == "capability"],
+            "internals": [page["id"] for page in pages if page["type"] == "internal"],
+            "reference": [page["id"] for page in pages if page["type"] == "reference"],
         },
         "sources": {
             "structure": "structure.json",

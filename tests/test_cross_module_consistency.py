@@ -10,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 def _deepwiki(tmp_path: Path) -> Path:
     deepwiki = tmp_path / ".deepwiki"
     (deepwiki / "cache").mkdir(parents=True)
-    (deepwiki / "wiki" / "modules").mkdir(parents=True)
+    (deepwiki / "wiki" / "capabilities").mkdir(parents=True)
+    (deepwiki / "wiki" / "internals").mkdir(parents=True)
     return deepwiki
 
 
@@ -37,7 +38,7 @@ def test_reports_missing_imported_interface(tmp_path):
         ),
         encoding="utf-8",
     )
-    (deepwiki / "wiki" / "modules" / "users.md").write_text(
+    (deepwiki / "wiki" / "capabilities" / "users.md").write_text(
         "# Users\n\nDocuments `create_user` only.\n",
         encoding="utf-8",
     )
@@ -90,4 +91,3 @@ def test_reports_bidirectional_cross_section_dependency(tmp_path):
         issue["type"] == "bidirectional_cross_section"
         for issue in result["infos"]
     )
-

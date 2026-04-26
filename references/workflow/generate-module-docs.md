@@ -9,7 +9,7 @@
 |----|-----|
 | **脚本** | `python scripts/generate_menu.py ... --reconcile`、`finalize.py mermaid`、`finalize.py quality`、`finalize.py consistency` |
 | **输入** | `cache/module-analysis.json`、`cache/evidence-index.json`、`wiki/menu.json`、项目上下文摘要、依赖综合摘要 |
-| **输出** | `wiki/modules/*.md`、`wiki/api/*.md`、`wiki/menu.json`（校验后） |
+| **输出** | `wiki/capabilities/*.md`、`wiki/internals/*.md`、`wiki/reference/*.md`、`wiki/menu.json`（校验后） |
 | **前置** | `generate-overview`、初始 `generate-menu` |
 | **后置** | 完成 |
 | **生成规则** | 见 `../generation/module-page.md`、`../generation/api-page.md` |
@@ -33,7 +33,7 @@
 >
 > generate-module-docs 阶段适用以下特定规则：
 > - **排序依据**：按模块优先级排序（见上方优先级表格）
-> - **并行粒度**：每个 subagent 负责一个模块的 `modules/<name>.md` + `api/<name>.md`（同一模块的文档必须一起生成，保证交叉引用一致性）
+> - **并行粒度**：每个 subagent 负责一个页面计划项；同一模块的核心逻辑、公开接口、流程、风险和扩展点必须写入同一个 Markdown 文件，除非 `doc-topology.json` 明确规划为多个子菜单页面。
 > - **progress.json 字段**：`phases.details`
 > - **降级触发条件**：subagent 启动失败、subagent 输出质量不达标（生成的文档缺少源码追溯或章节数不足）、或运行环境不提供 subagent 能力
 >
@@ -99,7 +99,7 @@ flowchart LR
 
 > **降级说明**：若 `cache/module-analysis.json` 不存在，或当前模块的条目缺失，降级为重新读取该模块的源码文件进行分析，再生成文档。
 
-模板参考：`../generation/module-page.md` → 模块 / API 参考。
+模板参考：`../generation/module-page.md`。API、配置和 Schema 只作为页面内组件或 `reference/` 索引页生成，不再默认拆成独立模块 API 页。
 
 ## 保存与 meta.json 更新
 

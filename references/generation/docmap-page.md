@@ -47,7 +47,7 @@
 | agent-project | Agent 架构 | 工具注册 | 记忆系统 |
 | cli-tool | 命令速查 | 插件开发 | 配置详解 |
 | ml-project | 环境搭建 | 训练流程 | 推理部署 |
-| sdk-library | 快速上手 | API 参考 | 高级用法 |
+| sdk-library | 快速上手 | 接口与配置索引 | 高级用法 |
 | spa-frontend | 页面路由 | 状态管理 | API 集成 |
 | monorepo | 工作区结构 | 核心包文档 | 跨包开发 |
 | data-pipeline | 数据源配置 | 流水线构建 | 监控告警 |
@@ -105,8 +105,8 @@
       "id": "auth",
       "title": "认证与鉴权",
       "items": [
-        { "id": "auth-core",    "title": "认证核心",   "path": "modules/auth.md" },
-        { "id": "permissions",  "title": "权限模型",   "path": "modules/permissions.md" }
+        { "id": "auth-core",    "title": "认证核心逻辑",   "path": "capabilities/auth.md" },
+        { "id": "permissions",  "title": "权限模型核心逻辑",   "path": "capabilities/permissions.md" }
       ]
     },
     {
@@ -135,10 +135,10 @@
 
 ### AI 生成菜单 5 条规则
 
-1. **按读者旅程排序**：首区块"概览"→ 核心业务模块 → 周边模块 → 尾区块"贡献指南"
+1. **按读者旅程排序**：首区块"概览"→ "理解项目"→ "能力导览"→ "内部实现"→ "参考资料"→ 尾区块"贡献指南"
 2. **语义命名**：`title` 面向读者（"认证与鉴权"），不使用路径（"src/auth"）或 CodePurpose 枚举（"Service"）
 3. **层级不超过 3 级**：`sections > items`（最多再加一层 `sub-items`），避免深层嵌套
-4. **首区块固定**：Overview 区块始终最前。尾区块（贡献指南）仅当项目包含 CONTRIBUTING.md 或类似文件时添加，不应强制生成。
+4. **首区块固定**：概览区块始终最前。尾区块（贡献指南）仅当项目包含 CONTRIBUTING.md 或类似文件时添加，不应强制生成。
 5. **增量占位**：增量更新时已知但未生成的文档，添加 `"planned": true`，不留空条目
 
 ---

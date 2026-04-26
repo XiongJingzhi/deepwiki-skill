@@ -24,9 +24,11 @@
 | `wiki/overview.md` | 项目概览文档，含项目定位、技术栈、系统架构图、模块列表（`generate-overview` 生成） |
 | `wiki/getting-started.md` | 快速开始文档，含前置条件、安装步骤、第一个示例、常见问题 |
 | `wiki/doc-map.md` | 文档关系图、阅读路径、依赖矩阵（`generate-menu` 生成） |
-| `wiki/menu.json` | 层级化导航菜单（概览 → 模块 → 更多），自动由 `generate_menu.py` 生成 |
-| `wiki/modules/` | 每个项目模块一个文件，含深度分析 |
-| `wiki/api/` | 每个模块的 API 参考，含签名、类型和示例 |
+| `wiki/menu.json` | 层级化导航菜单（概览 → 理解项目 → 能力导览 → 内部实现 → 参考资料 / 更多），自动由 `generate_menu.py` 生成 |
+| `wiki/concepts/` | 自上而下的理解材料：架构、设计思路、关键概念、继续开发心智模型 |
+| `wiki/capabilities/` | 面向读者任务和系统能力的源码学习页；每页整合流程、核心逻辑、接口、风险和扩展点 |
+| `wiki/internals/` | 内部实现与技术支撑页：基础设施、工具、数据访问、配置、适配器等 |
+| `wiki/reference/` | 查阅型资料：接口索引、配置索引、Schema、术语表等 |
 
 ## 缓存契约索引
 

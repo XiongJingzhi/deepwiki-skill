@@ -169,8 +169,10 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
             ".deepwiki",
             ".deepwiki/cache",
             ".deepwiki/wiki",
-            ".deepwiki/wiki/modules",
-            ".deepwiki/wiki/api",
+            ".deepwiki/wiki/concepts",
+            ".deepwiki/wiki/capabilities",
+            ".deepwiki/wiki/internals",
+            ".deepwiki/wiki/reference",
             ".deepwiki/wiki/assets",
         ]
 

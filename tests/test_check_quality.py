@@ -535,7 +535,7 @@ class TestBuildEvidenceIndex:
         result = build_evidence_index.build_evidence_index(tmp_path)
         claims = result["claims"]
         assert claims
-        assert claims[0]["page_id"] == "module:auth"
+        assert claims[0]["page_id"] == "capability:auth"
         assert claims[0]["evidence"]
         assert (cache / "evidence-index.json").exists()
 

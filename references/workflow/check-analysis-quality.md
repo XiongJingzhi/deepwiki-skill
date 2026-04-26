@@ -140,6 +140,6 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 | 检查点 | 执行阶段 | 检查对象 | 目的 |
 |--------|---------|---------|------|
 | check-analysis-quality（分析质量门控） | extract-docs 之后 | `module-analysis.json` | 确保生成输入质量，前置拦截 |
-| generate-module-docs 质量检查阶段 | generate-module-docs 之后 | `wiki/modules/*.md` 等 | 确保生成输出质量，收尾检查 |
+| generate-module-docs 质量检查阶段 | generate-module-docs 之后 | `wiki/capabilities/*.md`、`wiki/internals/*.md`、`wiki/reference/*.md` 等 | 确保生成输出质量，收尾检查 |
 
 两者互补：前置门控减少generate-module-docs 收尾质检发现问题的概率；generate-module-docs 收尾质检作为最终安全网。

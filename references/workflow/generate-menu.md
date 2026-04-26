@@ -101,7 +101,8 @@ Python 脚本已自动按 `doc-topology.json`、依赖聚类和 `semantic_group`
 ### 固定首尾区块
 
 所有菜单必须包含：
-- **首区块**：项目概览（Overview / 入门），指向 `overview.md`、`doc-map.md`
+- **首区块**：概览，指向 `overview.md`、`getting-started.md`、`doc-map.md`
+- **核心区块**：能力导览与内部实现，承载 `capabilities/*.md` 与 `internals/*.md`。每个菜单项默认对应一个 Markdown 文件，页面内整合核心逻辑、接口、流程、风险和扩展点
 - **尾区块**：贡献与扩展（Contributing），指向贡献指南或扩展接口文档
 
 ---

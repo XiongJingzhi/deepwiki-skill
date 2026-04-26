@@ -28,7 +28,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 - `extract-docs` 在增量模式下读取 `detect-changes` 结果；全量模式可跳过独立变更检测。
 - `validate-analysis` 封装 `check-analysis-quality` 与 `build-evidence-index`，通过后生成 `evidence-index.json`。
 - `generate-overview` 复用 `synthesize-deps` 的依赖综合规则，并负责全局阅读路径。
-- 初始 `generate-menu` 在模块文档前生成 `menu.json` / `doc-map.md`；`generate-module-docs` 结束后再运行 `generate-menu --reconcile`、`finalize quality`、`check-cross-module-consistency` 收尾。
+- 初始 `generate-menu` 在核心逻辑文档前生成 `menu.json` / `doc-map.md`；`generate-module-docs` 结束后再运行 `generate-menu --reconcile`、`finalize quality`、`check-cross-module-consistency` 收尾。
 - **fail（exit≠0）**：增量补充分析 → 重跑 `validate-analysis`
 
 **快捷路径：**
@@ -93,12 +93,10 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
     ├── getting-started.md
     ├── doc-map.md
     ├── menu.json
-    ├── modules/
-    │   ├── _index.md
-    │   └── <module-name>.md
-    └── api/
-        ├── _index.md
-        └── <module-name>.md
+    ├── concepts/         # 理解项目：架构、设计思路、继续开发心智模型
+    ├── capabilities/     # 能力导览：面向读者任务的源码学习页
+    ├── internals/        # 内部实现：基础设施、工具、数据访问等技术模块
+    └── reference/        # 参考资料：接口、配置、Schema、索引型资料
 ```
 
 > 所有输出文件的完整用途说明见 [`references/system-reference.md`](references/system-reference.md)。

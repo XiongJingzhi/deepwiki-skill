@@ -45,10 +45,10 @@
 
 ## 交叉链接要求
 
-- 模块文档必须链接到：架构位置、API 参考、依赖模块。
-- API 文档必须链接到：父模块文档、使用示例、相关类型定义。
-- overview.md 必须链接到：所有模块文档和文档地图。
-- overview.md 必须链接到：架构文档、快速开始和所有模块文档。
+- 能力页/内部实现页必须链接到：架构位置、相关能力或内部实现、参考索引。
+- 参考资料页必须链接到：相关能力页/内部实现页、使用示例、相关类型定义。
+- overview.md 必须链接到：核心能力页、内部实现入口和文档地图。
+- overview.md 必须链接到：架构文档、快速开始和继续开发指南。
 
 ## 质量等级
 
@@ -168,9 +168,19 @@ Professional 级文档建议包含置信度标注（>= 3 个），每个标注 +
 | `overview` | 模块概述 | P0 |
 | `api-table` | 接口总览 | P0 |
 | `nav-links` | 导航链接 | P0 |
+| `architecture-fit` | 架构定位与职责边界 | P1 |
+| `design-rationale` | 设计思路与替代方案 | P1 |
+| `internal-structure` | 内部结构与职责分工 | P1 |
+| `execution-flow` | 模块主执行流程 | P1 |
+| `data-flow` | 数据输入、转换与输出 | P1 |
 | `sequence-diagram` | 时序图 | P1 |
-| `code-walkthrough` | 核心代码讲解 | P1 |
+| `code-walkthrough` | 核心逻辑：精简源码、注释源码与逐段解释 | P1 |
 | `architecture-diagram` | 架构图 | P1 |
+| `design-patterns` | 设计模式与代码证据 | P2 |
+| `performance-tradeoffs` | 性能取舍与瓶颈分析 | P2 |
+| `tradeoff-analysis` | 综合取舍分析 | P2 |
+| `side-effects` | 外部副作用 | P2 |
+| `invariants` | 不变量与边界约束 | P2 |
 | `class-diagram` | 类图 | P2 |
 | `state-diagram` | 状态图 | P2 |
 | `dependency-diagram` | 依赖图 | P2 |

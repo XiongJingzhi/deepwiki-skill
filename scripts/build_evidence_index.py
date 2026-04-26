@@ -38,6 +38,11 @@ def _evidence_for_module(module: Dict[str, Any]) -> List[Dict[str, Any]]:
     return evidence
 
 
+def _page_prefix_for_module(module: Dict[str, Any]) -> str:
+    infrastructure_purposes = {"Dao", "Model", "Config", "Database", "Util", "Widget", "Other"}
+    return "internal" if module.get("code_purpose") in infrastructure_purposes else "capability"
+
+
 def build_evidence_index(project_root: Path) -> Dict[str, Any]:
     """Build and write cache/evidence-index.json."""
     root = Path(project_root)
@@ -53,9 +58,10 @@ def build_evidence_index(project_root: Path) -> Dict[str, Any]:
             text = module.get(field)
             if not text:
                 continue
+            page_prefix = _page_prefix_for_module(module)
             claims.append({
-                "claim_id": f"module:{mod_name}:{field}",
-                "page_id": f"module:{mod_name}",
+                "claim_id": f"{page_prefix}:{mod_name}:{field}",
+                "page_id": f"{page_prefix}:{mod_name}",
                 "claim_text": text,
                 "evidence": evidence,
                 "confidence": "high" if evidence else "low",

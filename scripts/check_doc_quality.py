@@ -522,10 +522,14 @@ def _page_id_for_doc(md_file: Path, wiki_dir: Path) -> str:
         return "getting-started"
     if rel == "doc-map.md":
         return "doc-map"
-    if rel.startswith("modules/"):
-        return f"module:{stem}"
-    if rel.startswith("api/"):
-        return f"api:{stem}"
+    if rel.startswith("capabilities/"):
+        return f"capability:{stem}"
+    if rel.startswith("internals/"):
+        return f"internal:{stem}"
+    if rel.startswith("concepts/"):
+        return f"concept:{stem}"
+    if rel.startswith("reference/"):
+        return f"reference:{stem}"
     return stem
 
 

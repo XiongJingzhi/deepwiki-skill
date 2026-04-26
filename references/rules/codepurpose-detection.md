@@ -124,8 +124,18 @@
 
 | 条件 | 添加组件 |
 |------|----------|
+| 核心模块、跨层依赖或被 2+ 模块依赖 | `architecture-fit` |
+| `key_insights` 非空或复杂度 >= 30 | `design-rationale` |
+| 检测到设计模式/框架模式 | `design-patterns` |
+| 文件数 >= 2、公开接口 >= 3 或存在多个内部协作者 | `internal-structure` |
+| 存在入口、handler、command、job、worker 或调用链深度 >= 2 | `execution-flow` |
+| 处理 DTO/schema/payload/state/event/record 或持久化数据 | `data-flow` |
+| 存在数据库/文件/网络/缓存/事件/日志/环境变量写入 | `side-effects` |
+| 存在状态、校验、事务、权限、缓存一致性或风险点 | `invariants` |
 | 有类定义 | `class-diagram` |
 | 复杂度 >= 50 | `code-walkthrough`（如未包含） |
+| 存在 IO、缓存、批处理、并发或复杂度 >= 50 | `performance-tradeoffs` |
+| `risk_points` 或 `extension_points` 非空 | `tradeoff-analysis` |
 | 依赖数 >= 2 | `dependency-diagram` |
 | 有状态管理 | `state-diagram` |
 | 有错误定义 | `error-table` |

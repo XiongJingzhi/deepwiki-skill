@@ -146,4 +146,4 @@ Monorepo 项目中，跨包引用会额外标注 `cross_package: true`。
 
 - `overview.md`（generate-overview）的"模块依赖图"章节（Mermaid `flowchart LR`）
 - `doc-map.md`（generate-menu）的"依赖矩阵"章节
-- 各模块 `modules/<name>.md`（generate-module-docs）的"依赖关系"章节
+- 各能力页或内部实现页（`capabilities/<name>.md` / `internals/<name>.md`）的"依赖关系"章节
