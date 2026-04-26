@@ -22,7 +22,7 @@
 
 | 优先级 | 组件 |
 |:------:|------|
-| **P0**（必需） | Relevant source files（固定顶部）, overview（Test/极轻量占位除外）, nav-links, sources（固定末尾，Test 可豁免） |
+| **P0**（必需） | `relevant-source-files`（固定顶部）, overview（Test/极轻量占位除外）, nav-links, `sources`（固定末尾，Test 可豁免） |
 | **P0-条件** | api-table（有公开接口/导出时必需；纯配置或内部文件可降级） |
 | **P1**（高） | architecture-fit（核心模块、跨层依赖、Entry/Service/Api/Agent 必需或强推荐）, design-rationale（有 key_insights、风险点、扩展点、复杂逻辑时要求）, internal-structure（多文件、多类、多函数协作时要求）, execution-flow（有入口、handler、command 时要求）, data-flow（有 DTO、状态、持久化时要求）, sequence-diagram（有跨组件时序交互时要求）, code-walkthrough（Agent/Service/Api/Command 或核心执行路径必需；轻量 Util/Config 可选）, architecture-diagram |
 | **P2**（中） | design-patterns, performance-tradeoffs, tradeoff-analysis, side-effects, invariants, class-diagram, state-diagram, dependency-diagram, er-diagram, decision-table, code-example |

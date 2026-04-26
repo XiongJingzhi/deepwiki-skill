@@ -8,6 +8,18 @@ components:
   # P0 级组件（必需）
   # ═══════════════════════════════════════════════════════
 
+  relevant-source-files:
+    purpose: 页面顶部折叠区块，列出本页最相关的 3-10 个源码文件及行号范围
+    format: 树形列表（details 折叠），每项包含 file:// 链接、行号范围和相关原因
+    trigger: 必需
+    fallback: 无
+    position: 页面顶部，标题之后第一个区块
+    required_context:
+      - 模块核心文件列表
+      - public_interfaces 的 line/end_line
+      - core_source_ranges
+      - parse-results.json / code-structure.json.definitions
+
   sources:
     purpose: 页面末尾汇总本页实际引用过的所有源码文件和行号范围，方便读者最后统一核对
     format: 按文件分组的源码引用列表，每项包含 file:// 链接和行号范围

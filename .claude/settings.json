@@ -1,7 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(read link *)",
+      "Bash(grep -oP '\\(?<=`\\)\\([\\\\w-]+\\)\\(?=`\\)' references/rules/components-guide.md)",
+      "Bash(grep -E '\\(^\\\\| [`]|[|] `|`--|`  \\)' references/rules/components-guide.md)",
+      "Bash(grep -oP '`\\([\\\\w-]+\\)`')",
+      "Bash(grep -vP '^\\(agent-project|ml-project|cli-tool|sdk-library|monorepo|web-service|fullstack-framework|spa-frontend|generic\\)$')",
+      "Bash(grep -vP '^\\(agent-project|ml-project|cli-tool|sdk-library|monorepo|web-service|fullstack-framework|spa-frontend|generic|codepurpose-detection|components-registry|data-pipeline\\)$')",
+      "Bash(grep -oP '`[a-z][-a-z]+`' SKILL.md)",
+      "Bash(grep -n '`overview`' references/rules/components-guide.md)",
+      "Bash(grep -n '`sources`' references/rules/components-guide.md)",
+      "Bash(grep -n '`invariants`' references/rules/components-guide.md)",
+      "Bash(python3 -c ' *)",
+      "Bash(grep -v '^$')",
+      "Bash(xxd)"
     ]
   }
 }

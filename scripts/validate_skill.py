@@ -33,6 +33,7 @@ REQUIRED_CLI_COMMANDS = [
     "validate-analysis",
     "build-evidence-index",
     "quality",
+    "serve",
     "self-check",
 ]
 

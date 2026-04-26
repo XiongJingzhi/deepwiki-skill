@@ -35,6 +35,7 @@ exclude:
   - venv
   - .venv
   - env
+  - .env
   - eggs
   - .eggs
   - "*.egg-info"

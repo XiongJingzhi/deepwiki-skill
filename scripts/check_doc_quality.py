@@ -528,10 +528,6 @@ def generate_issues(m: QualityMetrics, structure_path: str = None) -> List[str]:
     return issues
 
 
-def _page_id_for_doc(md_file: Path, wiki_dir: Path) -> str:
-    return _page_ids_for_doc(md_file, wiki_dir)[0]
-
-
 def _page_ids_for_doc(md_file: Path, wiki_dir: Path) -> List[str]:
     rel = md_file.relative_to(wiki_dir).as_posix()
     stem = md_file.stem

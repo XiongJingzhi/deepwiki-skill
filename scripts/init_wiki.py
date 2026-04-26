@@ -26,11 +26,12 @@ generation:
   link_to_source: true           # 代码块链接到源码
   max_file_size: 100000          # 跳过大于此大小的文件（字节）
 
-# 排除规则（涵盖所有支持语言的依赖目录与构建产物）
+# 排除规则（涵盖所有支持语言的依赖目录与构建产物，可在末尾追加项目特有规则）
 exclude:
   # 通用
   - .git
   - .deepwiki
+  - .agents
 
   # JavaScript / TypeScript / Node.js
   - node_modules          # npm / yarn / pnpm / bun 依赖
@@ -72,9 +73,6 @@ exclude:
   # Java / Kotlin
   - .gradle
   - .gradle-home
-  - build                 # Gradle 构建产物（已含）
-  - out                   # IntelliJ IDEA 输出（已含）
-  - target                # Maven 构建产物（已含）
   - .m2                   # Maven 本地仓库（项目内）
   - classes
   - "*.class"
@@ -89,15 +87,16 @@ exclude:
   - .bundle
   - vendor/bundle         # Bundler 依赖
 
-  # PHP
-  - vendor                # Composer 依赖（已含）
-
   # 通用构建 / 缓存
   - .cache
   - tmp
   - temp
   - logs
   - "*.log"
+
+  # 自定义追加（在此处添加项目特有的排除规则）
+  # - "*.test.ts"
+  # - "*.spec.ts"
 '''
 
 
@@ -109,10 +108,8 @@ def get_default_meta() -> dict:
     """
     return {
         "version": "2.1.0",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "last_updated": None,
-        "files_documented": 0,
-        "modules_count": 0,
         "modules": {}
     }
 

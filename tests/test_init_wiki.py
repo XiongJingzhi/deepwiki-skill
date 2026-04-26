@@ -44,7 +44,7 @@ class TestGetDefaultMeta:
 
     def test_has_required_keys(self):
         meta = init_wiki.get_default_meta()
-        expected_keys = {"version", "created_at", "last_updated", "files_documented", "modules_count", "modules"}
+        expected_keys = {"version", "generated_at", "last_updated", "modules"}
         assert expected_keys == set(meta.keys())
 
 

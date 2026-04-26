@@ -212,6 +212,7 @@ Professional 级文档建议包含置信度标注（>= 3 个），每个标注 +
 | 组件 | 用途 | 优先级 |
 |------|------|:------:|
 | `overview` | 模块概述 | P0 |
+| `relevant-source-files` | 页面顶部源码索引 | P0 |
 | `api-table` | 接口总览 | P0 |
 | `nav-links` | 导航链接 | P0 |
 | `sources` | 页面末尾源码汇总 | P0 |
