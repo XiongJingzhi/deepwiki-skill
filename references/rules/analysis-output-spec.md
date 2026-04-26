@@ -18,7 +18,7 @@
 2. 更新（或新增）对应模块 key 的条目
 3. 写回文件
 
-增量更新时（步骤 4 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。
+增量更新时（detect-changes 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。
 
 ### 写入路径
 
@@ -43,11 +43,51 @@
 | `files[].code_purpose` | 文件级 CodePurpose |
 | `files[].complexity_score` | 来自 structure.json 的复杂度评分 |
 | `files[].summary` | 文件职责一句话概述 |
-| `files[].public_interfaces` | 导出接口列表（名称、类型、签名、行号、描述） |
+| `files[].public_interfaces` | 导出接口列表（名称、类型、签名、起止行号、描述） |
+| `files[].core_source_ranges` | 本文件适合文档讲解的核心源码范围，供 `Relevant source files` 和核心逻辑源码片段引用 |
 | `files[].key_insights` | 2-5 条设计意图说明（解释 WHY，非 WHAT） |
 | `files[].confidence` | 分析置信度（`high` / `medium` / `low`） |
 | `semantic_group` | AI 对该模块的语义主题标注（**自由文字**，如"认证与鉴权"、"消息路由"、"Data Persistence"）——依据代码实际内容命名，不受 CodePurpose 枚举约束；命名面向读者理解，非文件路径。若与骨架建议分组不符，可同时写入 `semantic_group_override: true`，表明此命名来自深度分析；`generate-menu` 优先采用带 override 标记的命名 |
-| `semantic_group_confidence` | 语义分组置信度：`high`=模块有清晰的语义边界 / `low`=职责混杂或 AI 不确定；步骤 8 分组时对 `low` 的条目降低权重，优先以依赖数据为准 |
+| `semantic_group_confidence` | 语义分组置信度：`high`=模块有清晰的语义边界 / `low`=职责混杂或 AI 不确定；generate-module-docs 分组时对 `low` 的条目降低权重，优先以依赖数据为准 |
+
+---
+
+## 源码范围规范
+
+`extract-docs` 写入的源码范围必须使用 1-based 行号：
+
+```json
+{
+  "files": [
+    {
+      "path": "src/auth/service.ts",
+      "public_interfaces": [
+        {
+          "name": "login",
+          "type": "function",
+          "line": 24,
+          "end_line": 88,
+          "description": "认证主流程"
+        }
+      ],
+      "core_source_ranges": [
+        {
+          "label": "认证主流程",
+          "start_line": 24,
+          "end_line": 88,
+          "reason": "覆盖参数校验、token 生成和错误处理"
+        }
+      ]
+    }
+  ]
+}
+```
+
+规则：
+
+- `line` / `start_line` 和 `end_line` 都是闭区间，生成链接时写成 `file:///src/auth/service.ts#L24-L88`。
+- `Relevant source files` 优先使用 `core_source_ranges`，其次使用 `public_interfaces.line/end_line`。
+- 若仅有起始行，允许生成单行链接 `file:///path#L24`，但核心逻辑真实源码片段应尽量提供范围。
 
 ---
 
@@ -115,22 +155,24 @@
 |------|------|
 | `pages` | 页面列表，每项至少包含 `id`、`type`、`title` |
 | `pages[].source_modules` | 该页面覆盖的源码模块或主题集合 |
+| `pages[].source_files` | 该页面最相关源码文件及行范围，供 `Relevant source files` 和源码片段直接使用 |
 | `pages[].output_path` | 目标文档路径（如 `wiki/overview.md`） |
 | `pages[].depends_on` | 上游页面或缓存依赖 |
 | `reading_order` | 推荐阅读顺序 |
-| `groupings` | 页面分组，如 `overview` / `concepts` / `capabilities` / `internals` / `reference` |
+| `groupings` | 页面分组，如 `overview` / `concepts` / `deep-dive` / `reference` |
 
 ### 字段语义
 
 - `pages` 代表文档知识树中的节点，而不是磁盘上已存在的文件
 - `source_modules` 可为空数组，仅用于纯导航或索引页
+- `source_files[].ranges` 应来自 `core_source_ranges` 或 `public_interfaces.line/end_line`，用于生成 `file:///path#Lx-Ly` 链接
 - `depends_on` 允许引用缓存文件 id 或其他页面 id
 - `groupings` 用于 `generate-menu` 构造稳定菜单结构
 
 ### 降级策略
 
 - 若 `doc-topology.json` 不存在，`generate-menu` 和文档生成可退回骨架分组 + 磁盘扫描
-- 若内容不完整，至少保留 overview / getting-started / doc-map / concepts / capabilities 或 internals 的基础页面集合
+- 若内容不完整，至少保留 overview / getting-started / doc-map / concepts / deep-dive 的基础页面集合
 
 ---
 
@@ -152,6 +194,7 @@
 | `pages[].page_id` | 对应 `doc-topology.json` 中的页面 id |
 | `pages[].inputs` | 该页面依赖的缓存文件集合 |
 | `pages[].affected_modules` | 该页面依赖的模块集合 |
+| `pages[].source_files` | 本轮生成该页面必须使用的相关源码文件清单 |
 | `pages[].action` | `create` / `update` / `skip` |
 | `recompile_all` | 是否需要全量重编译 |
 

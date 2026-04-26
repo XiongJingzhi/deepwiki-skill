@@ -9,7 +9,7 @@
 |----|-----|
 | **脚本** | `python scripts/generate_menu.py ... --reconcile`、`finalize.py mermaid`、`finalize.py quality`、`finalize.py consistency` |
 | **输入** | `cache/module-analysis.json`、`cache/evidence-index.json`、`wiki/menu.json`、项目上下文摘要、依赖综合摘要 |
-| **输出** | `wiki/capabilities/*.md`、`wiki/internals/*.md`、`wiki/reference/*.md`、`wiki/menu.json`（校验后） |
+| **输出** | `wiki/deep-dive/*.md`、`wiki/reference/*.md`、`wiki/menu.json`（校验后） |
 | **前置** | `generate-overview`、初始 `generate-menu` |
 | **后置** | 完成 |
 | **生成规则** | 见 `../generation/module-page.md`、`../generation/api-page.md` |
@@ -39,6 +39,16 @@
 >
 > 如果因上下文限制或错误中断，下次运行时自动读取 `cache/progress.json`，跳过已完成模块，从中断处继续。全部完成后输出总结报告：已生成文档总数、质量检查结果、遇到的问题、使用模式（subagent/serial）。
 
+## 多 agent 任务拆分提示
+
+当 `generation-plan.json` 或 `doc-topology.json` 中存在多个独立页面计划项时，可以拆成多个 subagent 并行生成：
+
+- **按页面拆分**：每个 subagent 负责一个 Markdown 文件的完整生成，包括 `Relevant source files`、概述、接口、流程、核心逻辑、风险和相关文档。
+- **按模块拆分**：若一个模块只对应一个页面，则每个 subagent 负责一个模块页面。
+- **按 Basic 文档修复拆分**：质量检查后需要重生成多个 Basic 文档时，每个 subagent 负责一个 Basic 文档的定向修复。
+- **禁止拆分同一页面内部章节**：不要让多个 subagent 分别写同一页面的不同章节，否则容易造成叙事重复、源码引用不一致和文件覆盖冲突。
+- **共享上下文只读**：`module-analysis.json`、`evidence-index.json`、`menu.json`、项目上下文摘要和依赖摘要作为只读输入；每个 subagent 只写自己负责的 Markdown 文件。
+
 ## 失败重试
 
 无论并行还是串行，失败模块的处理策略一致：
@@ -60,7 +70,7 @@
 | 文件超过 `max_file_size` | 生成"概述 + 入口点清单"占位文档 | 记录文件路径、大小、已识别的导出符号，标注"内容过大，需手动补充" |
 | 文件接口信息不足（无导出/无函数） | 生成"概述 + 文件结构"简版文档 | 2-3 段描述文件职责，附文件大小和复杂度信息，跳过接口表格 |
 | Mermaid 图表语法复杂难以生成 | 退化为表格形式的依赖说明 | 用表格替代 `flowchart` 图，在末尾注明"图表因复杂度降级为表格" |
-| 源码链接无法确定行号 | 仅链接到文件，不指定行号 | 使用 `file:///path/to/file.ts` 而非 `#L42` 形式 |
+| 源码链接无法确定行号 | 先从 `code-structure.json.definitions`、`public_interfaces.line/end_line`、`core_source_ranges` 或重新读取源码推导行号；仍无法确定时才退化为文件级链接，并标注需补充 | 文件级链接会触发质量警告，不能作为 Professional 输出 |
 | 模块依赖关系无法推断 | 仅记录静态导入，不推断语义 | 列出文件头部的 import 语句，标注"语义依赖关系待分析" |
 | 文档生成中途中断（大型项目） | 保存已完成部分，记录断点 | 写入 `cache/progress.json`，下次运行自动从断点继续 |
 | subagent 启动失败或输出质量不达标 | 降级为主 Agent 串行处理 | 自动切换到串行模式，进度文件记录 `mode: "serial"` |
@@ -93,11 +103,12 @@ flowchart LR
 |--------|------|------|
 | 项目上下文摘要 | generate-overview 产出 | 理解项目定位和技术栈 |
 | 该模块的导航位置 | `menu.json` | 生成面包屑和前后导航链接 |
-| 该模块的源码分析数据 | `cache/module-analysis.json` 中对应模块的条目（extract-docs 写入） | 直接使用 `public_interfaces`、`selected_components`、`key_insights`，无需重新读取源码 |
+| 该页面的源码文件清单 | `cache/generation-plan.json.pages[].source_files`（由 `plan-doc-topology` 从模块分析中抽取） | 必须直接渲染为页面标题后的 `Relevant source files` 折叠区块；其中 `ranges` 字段用于生成 `file:///path#Lx-Ly` 链接 |
+| 该模块的源码分析数据 | `cache/module-analysis.json` 中对应模块的条目（extract-docs 写入） | 直接使用 `public_interfaces.line/end_line`、`core_source_ranges`、`selected_components`、`key_insights`，生成 `Relevant source files` 和核心逻辑源码范围，无需重新读取源码 |
 | 该模块的依赖关系 | `dependency_hints`、`code-structure.json` 和依赖综合摘要 | 生成依赖关系章节 |
 | 配置要求 | `config.yaml` | 语言、图表开关、源码链接等 |
 
-> **降级说明**：若 `cache/module-analysis.json` 不存在，或当前模块的条目缺失，降级为重新读取该模块的源码文件进行分析，再生成文档。
+> **降级说明**：若 `generation-plan.pages[].source_files` 为空，再从 `cache/module-analysis.json` 当前模块条目补齐；若模块分析也缺失，降级为重新读取该模块的源码文件进行分析。模块页不允许省略 `Relevant source files`。
 
 模板参考：`../generation/module-page.md`。API、配置和 Schema 只作为页面内组件或 `reference/` 索引页生成，不再默认拆成独立模块 API 页。
 

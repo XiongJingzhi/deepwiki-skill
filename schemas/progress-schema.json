@@ -26,7 +26,7 @@
         },
         "analysis": {
           "type": "object",
-          "description": "Step 4 module semantic analysis phase (parallel subagent dispatch)",
+          "description": "extract-docs module semantic analysis phase (parallel subagent dispatch)",
           "properties": {
             "status": {
               "enum": ["pending", "in_progress", "completed"]

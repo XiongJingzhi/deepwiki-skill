@@ -88,7 +88,7 @@ DOC_TYPE_CRITERIA = {
             lambda m: m.class_diagram_count >= 1,
         ],
     },
-    "module": None,  # uses the existing logic (backward compatible)
+    "module": None,
 }
 
 
@@ -105,6 +105,8 @@ class QualityMetrics:
     table_count: int = 0  # 表格数
     cross_link_count: int = 0  # 交叉链接数
     has_source_tracing: bool = False  # 是否有源码追溯
+    has_relevant_source_files: bool = False  # 是否有 Relevant source files 区块
+    source_range_link_count: int = 0  # 带 #Lx-Ly 或 #Lx 的源码范围链接数
     has_best_practices: bool = False  # 是否有最佳实践章节
     has_performance: bool = False  # 是否有性能优化章节
     has_troubleshooting: bool = False  # 是否有错误处理/调试章节
@@ -177,6 +179,12 @@ def analyze_document(file_path: str, structure_path: str = None,
     # 检查源码追溯
     metrics.has_source_tracing = bool(
         re.search(r'\*\*Section sources\*\*|\*\*Diagram sources\*\*|file://', content)
+    )
+    metrics.has_relevant_source_files = bool(
+        re.search(r'Relevant source files|相关源码文件', content, re.IGNORECASE)
+    )
+    metrics.source_range_link_count = len(
+        re.findall(r'file:///[^)\s#]+#L\d+(?:-L\d+)?', content)
     )
 
     # 统计置信度标注
@@ -352,7 +360,7 @@ def evaluate_quality_level(m: QualityMetrics) -> str:
         nice_met = sum(1 for check in criteria["nice"] if check(m))
         nice_total = len(criteria["nice"])
     else:
-        # module 类型：使用原有逻辑（向后兼容）
+        # module 类型：使用通用模块评分逻辑
         must_met = int(m.code_example_count >= 1) + int(m.section_count >= 3)
         must_total = 2
         should_met = int(m.diagram_count >= 1) + int(m.cross_link_count >= 1) + int(m.has_troubleshooting)
@@ -489,6 +497,13 @@ def generate_issues(m: QualityMetrics, structure_path: str = None) -> List[str]:
     if not m.has_source_tracing:
         issues.append("缺少源码追溯 (file:// 链接)")
 
+    doc_type = _infer_doc_type(m.file_path)
+    if doc_type == "module":
+        if not m.has_relevant_source_files:
+            issues.append("缺少 Relevant source files 源码文件区块")
+        if m.source_range_link_count < 1:
+            issues.append("缺少带行号范围的源码链接 (#Lx-Ly)")
+
     if m.source_link_broken_count > 0:
         issues.append(f"失效的源码链接: {m.source_link_broken_count} 个 (有效: {m.source_link_valid_count})")
 
@@ -514,23 +529,25 @@ def generate_issues(m: QualityMetrics, structure_path: str = None) -> List[str]:
 
 
 def _page_id_for_doc(md_file: Path, wiki_dir: Path) -> str:
+    return _page_ids_for_doc(md_file, wiki_dir)[0]
+
+
+def _page_ids_for_doc(md_file: Path, wiki_dir: Path) -> List[str]:
     rel = md_file.relative_to(wiki_dir).as_posix()
     stem = md_file.stem
     if rel == "overview.md":
-        return "overview"
+        return ["overview"]
     if rel == "getting-started.md":
-        return "getting-started"
+        return ["getting-started"]
     if rel == "doc-map.md":
-        return "doc-map"
-    if rel.startswith("capabilities/"):
-        return f"capability:{stem}"
-    if rel.startswith("internals/"):
-        return f"internal:{stem}"
+        return ["doc-map"]
+    if rel.startswith("deep-dive/"):
+        return [f"deep-dive:{stem}"]
     if rel.startswith("concepts/"):
-        return f"concept:{stem}"
+        return [f"concept:{stem}"]
     if rel.startswith("reference/"):
-        return f"reference:{stem}"
-    return stem
+        return [f"reference:{stem}"]
+    return [stem]
 
 
 def _load_evidence_claims(deepwiki_dir: Path) -> Optional[Dict[str, List[Dict[str, object]]]]:
@@ -584,12 +601,18 @@ def check_wiki_quality(wiki_path: str) -> QualityReport:
             project_root=project_root,
         )
         if evidence_claims is not None:
-            page_id = _page_id_for_doc(md_file, wiki_dir)
-            claims = evidence_claims.get(page_id, [])
+            page_ids = _page_ids_for_doc(md_file, wiki_dir)
+            claims = []
+            matched_page_id = page_ids[0]
+            for page_id in page_ids:
+                claims = evidence_claims.get(page_id, [])
+                if claims:
+                    matched_page_id = page_id
+                    break
             if not claims:
-                metrics.issues.append(f"缺少证据索引: {page_id}")
+                metrics.issues.append(f"缺少证据索引: {page_ids[0]}")
             elif any(not claim.get("evidence") for claim in claims):
-                metrics.issues.append(f"证据索引缺少源码证据: {page_id}")
+                metrics.issues.append(f"证据索引缺少源码证据: {matched_page_id}")
         report.docs.append(metrics)
         report.total_docs += 1
         

@@ -26,7 +26,7 @@ def _write_minimal_skill(root: Path, cli_text: str) -> None:
         "scripts/check_dependencies.py",
         "scripts/validate_skill.py",
         "references/system-reference.md",
-        "references/rules/file-role-classification.md",
+        "references/rules/codepurpose-detection.md",
         "references/workflow/validate-analysis.md",
         "references/workflow/build-evidence-index.md",
     ]:

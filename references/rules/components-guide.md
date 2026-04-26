@@ -22,10 +22,11 @@
 
 | 优先级 | 组件 |
 |:------:|------|
-| **P0**（必需） | overview（Test 除外）, api-table（有公开导出时）, nav-links |
-| **P1**（高） | architecture-fit, design-rationale, internal-structure, execution-flow, data-flow, sequence-diagram, code-walkthrough（核心逻辑）, architecture-diagram |
+| **P0**（必需） | Relevant source files（固定顶部）, overview（Test/极轻量占位除外）, nav-links, sources（固定末尾，Test 可豁免） |
+| **P0-条件** | api-table（有公开接口/导出时必需；纯配置或内部文件可降级） |
+| **P1**（高） | architecture-fit（核心模块、跨层依赖、Entry/Service/Api/Agent 必需或强推荐）, design-rationale（有 key_insights、风险点、扩展点、复杂逻辑时要求）, internal-structure（多文件、多类、多函数协作时要求）, execution-flow（有入口、handler、command 时要求）, data-flow（有 DTO、状态、持久化时要求）, sequence-diagram（有跨组件时序交互时要求）, code-walkthrough（Agent/Service/Api/Command 或核心执行路径必需；轻量 Util/Config 可选）, architecture-diagram |
 | **P2**（中） | design-patterns, performance-tradeoffs, tradeoff-analysis, side-effects, invariants, class-diagram, state-diagram, dependency-diagram, er-diagram, decision-table, code-example |
-| **P3**（低） | error-table, file-structure, usage-patterns |
+| **P3**（低） | error-table（有对应证据时要求，不要硬凑）, file-structure, usage-patterns |
 
 ---
 
@@ -35,19 +36,19 @@
 
 | CodePurpose | 默认组件集 | sequence-diagram | code-walkthrough |
 |-------------|-----------|:----------------:|:----------------:|
-| **Entry** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → architecture-diagram → sequence-diagram → code-walkthrough → nav-links | ✅ 必需 | 推荐 |
-| **Agent** | overview → architecture-fit → design-rationale → design-patterns → internal-structure → execution-flow → data-flow → side-effects → invariants → sequence-diagram → code-walkthrough → state-diagram → performance-tradeoffs → nav-links | ✅ 必需 | ✅ 必需 |
-| **Page** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → data-flow → architecture-diagram → api-table → code-walkthrough → performance-tradeoffs → code-example → nav-links | 可选 | 推荐 |
-| **Widget** | overview → architecture-fit → design-rationale → internal-structure → data-flow → api-table → code-walkthrough → performance-tradeoffs → code-example → nav-links | - | 推荐 |
+| **Entry** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → architecture-diagram → sequence-diagram → code-walkthrough → nav-links → sources | ✅ 必需 | 推荐 |
+| **Agent** | overview → architecture-fit → design-rationale → design-patterns → internal-structure → execution-flow → data-flow → side-effects → invariants → sequence-diagram → code-walkthrough → state-diagram → performance-tradeoffs → nav-links → sources | ✅ 必需 | ✅ 必需 |
+| **Page** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → data-flow → architecture-diagram → api-table → code-walkthrough → performance-tradeoffs → code-example → nav-links → sources | 可选 | 推荐 |
+| **Widget** | overview → architecture-fit → design-rationale → internal-structure → data-flow → api-table → code-walkthrough → performance-tradeoffs → code-example → nav-links → sources | - | 推荐 |
 | **Service** | overview → architecture-fit → design-rationale → design-patterns → internal-structure → execution-flow → data-flow → side-effects → invariants → api-table → sequence-diagram → code-walkthrough → performance-tradeoffs → nav-links | ✅ 必需 | ✅ 必需 |
-| **Api** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → data-flow → side-effects → invariants → api-table → sequence-diagram → code-walkthrough → performance-tradeoffs → error-table → nav-links | ✅ 必需 | ✅ 必需 |
-| **Dao** | overview → architecture-fit → design-rationale → internal-structure → data-flow → side-effects → invariants → api-table → code-walkthrough → performance-tradeoffs → nav-links | 可选 | 推荐 |
+| **Api** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → data-flow → side-effects → invariants → api-table → sequence-diagram → code-walkthrough → performance-tradeoffs → error-table → nav-links → sources | ✅ 必需 | ✅ 必需 |
+| **Dao** | overview → architecture-fit → design-rationale → internal-structure → data-flow → side-effects → invariants → api-table → code-walkthrough → performance-tradeoffs → nav-links → sources | 可选 | 推荐 |
 | **Model** | overview → architecture-fit → internal-structure → invariants → class-diagram → api-table → nav-links | - | 可选 |
-| **Config** | overview → design-rationale → invariants → tradeoff-analysis → api-table → nav-links | - | 可选 |
-| **Database** | overview → architecture-fit → design-rationale → internal-structure → data-flow → side-effects → invariants → erDiagram → code-walkthrough → performance-tradeoffs → nav-links | 可选 | 推荐 |
-| **Util** | overview → design-rationale → internal-structure → invariants → api-table → code-walkthrough → code-example → nav-links | - | 推荐 |
-| **Command** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → side-effects → architecture-diagram → api-table → code-walkthrough → performance-tradeoffs → code-example → nav-links | 可选 | ✅ 必需 |
-| **Other** | overview → api-table → nav-links | AI 推荐 | AI 推荐 |
+| **Config** | overview → design-rationale → invariants → tradeoff-analysis → api-table → nav-links → sources | - | 可选 |
+| **Database** | overview → architecture-fit → design-rationale → internal-structure → data-flow → side-effects → invariants → erDiagram → code-walkthrough → performance-tradeoffs → nav-links → sources | 可选 | 推荐 |
+| **Util** | overview → design-rationale → internal-structure → invariants → api-table → code-walkthrough → code-example → nav-links → sources | - | 推荐 |
+| **Command** | overview → architecture-fit → design-rationale → internal-structure → execution-flow → side-effects → architecture-diagram → api-table → code-walkthrough → performance-tradeoffs → code-example → nav-links → sources | 可选 | ✅ 必需 |
+| **Other** | overview → api-table → nav-links → sources | AI 推荐 | AI 推荐 |
 
 > 完整 CodePurpose 类型列表：Entry, Agent, Page, Widget, Service, Api, Dao, Model, Config, Database, Util, Command, Other。详见 [`codepurpose-detection.md`](codepurpose-detection.md)。
 
@@ -125,6 +126,7 @@
 | tradeoff-analysis | 合并到 design-rationale 的取舍小节 |
 | sequence-diagram | 输出流程表格或文字步骤列表 |
 | code-walkthrough | 输出精简伪代码 + 关键函数签名 + 分支说明 |
+| sources | 汇总各章节 Source 链接和 Section sources，按文件去重排列 |
 | architecture-diagram | 输出层次文字列表 |
 | class-diagram | 输出接口表格 |
 | state-diagram | 输出状态转换文字表格 |
@@ -249,7 +251,7 @@
 ### 推荐顺序
 
 ```text
-概述 → 架构定位 → 设计思路 → 设计模式 → 内部结构 → 执行流程 → 数据流 → 副作用/不变量 → 核心逻辑 → 性能权衡 → 风险与扩展点 → 相关文档
+概述 → 架构定位 → 设计思路 → 设计模式 → 内部结构 → 执行流程 → 数据流 → 副作用/不变量 → 核心逻辑 → 性能权衡 → 风险与扩展点 → 相关文档 → Sources
 ```
 
 ---
@@ -307,6 +309,8 @@
 - 片段必须代表主执行路径、关键算法、状态转换、外部接口适配或扩展点。
 - 每个核心逻辑章节先给一段"精简版核心源码"：可用伪代码或裁剪代码概括主路径，帮助读者先建立模型。
 - 精简版之后给"带注释关键源码"：保留真实源码的关键结构，添加中文注释解释关键变量、分支、调用和错误处理。
+- 每段真实源码片段前必须写源码范围：`**Source:** [path](file:///path#Lx-Ly) \`Lx-Ly\``。
+- 代码块内容必须对应 Source 链接的行范围，不允许只贴代码不标注来源。
 - 允许为讲解添加中文注释，但不得改变源码语义；省略非关键代码时用 `// ...` 或 `# ...` 明确标注。
 - 代码块后必须包含逐段讲解表：| 片段 | 做什么 | 为什么这样做 | 关键变量/调用 | 风险 |
 - 对轻量模块没有足够源码可讲时，输出"实现要点"列表，但仍应给出最小函数签名或伪代码。

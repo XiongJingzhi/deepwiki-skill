@@ -172,16 +172,12 @@ def manifest_has_dependency(project_path: Path, names: Set[str]) -> bool:
 
 
 def validate_cache_version(data: dict, expected: int = None) -> bool:
-    """检查缓存 dict 是否具有预期的 schema 版本。
-
-    Returns True if version matches or no version field exists (legacy).
-    Returns False if version exists and does not match.
-    """
+    """检查缓存 dict 是否具有预期的 schema 版本。"""
     if expected is None:
         expected = CACHE_SCHEMA_VERSION
     version = data.get("cache_schema_version")
     if version is None:
-        return True  # 遗留缓存，无版本字段
+        return False
     return version == expected
 
 

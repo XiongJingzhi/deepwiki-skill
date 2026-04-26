@@ -28,14 +28,14 @@
 - `doc-map`
 - `concepts/architecture.md`
 - `concepts/development-guide.md`
-- `capabilities/<topic>.md` 或 `internals/<topic>.md`
+- `deep-dive/<topic>.md`
 - `reference/api-surface.md`
 
 原则：
 
 - 一个菜单项默认只对应一个 Markdown 文件。
 - 同一源码模块的核心逻辑、公开接口、流程、风险和扩展点合并到同一页，不再默认拆成 `module` 与 `api` 两页。
-- 目录只表达读者视角：自上而下理解项目、按能力学习源码、深入内部实现、最后查阅参考资料。
+- 目录只表达读者视角：自上而下理解项目、深入理解源码主路径与内部机制、最后查阅参考资料。
 
 ## 降级
 

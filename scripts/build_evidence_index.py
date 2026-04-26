@@ -19,10 +19,9 @@ def _load_module_analysis(project_root: Path) -> Dict[str, Any]:
         raise FileNotFoundError(f"module-analysis.json not found: {path}")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    if data.get("cache_schema_version") is not None and not validate_cache_version(data):
+    if not validate_cache_version(data):
         raise ValueError("module-analysis.json schema version mismatch")
-    modules = data.get("modules", data)
-    return modules if isinstance(modules, dict) else {}
+    return data.get("modules", {})
 
 
 def _evidence_for_module(module: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -30,17 +29,43 @@ def _evidence_for_module(module: Dict[str, Any]) -> List[Dict[str, Any]]:
     for file_data in module.get("files", []):
         path = file_data.get("path") if isinstance(file_data, dict) else None
         if path:
-            evidence.append({
+            ranges: List[Dict[str, Any]] = []
+            for source_range in file_data.get("core_source_ranges", []):
+                if not isinstance(source_range, dict):
+                    continue
+                start = source_range.get("start_line")
+                end = source_range.get("end_line", start)
+                if start:
+                    ranges.append({
+                        "start_line": start,
+                        "end_line": end,
+                        "label": source_range.get("label") or source_range.get("name") or "core source",
+                    })
+            for interface in file_data.get("public_interfaces", []):
+                if not isinstance(interface, dict):
+                    continue
+                start = interface.get("line")
+                end = interface.get("end_line", start)
+                if start:
+                    ranges.append({
+                        "start_line": start,
+                        "end_line": end,
+                        "label": interface.get("name") or "public interface",
+                    })
+
+            item = {
                 "type": "file",
                 "path": path,
                 "source": "module-analysis",
-            })
+            }
+            if ranges:
+                item["ranges"] = ranges
+            evidence.append(item)
     return evidence
 
 
 def _page_prefix_for_module(module: Dict[str, Any]) -> str:
-    infrastructure_purposes = {"Dao", "Model", "Config", "Database", "Util", "Widget", "Other"}
-    return "internal" if module.get("code_purpose") in infrastructure_purposes else "capability"
+    return "deep-dive"
 
 
 def build_evidence_index(project_root: Path) -> Dict[str, Any]:

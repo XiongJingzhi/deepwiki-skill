@@ -30,17 +30,11 @@ def load_json(path: Path) -> dict:
 
 
 def load_module_analysis(wiki_dir: Path) -> Dict:
-    """加载 module-analysis.json。
-
-    支持旧格式（数组）和新格式（字典），统一转为以 module_path 为键的字典。
-    """
+    """加载 module-analysis.json。"""
     path = wiki_dir / "cache" / "module-analysis.json"
     if not path.exists():
         return {}
     data = load_json(path)
-    if isinstance(data, list):
-        # 旧格式：数组 → 转为字典
-        return {m.get("module_path", m.get("path", str(i))): m for i, m in enumerate(data)}
     if isinstance(data, dict):
         return data
     return {}
@@ -122,11 +116,7 @@ def check_interface_coverage(wiki_dir: Path, module_analysis: Dict) -> List[Dict
             # 查找目标模块的文档文件。新结构中每个模块只对应一个学习页面，
             # API、核心逻辑和风险说明都并入同一页。
             target_mod_name = Path(target_module).name
-            candidates = [
-                wiki_dir / "wiki" / "capabilities" / f"{target_mod_name}.md",
-                wiki_dir / "wiki" / "internals" / f"{target_mod_name}.md",
-            ]
-            target_doc = next((path for path in candidates if path.exists()), candidates[0])
+            target_doc = wiki_dir / "wiki" / "deep-dive" / f"{target_mod_name}.md"
 
             if target_doc.exists():
                 documented = extract_documented_interfaces(target_doc)
@@ -167,7 +157,7 @@ def check_dependency_menu_alignment(
         return issues
 
     # 从 menu.json 提取分组结构
-    sections = menu.get("sections", menu.get("items", []))
+    sections = menu.get("menu", [])
 
     # 构建模块 → 分组映射
     module_to_section: Dict[str, str] = {}

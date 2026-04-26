@@ -144,13 +144,16 @@ class TestLoadCachedChecksums:
         assert result == {}
 
     def test_existing_file_returns_correct_data(self, tmp_path):
-        """Existing checksums.json is parsed and returned."""
+        """Existing checksums.json with version is parsed and returned."""
         cache_dir = tmp_path / "cache"
         cache_dir.mkdir()
-        data = {"src/a.py": {"hash": "abc123", "doc": "", "updated_at": "2025-01-01T00:00:00"}}
+        data = {
+            "cache_schema_version": common.CACHE_SCHEMA_VERSION,
+            "checksums": {"src/a.py": {"hash": "abc123", "doc": "", "updated_at": "2025-01-01T00:00:00"}},
+        }
         (cache_dir / "checksums.json").write_text(json.dumps(data), encoding="utf-8")
         result = detect_changes.load_cached_checksums(str(tmp_path))
-        assert result == data
+        assert result == data["checksums"]
 
 
 class TestSaveChecksums:
@@ -525,16 +528,3 @@ class TestCacheVersioningDetectChanges:
 
         loaded = detect_changes.load_cached_checksums(str(deepwiki))
         assert loaded == original
-
-    def test_legacy_checksums_still_readable(self, tmp_path):
-        """Checksums without version field (legacy format) should still load."""
-        deepwiki = tmp_path / ".deepwiki"
-        cache_dir = deepwiki / "cache"
-        cache_dir.mkdir(parents=True)
-        # Legacy format: no version field, data is directly the checksum dict
-        legacy_data = {"file1.py": {"hash": "aaa"}, "file2.py": {"hash": "bbb"}}
-        (cache_dir / "checksums.json").write_text(json.dumps(legacy_data))
-
-        loaded = detect_changes.load_cached_checksums(str(deepwiki))
-        # Should return the legacy data as-is (backward compatible)
-        assert loaded == legacy_data

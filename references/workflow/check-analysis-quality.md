@@ -99,6 +99,8 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 ### 文件级推荐字段（整个模块均缺失 → 警告）
 
 - `public_interfaces`：空列表意味着generate-module-docs 无接口表格，会降级为 Basic 文档
+- `public_interfaces[].line/end_line`：缺失时 generate-module-docs 无法生成精确源码范围，只能降级为文件级链接
+- `core_source_ranges`：缺失时 `Relevant source files` 和核心逻辑源码讲解缺少稳定输入，需从源码重新推导
 - `key_insights`：缺失意味着generate-module-docs 无设计意图说明，无法解释 WHY
 
 > **例外**：`code_purpose` 为 `Config`、`Test`、`Util` 的模块不检查 `public_interfaces` 和 `key_insights`（这类模块接口稀少属正常情况）。
@@ -122,6 +124,7 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 1. 读取门控报告，获取失败模块列表和缺失字段
 2. 对每个失败模块，仅针对缺失字段重新分析：
    - 缺 `public_interfaces` → 重读该模块的核心文件，仅提取导出接口
+   - 缺 `public_interfaces[].line/end_line` 或 `core_source_ranges` → 重读核心函数/类定义，补充 1-based 闭区间源码范围
    - 缺 `key_insights` → 重读主文件，补充 2-3 条设计意图说明
    - 缺 `semantic_group` → 根据模块名+文件角色，直接标注语义分组
 3. 将补充结果**增量更新**到 `module-analysis.json`（不覆盖已通过模块的数据）
@@ -140,6 +143,6 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 | 检查点 | 执行阶段 | 检查对象 | 目的 |
 |--------|---------|---------|------|
 | check-analysis-quality（分析质量门控） | extract-docs 之后 | `module-analysis.json` | 确保生成输入质量，前置拦截 |
-| generate-module-docs 质量检查阶段 | generate-module-docs 之后 | `wiki/capabilities/*.md`、`wiki/internals/*.md`、`wiki/reference/*.md` 等 | 确保生成输出质量，收尾检查 |
+| generate-module-docs 质量检查阶段 | generate-module-docs 之后 | `wiki/deep-dive/*.md`、`wiki/reference/*.md` 等 | 确保生成输出质量，收尾检查 |
 
 两者互补：前置门控减少generate-module-docs 收尾质检发现问题的概率；generate-module-docs 收尾质检作为最终安全网。

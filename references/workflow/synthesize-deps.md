@@ -17,7 +17,7 @@
 
 依赖综合采用**聚合 + 验证**模式，而非让 AI 从零重新推理依赖关系。核心思想：AST 提取的结构化数据已经包含了完整的文件级导入关系，AI 的工作是从已有数据中**聚合**模块级依赖图，并对 AI 分析阶段产生的语义标注进行**验证**。
 
-### 步骤 1：读取 AST 可信基线
+### 步骤 1：读取 AST 可信基线（extract-structure 输出）
 
 读取 `cache/code-structure.json` 中的 `import_relations` 字段。这是由 tree-sitter AST 精确解析产出的文件级导入关系图，作为整个依赖综合的**可信基线**。
 
@@ -34,11 +34,11 @@
 
 Monorepo 项目中，跨包引用会额外标注 `cross_package: true`。
 
-### 步骤 2：读取模块依赖标注
+### 步骤 2：读取模块依赖标注（extract-docs 输出）
 
 读取 `cache/module-analysis.json`，遍历每个模块提取：
 
-- `dependency_hints.imports`：该模块依赖的其他模块（AI 在步骤 4 中识别的语义依赖）
+- `dependency_hints.imports`：该模块依赖的其他模块（AI 在 extract-docs 中识别的语义依赖）
 - `dependency_hints.imported_by`：依赖该模块的其他模块（反向依赖标注）
 
 这些是 AI 在模块分析阶段产生的**语义标注**，包含对依赖类型的理解（如 FunctionCall、DataFlow 等），但不一定都有 AST 级别的静态证据。
@@ -61,7 +61,7 @@ Monorepo 项目中，跨包引用会额外标注 `cross_package: true`。
 |---------|---------|------|
 | 在 `import_relations` 中找到对应文件级 import | 无额外标记，`importance` 按 dependency_hints 原值 | 正常纳入依赖图 |
 | 在 `import_relations` 中**未找到**证据 | 在 `evidence` 字段标记 `low-confidence`，`importance` 降 1 级（最低为 1） | 仍然纳入，但在 `key_insights` 中列出待确认项 |
-| `import_relations` 存在依赖但 AI 未识别 | 补充为 `Import` 类型边 | 步骤 3 已处理 |
+| `import_relations` 存在依赖但 AI 未识别 | 补充为 `Import` 类型边 | 聚合步骤已处理 |
 
 **方向验证**：确认依赖方向与 `import_relations` 中的实际 import 方向一致（A imports B 意味着 A 依赖 B）。
 
@@ -146,4 +146,4 @@ Monorepo 项目中，跨包引用会额外标注 `cross_package: true`。
 
 - `overview.md`（generate-overview）的"模块依赖图"章节（Mermaid `flowchart LR`）
 - `doc-map.md`（generate-menu）的"依赖矩阵"章节
-- 各能力页或内部实现页（`capabilities/<name>.md` / `internals/<name>.md`）的"依赖关系"章节
+- 各深入理解页（`deep-dive/<name>.md`）的"依赖关系"章节

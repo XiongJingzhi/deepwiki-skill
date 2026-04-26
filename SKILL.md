@@ -1,6 +1,6 @@
 ---
 name: deepwiki
-description: 通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档。Use when user requests "生成 wiki"、"创建文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、"检查 wiki 质量"、"升级文档". Also use when a project needs automated documentation generation from source code.
+description: 通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档。Use when user requests "生成 wiki"、"创建文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、"检查 wiki 质量"、"升级文档"、"预览文档"、"预览 wiki"、"启动文档服务". Also use when a project needs automated documentation generation from source code or viewing generated wiki in a browser.
 ---
 
 # DeepWiki
@@ -17,6 +17,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | 重建 wiki | **增量更新** | `init-wiki`（`detect-changes` 自动跳过未变更模块） |
 | 检查 wiki 质量 | **仅质量检查** | `finalize.py quality`（直接运行，不重新生成） |
 | 更新/升级文档 | **定向重生成** | `extract-docs`（跳过 `init-wiki` → `detect-changes`） |
+| 预览文档 | **启动本地服务** | `scripts/cli.py serve <project_path>`（默认端口 8742） |
 
 ## 工作流
 
@@ -31,10 +32,18 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 - 初始 `generate-menu` 在核心逻辑文档前生成 `menu.json` / `doc-map.md`；`generate-module-docs` 结束后再运行 `generate-menu --reconcile`、`finalize quality`、`check-cross-module-consistency` 收尾。
 - **fail（exit≠0）**：增量补充分析 → 重跑 `validate-analysis`
 
+**多 agent 拆分提示：**
+
+- `extract-docs`：可按模块拆成多个 subagent 并行分析；每个 subagent 只写自己负责模块的 `module-analysis.json` 条目。
+- `generate-module-docs`：可按页面计划项或模块拆成多个 subagent 并行生成；同一页面只允许一个 subagent 写入，避免覆盖冲突。
+- 质量修复（`finalize quality` 后的 Basic 文档重生成）：可按 Basic 文档/模块拆成多个 subagent 定向修复，再统一重跑质量检查。
+- `init-wiki`、`analyze-project`、`extract-structure`、`validate-analysis`、`plan-doc-topology`、`generate-menu`、`finalize` 属于全局确定性或聚合步骤，不建议拆成多个 agent；这些步骤应串行执行。
+
 **快捷路径：**
 
 - 仅质量检查：直接运行 `finalize.py quality`，跳过所有生成步骤
 - 定向重生成：从 `extract-docs` 开始，跳过 `init-wiki` → `detect-changes`
+- 预览文档：运行 `scripts/cli.py serve <project_path>`，在浏览器中打开 `http://127.0.0.1:8742` 查看渲染后的文档（支持 Mermaid 图表、代码高亮、三栏导航）
 
 
 ## 工具索引
@@ -61,7 +70,6 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `self-check` | 脚本：`scripts/cli.py self-check`，检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
 | `check-cross-module-consistency` | 脚本：`scripts/finalize.py consistency`（详见 [`generate-module-docs.md`](references/workflow/generate-module-docs.md)） |
 | `codepurpose-detection`（规则） | [references/rules/codepurpose-detection.md](references/rules/codepurpose-detection.md) |
-| `file-role-classification`（规则） | [references/rules/file-role-classification.md](references/rules/file-role-classification.md) |
 | `analysis-output-spec`（规范） | [references/rules/analysis-output-spec.md](references/rules/analysis-output-spec.md) |
 
 ## 不适用场景
@@ -94,8 +102,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
     ├── doc-map.md
     ├── menu.json
     ├── concepts/         # 理解项目：架构、设计思路、继续开发心智模型
-    ├── capabilities/     # 能力导览：面向读者任务的源码学习页
-    ├── internals/        # 内部实现：基础设施、工具、数据访问等技术模块
+    ├── deep-dive/        # 深入理解：能力、核心逻辑、内部实现源码学习页
     └── reference/        # 参考资料：接口、配置、Schema、索引型资料
 ```
 

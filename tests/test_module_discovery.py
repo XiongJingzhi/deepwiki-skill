@@ -62,8 +62,8 @@ class TestDiscoverModules:
         assert modules
         for mod in modules:
             assert mod["is_candidate"] is True
-            assert mod["discovery_basis"] in {"directory", "workspace", "fallback-root"}
-            assert mod["refined_by"] == []
+            assert mod["discovery_basis"].split(":")[0] in {"directory", "workspace", "fallback-root"}
+            assert isinstance(mod["refined_by"], list)
 
     def test_src_subdirs_discovered(self, tmp_path):
         """src/auth/login.py + src/api/routes.py -> 2 modules"""
@@ -78,6 +78,59 @@ class TestDiscoverModules:
         names = {m["name"] for m in modules}
         assert "auth" in names
         assert "api" in names
+
+    def test_application_container_splits_internal_modules_and_dependency_module(self, tmp_path):
+        """app/ with entry + internal packages should not collapse into one directory module."""
+        (tmp_path / "app" / "main.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "main.py").write_text("from app.modules.graph import workflow\n", encoding="utf-8")
+        (tmp_path / "app" / "modules" / "graph" / "workflow.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "modules" / "graph" / "workflow.py").write_text("pass\n", encoding="utf-8")
+        (tmp_path / "app" / "modules" / "skills" / "base.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "modules" / "skills" / "base.py").write_text("pass\n", encoding="utf-8")
+        (tmp_path / "app" / "api" / "routes.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "api" / "routes.py").write_text("pass\n", encoding="utf-8")
+        (tmp_path / "pycommon" / "base_app.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "pycommon" / "base_app.py").write_text("pass\n", encoding="utf-8")
+
+        modules = discover_modules(tmp_path)
+        by_path = {m["path"]: m for m in modules}
+
+        assert "app" not in by_path
+        assert "app/main.py" in by_path
+        assert "app/modules" not in by_path
+        assert "app/modules/graph" in by_path
+        assert "app/modules/skills" in by_path
+        assert "app/api" in by_path
+        assert "pycommon" in by_path
+        assert all(len(Path(path).parts) <= 3 for path in by_path)
+        assert by_path["app/main.py"]["type"] == "core"
+        assert by_path["app/main.py"]["discovery_basis"] == "fallback-root:entry"
+        assert by_path["app/modules/graph"]["discovery_basis"] == "fallback-root:internal-module"
+        assert by_path["app/modules/graph"]["refined_by"] == [
+            "application-container",
+            "submodule-split",
+        ]
+        assert by_path["pycommon"]["discovery_basis"] == "fallback-root:dependency-module"
+
+    def test_split_stops_at_three_path_levels(self, tmp_path):
+        """Submodule splitting should not create module paths deeper than three levels."""
+        (tmp_path / "app" / "main.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "main.py").write_text("pass\n", encoding="utf-8")
+        (tmp_path / "app" / "modules" / "graph" / "nodes" / "intent.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "modules" / "graph" / "nodes" / "intent.py").write_text("pass\n", encoding="utf-8")
+        (tmp_path / "app" / "modules" / "graph" / "edges" / "route.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "modules" / "graph" / "edges" / "route.py").write_text("pass\n", encoding="utf-8")
+        (tmp_path / "app" / "modules" / "skills" / "base.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "modules" / "skills" / "base.py").write_text("pass\n", encoding="utf-8")
+        (tmp_path / "app" / "api" / "routes.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app" / "api" / "routes.py").write_text("pass\n", encoding="utf-8")
+
+        modules = discover_modules(tmp_path)
+        paths = {m["path"] for m in modules}
+
+        assert "app/modules/graph" in paths
+        assert "app/modules/graph/nodes" not in paths
+        assert all(len(Path(path).parts) <= 3 for path in paths)
 
     def test_flat_structure(self, tmp_path):
         """Flat structure with auth/, api/ at root (no src/)"""

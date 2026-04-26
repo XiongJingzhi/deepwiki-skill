@@ -28,9 +28,9 @@ python3 scripts/cli.py build-evidence-index <项目路径>
 `evidence-index.json` 的核心字段：
 
 - `claims[]`：可被文档引用或验证的关键结论
-- `claims[].page_id`：该 claim 对应的页面，例如 `capability:auth` 或 `internal:storage`
+- `claims[].page_id`：该 claim 对应的页面，例如 `deep-dive:auth`
 - `claims[].claim_text`：结论文本
-- `claims[].evidence[]`：源码证据列表，至少包含文件路径
+- `claims[].evidence[]`：源码证据列表，至少包含文件路径；若模块分析提供 `core_source_ranges` 或 `public_interfaces.line/end_line`，同时包含 `ranges[].start_line/end_line/label`
 - `claims[].confidence`：证据充分性提示，当前为 `high` 或 `low`
 
 ## 降级策略

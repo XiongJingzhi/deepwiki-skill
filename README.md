@@ -80,8 +80,7 @@ DeepWiki 是一个 [skills.sh](https://skills.sh) 兼容的技能包，让 AI Ag
     ├── doc-map.md                      # 文档关系图和阅读路径
     ├── menu.json                       # 层级化导航菜单
     ├── concepts/                       # 理解项目：架构、设计思路、开发心智模型
-    ├── capabilities/                   # 能力导览：按系统能力组织的源码学习页
-    ├── internals/                      # 内部实现：基础设施、工具、数据访问等技术模块
+    ├── deep-dive/                      # 深入理解：能力、核心逻辑、内部实现源码学习页
     └── reference/                      # 参考资料：接口、配置、Schema、索引型资料
 ```
 

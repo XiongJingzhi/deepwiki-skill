@@ -24,7 +24,7 @@
 |--------|------|--------|
 | `cache/doc-topology.json`、`cache/generation-plan.json` | 文档页面拓扑和本轮编译计划 | **最高** |
 | `cache/code-structure.json` → `import_relations` | 模块间依赖强度，最客观的聚合信号 | **高** |
-| `cache/module-analysis.json` → `dependency_hints` | 步骤 5 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
+| `cache/module-analysis.json` → `dependency_hints` | synthesize-deps 已提炼的依赖摘要（若 import-relations 缺失时替代） | 高 |
 | `cache/module-analysis.json` → `semantic_group` | AI 的语义主题标注，验证并命名分组 | 中 |
 | `cache/code-structure.json` → `patterns` | 同类 pattern 的模块有结构亲缘，可辅助归组 | 中 |
 | `cache/structure.json` → 目录聚集度 | 同父目录的模块有弱亲缘关系，作为辅助信号 | 低 |
@@ -102,7 +102,7 @@ Python 脚本已自动按 `doc-topology.json`、依赖聚类和 `semantic_group`
 
 所有菜单必须包含：
 - **首区块**：概览，指向 `overview.md`、`getting-started.md`、`doc-map.md`
-- **核心区块**：能力导览与内部实现，承载 `capabilities/*.md` 与 `internals/*.md`。每个菜单项默认对应一个 Markdown 文件，页面内整合核心逻辑、接口、流程、风险和扩展点
+- **核心区块**：深入理解，承载 `deep-dive/*.md`。每个菜单项默认对应一个 Markdown 文件，页面内整合核心逻辑、接口、流程、风险和扩展点
 - **尾区块**：贡献与扩展（Contributing），指向贡献指南或扩展接口文档
 
 ---

@@ -196,5 +196,5 @@ extract-docs的深度分析采用 batch-3 策略（每批 3 个模块），每�
 | AI 读取 structure.json + code-structure.json | ~10-15K |
 | AI 生成 architecture-skeleton.json | ~2-3K |
 | 总计（一次性） | ~17K |
-| 每批 Step 5 注入骨架摘要 | +1K/batch |
+| 每批 synthesize-deps 注入骨架摘要 | +1K/batch |
 | 净节省（20 模块项目） | ~50-80K |

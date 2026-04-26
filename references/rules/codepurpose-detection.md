@@ -25,8 +25,6 @@
 | **Database** | 路径含 `/db/`、`/database/`、`/migrations/`、扩展名 `.sql`、`.prisma` |
 | **Other** | 以上均不匹配时的兜底分类 |
 
-> **`file-role-classification.md`** 已合并入本文，仅保留为兼容指针，不再包含规则内容。
-
 ---
 
 ## Layer 2: 语义推理（仅在 Layer 1 无法确定时使用）

@@ -54,8 +54,8 @@ def _page_bucket(module_name: str, analysis: Dict[str, Any]) -> Tuple[str, str, 
     purpose = analysis.get("code_purpose", "")
     infrastructure_purposes = {"Dao", "Model", "Config", "Database", "Util", "Widget", "Other"}
     if purpose in infrastructure_purposes:
-        return "internal", "internals", "internals"
-    return "capability", "capabilities", "capabilities"
+        return "internal", "deep-dive", "deep-dive"
+    return "capability", "deep-dive", "deep-dive"
 
 
 def _module_title(module_name: str, analysis: Dict[str, Any]) -> str:
@@ -63,6 +63,64 @@ def _module_title(module_name: str, analysis: Dict[str, Any]) -> str:
     if semantic_group and semantic_group.lower() not in {"unknown", "other"}:
         return semantic_group
     return module_name
+
+
+def _source_files_for_module(
+    analysis: Dict[str, Any], structure_module: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """Extract source-file ranges used by module documentation generation."""
+    source_files: List[Dict[str, Any]] = []
+    for file_data in analysis.get("files", []):
+        if not isinstance(file_data, dict) or not file_data.get("path"):
+            continue
+
+        ranges: List[Dict[str, Any]] = []
+        for source_range in file_data.get("core_source_ranges", []):
+            if not isinstance(source_range, dict):
+                continue
+            start = source_range.get("start_line")
+            end = source_range.get("end_line", start)
+            if not start:
+                continue
+            ranges.append({
+                "start_line": start,
+                "end_line": end,
+                "label": source_range.get("label") or source_range.get("name") or "core source",
+                "reason": source_range.get("reason") or source_range.get("summary") or "core source range",
+            })
+
+        for interface in file_data.get("public_interfaces", []):
+            if not isinstance(interface, dict):
+                continue
+            start = interface.get("line")
+            end = interface.get("end_line", start)
+            if not start:
+                continue
+            ranges.append({
+                "start_line": start,
+                "end_line": end,
+                "label": interface.get("name") or "public interface",
+                "reason": "public interface",
+            })
+
+        source_files.append({
+            "path": file_data["path"],
+            "summary": file_data.get("summary", ""),
+            "ranges": ranges,
+        })
+    if source_files:
+        return source_files
+
+    for core_file in structure_module.get("core_files", []):
+        if isinstance(core_file, str):
+            source_files.append({"path": core_file, "summary": "", "ranges": []})
+        elif isinstance(core_file, dict) and core_file.get("path"):
+            source_files.append({
+                "path": core_file["path"],
+                "summary": core_file.get("summary", ""),
+                "ranges": [],
+            })
+    return source_files
 
 
 def _build_pages(structure: Dict[str, Any], module_analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -126,13 +184,14 @@ def _build_pages(structure: Dict[str, Any], module_analysis: Dict[str, Any]) -> 
         analysis = analysis_by_module.get(module_name, {})
         page_type, _, prefix = _page_bucket(module_name, analysis)
         title = _module_title(module_name, analysis)
-        page_id = f"{page_type}:{module_name}"
+        page_id = f"deep-dive:{module_name}"
         pages.append({
             "id": page_id,
             "type": page_type,
             "title": title,
             "output_path": f"wiki/{prefix}/{_slug(module_name)}.md",
             "source_modules": [module_path],
+            "source_files": _source_files_for_module(analysis, module),
             "depends_on": ["module-analysis.json", "code-structure.json"],
             "source_view": "top-down + bottom-up + feynman",
         })
@@ -161,8 +220,11 @@ def plan_doc_topology(project_root: Path) -> Dict[str, Any]:
         "groupings": {
             "overview": ["overview", "getting-started", "doc-map"],
             "concepts": [page["id"] for page in pages if page["type"] == "concept"],
-            "capabilities": [page["id"] for page in pages if page["type"] == "capability"],
-            "internals": [page["id"] for page in pages if page["type"] == "internal"],
+            "deep-dive": [
+                page["id"]
+                for page in pages
+                if page["type"] in {"capability", "internal"}
+            ],
             "reference": [page["id"] for page in pages if page["type"] == "reference"],
         },
         "sources": {
@@ -182,6 +244,7 @@ def plan_doc_topology(project_root: Path) -> Dict[str, Any]:
                 "output_path": page["output_path"],
                 "inputs": page["depends_on"],
                 "affected_modules": page["source_modules"],
+                "source_files": page.get("source_files", []),
                 "action": "create",
             }
             for page in pages

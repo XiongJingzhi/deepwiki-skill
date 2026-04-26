@@ -13,7 +13,7 @@
 
 ## 文件角色分类
 
-> 完整分类规则见 [`../rules/file-role-classification.md`](../rules/file-role-classification.md)；组件触发规则见 [`../rules/codepurpose-detection.md`](../rules/codepurpose-detection.md)。
+> 完整分类规则见 [`../rules/codepurpose-detection.md`](../rules/codepurpose-detection.md)；组件触发规则见 [`../rules/components-guide.md`](../rules/components-guide.md)。
 >
 > **执行要点**：在读取每个文件之前先完成分类，角色标签用于生成文档时的针对性描述。
 
@@ -121,8 +121,6 @@
   | `impl-change` | 定向重分析：仅重读实现部分，更新 `key_insights` | ❌ 不触发 |
   | `doc-only-change` | 轻量更新：重跑 `extract_doc_comments.py`，更新 `summary` | ❌ 不触发 |
 
-  > **降级**：若 `changed_files` 中无 `change_type` 字段（旧版脚本输出），统一视为 `api-change`（向后兼容）。
-
 ## 预提取文档注释
 
 对每个待处理的核心文件，从**技能目录**运行以下命令预提取结构化注释（函数签名、参数、返回值、类定义）：
@@ -135,11 +133,13 @@ python scripts/extract_doc_comments.py <文件绝对路径>
 
 ## 语义分析流程
 
+> **多 agent 拆分提示**：本步骤可以按模块拆成多个 subagent 并行处理。每个 subagent 领取一个模块或一个批次内的少量模块，读取共享的 `structure.json`、`code-structure.json`、`architecture-skeleton.json`，只负责输出自己模块的分析结果。不要让多个 subagent 同时改写同一个模块条目；写入 `module-analysis.json` 时必须采用增量追加/合并方式。具体批次规则见 [`parallel-analysis.md`](parallel-analysis.md)。
+
 对每个文件进行语义分析时，按以下步骤执行：
 
 1. 按双层分类规则确定文件角色（`Entry`/`Service`/`Api`/`Dao` 等）
 2. 理解语义：追踪函数调用、控制流、数据流、错误处理和设计模式
-3. 提取公共接口、内部逻辑和模块依赖
+3. 提取公共接口、内部逻辑和模块依赖；公共接口必须包含 `line/end_line`，核心逻辑必须写入 `core_source_ranges`
 4. 参考 `../generation/module-page.md` 获取分析提示词模板（代码深度分析 / 模块文档 / 依赖分析）
 5. 为每个模块输出结构化分析结果，供 `validate-analysis`、依赖综合规则和 `generate-module-docs` 使用
 
@@ -151,4 +151,5 @@ python scripts/extract_doc_comments.py <文件绝对路径>
 
 **核心约束（此处重申）**：
 - 完成每个模块分析后**立即写入** `cache/module-analysis.json`，采用增量追加模式
+- `public_interfaces[].line/end_line` 与 `core_source_ranges[].start_line/end_line` 使用 1-based 闭区间，供 `Relevant source files` 和核心逻辑源码片段生成 `file:///path#Lx-Ly` 链接
 - 不要等全部模块完成后统一写入——中途中断将导致已分析数据全量丢失

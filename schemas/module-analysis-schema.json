@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://deepwiki.sh/schemas/module-analysis-schema.json",
   "title": "Module Analysis Cache",
-  "description": "Schema for AI-generated per-module analysis output (SKILL.md Step 4). Written incrementally after each module is analyzed; consumed by Steps 5 and 8.",
+  "description": "Schema for AI-generated per-module analysis output (extract-docs). Written incrementally after each module is analyzed; consumed by synthesize-deps and generate-module-docs.",
   "type": "object",
   "required": ["cache_schema_version", "generated_at", "modules"],
   "properties": {
@@ -86,13 +86,13 @@
         },
         "selected_components": {
           "type": "array",
-          "description": "Document components selected for this module (from components-registry.yaml / components-guide.md). Step 8 uses this directly without re-deciding.",
+          "description": "Document components selected for this module (from components-registry.yaml / components-guide.md). generate-module-docs uses this directly without re-deciding.",
           "items": { "type": "string" },
           "examples": [["overview", "api-table", "sequence-diagram", "code-walkthrough", "nav-links"]]
         },
         "dependency_hints": {
           "type": "object",
-          "description": "Lightweight dependency summary extracted during Step 4, used as Step 5 base input",
+          "description": "Lightweight dependency summary extracted during extract-docs, used as synthesize-deps base input",
           "properties": {
             "imports": {
               "type": "array",
@@ -114,7 +114,7 @@
         "semantic_group_confidence": {
           "type": "string",
           "enum": ["high", "low"],
-          "description": "high = module has a clear, distinct semantic boundary; low = AI is uncertain (overlapping responsibilities or unclear scope). Step 7 reduces grouping weight for low-confidence entries.",
+          "description": "high = module has a clear, distinct semantic boundary; low = AI is uncertain (overlapping responsibilities or unclear scope). generate-menu reduces grouping weight for low-confidence entries.",
           "default": "high"
         },
         "semantic_group_override": {
@@ -155,6 +155,11 @@
           "type": "array",
           "description": "Exported functions, classes, and types",
           "items": { "$ref": "#/definitions/PublicInterface" }
+        },
+        "core_source_ranges": {
+          "type": "array",
+          "description": "Important source ranges suitable for Relevant source files and core logic walkthroughs",
+          "items": { "$ref": "#/definitions/SourceRange" }
         },
         "internal_dependencies": {
           "type": "array",
@@ -201,6 +206,10 @@
           "type": "integer",
           "description": "Line number in source file"
         },
+        "end_line": {
+          "type": "integer",
+          "description": "Inclusive end line in source file when known"
+        },
         "description": {
           "type": "string",
           "description": "What this interface does and when to use it (min 1 sentence)"
@@ -219,6 +228,29 @@
             },
             "additionalProperties": false
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "SourceRange": {
+      "type": "object",
+      "required": ["label", "start_line", "end_line", "reason"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Short label for this source range"
+        },
+        "start_line": {
+          "type": "integer",
+          "description": "1-based inclusive start line"
+        },
+        "end_line": {
+          "type": "integer",
+          "description": "1-based inclusive end line"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why this range matters for the generated document"
         }
       },
       "additionalProperties": false

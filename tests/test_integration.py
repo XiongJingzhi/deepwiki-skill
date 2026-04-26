@@ -18,7 +18,7 @@ class TestPipelineIntegration:
     """Smoke tests for the full deterministic pipeline."""
 
     def test_init_creates_directory(self, fake_python_project):
-        """Step 1: init_deep_wiki creates .deepwiki/ structure."""
+        """init_deep_wiki creates .deepwiki/ structure."""
         from init_wiki import init_deep_wiki
 
         result = init_deep_wiki(str(fake_python_project))
@@ -30,7 +30,7 @@ class TestPipelineIntegration:
         assert (fake_python_project / ".deepwiki" / "meta.json").exists()
 
     def test_analyze_detects_project(self, fake_python_project):
-        """Step 2: analyze_project detects Python project with modules."""
+        """analyze_project detects Python project with modules."""
         from analyze_project import analyze_project
 
         result = analyze_project(str(fake_python_project), save_to_cache=True)
@@ -41,7 +41,7 @@ class TestPipelineIntegration:
         assert (fake_python_project / ".deepwiki" / "cache" / "structure.json").exists()
 
     def test_extract_structure(self, fake_python_project):
-        """Step 2.5: extract_structure produces code-structure.json."""
+        """extract_structure produces code-structure.json."""
         from analyze_project import analyze_project
         from extract_structure import run_extract_structure
 
@@ -54,7 +54,7 @@ class TestPipelineIntegration:
         assert (fake_python_project / ".deepwiki" / "cache" / "code-structure.json").exists()
 
     def test_detect_changes_first_run(self, fake_python_project):
-        """Step 3: detect_changes identifies all files as new on first run."""
+        """detect_changes identifies all files as new on first run."""
         from detect_changes import detect_changes
 
         result = detect_changes(str(fake_python_project))
@@ -64,7 +64,7 @@ class TestPipelineIntegration:
         assert len(result["deleted"]) == 0
 
     def test_detect_changes_no_changes(self, fake_python_project):
-        """Step 3: detect_changes finds no changes on second run."""
+        """detect_changes finds no changes on second run."""
         from detect_changes import detect_changes
 
         # First run to save checksums
@@ -80,15 +80,13 @@ class TestPipelineIntegration:
         from analyze_project import analyze_project
         from extract_structure import run_extract_structure
 
-        # Step 1
         init_deep_wiki(str(fake_python_project))
         assert (fake_python_project / ".deepwiki").exists()
 
-        # Step 2
         result = analyze_project(str(fake_python_project))
         assert result["project_name"] == fake_python_project.name
 
-        # Step 2.5
+        # extract-structure
         result = run_extract_structure(fake_python_project)
         assert "archetype" in result
 

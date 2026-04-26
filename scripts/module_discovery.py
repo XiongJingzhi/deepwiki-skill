@@ -13,6 +13,23 @@ from common import IGNORE_DIRS, CODE_EXTENSIONS
 from importance_scoring import calculate_file_importance
 
 
+ENTRY_FILENAMES = {
+    "main.py", "app.py", "__main__.py", "server.py", "cli.py",
+    "index.js", "index.ts", "index.jsx", "index.tsx",
+    "main.js", "main.ts", "main.jsx", "main.tsx",
+}
+
+APPLICATION_CONTAINER_NAMES = {
+    "app", "apps", "application", "service", "server", "backend", "frontend", "src",
+}
+
+DEPENDENCY_CONTAINER_NAMES = {
+    "common", "shared", "pycommon", "lib", "libs", "vendor", "sdk", "client",
+}
+
+MAX_MODULE_PATH_DEPTH = 3
+
+
 def _read_workspace_packages(root_path: Path) -> List[str]:
     """读取 monorepo workspace 配置，返回包目录名列表。"""
     packages = []
@@ -58,15 +75,163 @@ def _read_workspace_packages(root_path: Path) -> List[str]:
     return packages
 
 
+def _is_code_file(path: Path, exclude_dirs: Set[str]) -> bool:
+    return (
+        path.is_file()
+        and path.suffix in CODE_EXTENSIONS
+        and not any(p in path.parts for p in exclude_dirs)
+    )
+
+
+def _code_files_under(path: Path, exclude_dirs: Set[str]) -> List[Path]:
+    return [f for f in path.rglob("*") if _is_code_file(f, exclude_dirs)]
+
+
+def _direct_code_files(path: Path, exclude_dirs: Set[str]) -> List[Path]:
+    return [f for f in path.iterdir() if _is_code_file(f, exclude_dirs)]
+
+
+def _child_code_dirs(path: Path, exclude_dirs: Set[str]) -> List[Path]:
+    dirs: List[Path] = []
+    for child in path.iterdir():
+        if child.is_dir() and child.name not in exclude_dirs and _code_files_under(child, exclude_dirs):
+            dirs.append(child)
+    return dirs
+
+
+def _entry_files_in(path: Path, exclude_dirs: Set[str]) -> List[Path]:
+    return [
+        f for f in _direct_code_files(path, exclude_dirs)
+        if f.name in ENTRY_FILENAMES
+    ]
+
+
+def _module_record(
+    root_path: Path,
+    path: Path,
+    files: int,
+    discovery_basis: str,
+    name: str = None,
+    module_type: str = None,
+    refined_by: List[str] = None,
+) -> Dict[str, Any]:
+    rel = str(path.relative_to(root_path)).replace("\\", "/")
+    module_name = name or (path.stem if path.is_file() else path.name)
+    return {
+        "name": module_name,
+        "path": rel,
+        "files": files,
+        "type": module_type or categorize_module(module_name),
+        "is_candidate": True,
+        "discovery_basis": discovery_basis,
+        "refined_by": refined_by or [],
+    }
+
+
+def _module_path_depth(root_path: Path, path: Path) -> int:
+    return len(path.relative_to(root_path).parts)
+
+
+def _can_split_directory(root_path: Path, path: Path, exclude_dirs: Set[str]) -> bool:
+    return (
+        _module_path_depth(root_path, path) < MAX_MODULE_PATH_DEPTH
+        and len(_child_code_dirs(path, exclude_dirs)) >= 2
+    )
+
+
+def _split_directory_modules(
+    root_path: Path,
+    path: Path,
+    exclude_dirs: Set[str],
+    discovery_basis: str,
+    name_prefix: str = None,
+    refined_by: List[str] = None,
+) -> List[Dict[str, Any]]:
+    """Split natural submodules recursively, capped at MAX_MODULE_PATH_DEPTH."""
+    if _can_split_directory(root_path, path, exclude_dirs):
+        modules: List[Dict[str, Any]] = []
+        for child in _child_code_dirs(path, exclude_dirs):
+            child_prefix = f"{name_prefix}-{child.name}" if name_prefix else child.name
+            modules.extend(
+                _split_directory_modules(
+                    root_path,
+                    child,
+                    exclude_dirs,
+                    discovery_basis,
+                    name_prefix=child_prefix,
+                    refined_by=(refined_by or []) + ["submodule-split"],
+                )
+            )
+        return modules
+
+    return [
+        _module_record(
+            root_path,
+            path,
+            files=len(_code_files_under(path, exclude_dirs)),
+            discovery_basis=discovery_basis,
+            name=name_prefix,
+            refined_by=refined_by or [],
+        )
+    ]
+
+
+def _is_application_container(path: Path, exclude_dirs: Set[str]) -> bool:
+    """Return true when a directory is better split by entry + internal submodules."""
+    entry_files = _entry_files_in(path, exclude_dirs)
+    child_dirs = _child_code_dirs(path, exclude_dirs)
+    if not entry_files or len(child_dirs) < 2:
+        return False
+    if path.name.lower() in APPLICATION_CONTAINER_NAMES:
+        return True
+    return len(child_dirs) >= 3
+
+
+def _expand_application_container(
+    root_path: Path,
+    container: Path,
+    exclude_dirs: Set[str],
+    discovery_basis: str,
+) -> List[Dict[str, Any]]:
+    modules: List[Dict[str, Any]] = []
+
+    for entry in _entry_files_in(container, exclude_dirs):
+        modules.append(
+            _module_record(
+                root_path,
+                entry,
+                files=1,
+                discovery_basis=f"{discovery_basis}:entry",
+                name=f"{container.name}-{entry.stem}",
+                module_type="core",
+                refined_by=["entry-point"],
+            )
+        )
+
+    for child in _child_code_dirs(container, exclude_dirs):
+        modules.extend(
+            _split_directory_modules(
+                root_path,
+                child,
+                exclude_dirs,
+                discovery_basis=f"{discovery_basis}:internal-module",
+                name_prefix=f"{container.name}-{child.name}",
+                refined_by=["application-container"],
+            )
+        )
+
+    return modules
+
+
 def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
                     all_files: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """发现项目模块，基于文件重要性计算模块优先级
 
-    扫描策略（两阶段）：
-    1. 优先扫描 src/lib/packages/apps/modules 等标准源码目录下的直接子目录。
-       此阶段不使用 FLAT_ROOT_SKIP，确保 src/config/、src/models/ 等合法业务模块不被误跳过。
-    2. 若第一阶段未发现模块（扁平结构项目），则回退到根目录一级扫描。
-       此阶段使用 FLAT_ROOT_SKIP 过滤纯工具/文档目录，避免误识别为业务模块。
+    扫描策略：
+    1. 目录只作为候选信号，不直接等同语义模块。
+    2. 对应用容器目录（入口文件 + 多个代码子目录）按入口和内部子模块拆分。
+    3. 对 shared/common/lib 等依赖容器保留为独立依赖模块。
+    4. 若标准源码目录未发现模块，则回退到根目录一级扫描。
 
     重要：FLAT_ROOT_SKIP 只控制「根目录的哪些一级目录不被识别为模块」，
     不影响已选中模块内部的文件计数（防止模块内 config/ 子目录的文件被漏计）。
@@ -107,22 +272,33 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
 
         for item in src_path.iterdir():
             if item.is_dir() and item.name not in exclude_dirs:
-                file_count = sum(
-                    1 for f in item.rglob('*')
-                    if f.is_file()
-                    and f.suffix in CODE_EXTENSIONS
-                    and not any(p in f.parts for p in exclude_dirs)
-                )
+                if _is_application_container(item, exclude_dirs):
+                    modules.extend(
+                        _expand_application_container(
+                            root_path,
+                            item,
+                            exclude_dirs,
+                            'workspace' if src_dir in workspace_dirs else 'directory',
+                        )
+                    )
+                    continue
+
+                file_count = len(_code_files_under(item, exclude_dirs))
                 if file_count > 0:
-                    modules.append({
-                        'name': item.name,
-                        'path': str(item.relative_to(root_path)).replace('\\', '/'),
-                        'files': file_count,
-                        'type': categorize_module(item.name),
-                        'is_candidate': True,
-                        'discovery_basis': 'workspace' if src_dir in workspace_dirs else 'directory',
-                        'refined_by': [],
-                    })
+                    basis = 'workspace' if src_dir in workspace_dirs else 'directory'
+                    refined_by = []
+                    if item.name.lower() in DEPENDENCY_CONTAINER_NAMES:
+                        basis = f"{basis}:dependency-module"
+                        refined_by = ["dependency-boundary"]
+                    modules.extend(
+                        _split_directory_modules(
+                            root_path,
+                            item,
+                            exclude_dirs,
+                            discovery_basis=basis,
+                            refined_by=refined_by,
+                        )
+                    )
 
     # ── 阶段二：扁平结构回退——扫描根目录一级子目录 ──────────────────────────
     # 仅在阶段一未发现任何模块时触发。
@@ -134,22 +310,33 @@ def discover_modules(root_path: Path, exclude_dirs: Set[str] = None,
             if (item.is_dir()
                     and item.name not in root_skip
                     and not item.name.startswith('.')):
-                file_count = sum(
-                    1 for f in item.rglob('*')
-                    if f.is_file()
-                    and f.suffix in CODE_EXTENSIONS
-                    and not any(p in f.parts for p in exclude_dirs)  # 只排除技术目录
-                )
+                if _is_application_container(item, exclude_dirs):
+                    modules.extend(
+                        _expand_application_container(
+                            root_path,
+                            item,
+                            exclude_dirs,
+                            "fallback-root",
+                        )
+                    )
+                    continue
+
+                file_count = len(_code_files_under(item, exclude_dirs))
                 if file_count > 0:
-                    modules.append({
-                        'name': item.name,
-                        'path': item.name,
-                        'files': file_count,
-                        'type': categorize_module(item.name),
-                        'is_candidate': True,
-                        'discovery_basis': 'fallback-root',
-                        'refined_by': [],
-                    })
+                    basis = 'fallback-root'
+                    refined_by = []
+                    if item.name.lower() in DEPENDENCY_CONTAINER_NAMES:
+                        basis = f"{basis}:dependency-module"
+                        refined_by = ["dependency-boundary"]
+                    modules.extend(
+                        _split_directory_modules(
+                            root_path,
+                            item,
+                            exclude_dirs,
+                            discovery_basis=basis,
+                            refined_by=refined_by,
+                        )
+                    )
 
     # 计算模块重要性: 基于模块内文件的平均重要性
     if all_files:
@@ -373,13 +560,11 @@ def refine_modules(
     if not modules or not import_relations:
         return refined
 
-    # 步骤 1：构建文件 → 模块映射
     file_to_module = _build_file_to_module_map(modules, project_root)
 
-    # 步骤 2：聚合为模块级邻接图
     adjacency = _build_module_adjacency(file_to_module, import_relations)
 
-    # 步骤 3：跨模块 import 密度分析 → 检测合并建议
+    # 跨模块 import 密度分析 → 检测合并建议
     seen_pairs: Set[Tuple[str, str]] = set()
     merge_suggestions: Dict[str, List[str]] = defaultdict(list)
 
@@ -405,7 +590,7 @@ def refine_modules(
                     f"(B→A={count_ba}, A→B={count_ab})"
                 )
 
-    # 步骤 4：模块内连通分量分析 → 检测拆分建议
+    # 模块内连通分量分析 → 检测拆分建议
     for mod in refined:
         mod_name = mod['name']
         notes = []

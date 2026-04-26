@@ -17,7 +17,6 @@ from context_budget import compute_context_budget
 from module_discovery import discover_modules
 from scanner import (scan_files, scan_directories, compute_file_stats,
                      find_documentation)
-from import_relations import compute_in_degree
 from extract_structure import detect_archetype
 
 
@@ -61,11 +60,6 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
             precomputed = cs_data.get('import_degrees')
             if precomputed:
                 import_degrees = precomputed
-            else:
-                # 兼容旧版 code-structure.json（无 import_degrees 字段）
-                import_relations = cs_data.get('import_relations', {})
-                if import_relations:
-                    import_degrees = compute_in_degree(import_relations)
         except Exception:
             logger.warning("Failed to load code-structure.json, skipping import degrees")
 
@@ -116,7 +110,6 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
     # 文件统计
     file_stats = compute_file_stats(all_files)
 
-    # 仅代码文件列表（用于向后兼容）
     code_file_count = sum(1 for f in all_files if f['is_code'])
 
     result = {
@@ -127,7 +120,6 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
         'languages': languages,
         'archetype': archetype,
         'entry_points': entry_points,
-        'module_candidates': modules,
         'modules': modules,
         'core_files': core_files,
         'high_priority_files': high_priority_files,

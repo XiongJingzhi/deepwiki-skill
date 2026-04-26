@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 4.5 分析质量门控脚本
+分析质量门控脚本（validate-analysis 子步骤）
 
 检查 module-analysis.json 中每个模块是否满足最低质量标准。
 零 AI 成本，纯脚本实现。
@@ -64,6 +64,16 @@ FILE_RECOMMENDED_FIELDS = [
 ]
 
 
+def _is_valid_line_range(start: object, end: object) -> bool:
+    """Return True when start/end form a 1-based inclusive source range."""
+    return (
+        isinstance(start, int)
+        and isinstance(end, int)
+        and start >= 1
+        and end >= start
+    )
+
+
 def check_module_quality(mod_name: str, data: dict) -> Tuple[List[str], List[str]]:
     """
     检查单个模块的质量。
@@ -117,7 +127,9 @@ def check_module_quality(mod_name: str, data: dict) -> Tuple[List[str], List[str
         warnings.append("files 数组为空，建议补充文件级分析")
     else:
         any_has_interfaces = False
+        any_interface_has_range = False
         any_has_insights = False
+        any_has_core_source_ranges = False
 
         for i, f in enumerate(files):
             if not isinstance(f, dict):
@@ -133,6 +145,33 @@ def check_module_quality(mod_name: str, data: dict) -> Tuple[List[str], List[str
             interfaces = f.get("public_interfaces")
             if isinstance(interfaces, list) and len(interfaces) > 0:
                 any_has_interfaces = True
+                for j, interface in enumerate(interfaces):
+                    if not isinstance(interface, dict):
+                        warnings.append(f"files[{i}].public_interfaces[{j}] 不是对象类型")
+                        continue
+                    line = interface.get("line")
+                    end_line = interface.get("end_line", line)
+                    if _is_valid_line_range(line, end_line):
+                        any_interface_has_range = True
+                    else:
+                        warnings.append(
+                            f"files[{i}].public_interfaces[{j}] 缺少有效 line/end_line"
+                        )
+
+            ranges = f.get("core_source_ranges")
+            if isinstance(ranges, list) and len(ranges) > 0:
+                any_has_core_source_ranges = True
+                for j, source_range in enumerate(ranges):
+                    if not isinstance(source_range, dict):
+                        warnings.append(f"files[{i}].core_source_ranges[{j}] 不是对象类型")
+                        continue
+                    if not _is_valid_line_range(
+                        source_range.get("start_line"),
+                        source_range.get("end_line"),
+                    ):
+                        warnings.append(
+                            f"files[{i}].core_source_ranges[{j}] 缺少有效 start_line/end_line"
+                        )
 
             insights = f.get("key_insights")
             if isinstance(insights, list) and len(insights) > 0:
@@ -144,6 +183,10 @@ def check_module_quality(mod_name: str, data: dict) -> Tuple[List[str], List[str
 
         if not any_has_interfaces and not is_utility_like:
             warnings.append("所有文件均缺少 public_interfaces，建议补充接口信息")
+        elif any_has_interfaces and not any_interface_has_range:
+            warnings.append("public_interfaces 缺少可用于源码链接的 line/end_line")
+        if not any_has_core_source_ranges and not is_utility_like:
+            warnings.append("所有文件均缺少 core_source_ranges，建议补充核心源码范围")
         if not any_has_insights and not is_utility_like:
             warnings.append("所有文件均缺少 key_insights，建议补充设计意图说明")
 
@@ -245,7 +288,7 @@ def main() -> int:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(
-        description="Step 4.5：检查 module-analysis.json 是否满足最低质量标准"
+        description="检查 module-analysis.json 是否满足最低质量标准"
     )
     parser.add_argument("project_path", help="项目根目录绝对路径")
     parser.add_argument("--verbose", "-v", action="store_true", help="显示警告信息")

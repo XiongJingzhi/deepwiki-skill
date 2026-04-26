@@ -1,6 +1,6 @@
 # Menu Archetypes 分组思路库
 
-> 本文档为步骤 7 生成 `menu.json` 时的**第三层兜底参考**，用于处理无强依赖关系、`semantic_group` 置信度低、或孤岛模块的归属决策。
+> 本文档为 generate-menu 生成 `menu.json` 时的**第三层兜底参考**，用于处理无强依赖关系、`semantic_group` 置信度低、或孤岛模块的归属决策。
 >
 > **优先级规则：依赖数据（层1）> semantic_group（层2）> 本文档（层3）**
 >

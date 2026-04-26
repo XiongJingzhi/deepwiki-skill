@@ -80,13 +80,9 @@ class TestInitDeepWiki:
         init_wiki.init_deep_wiki(str(tmp_path))
         assert (tmp_path / ".deepwiki" / "wiki" / "concepts").is_dir()
 
-    def test_creates_capabilities_directory(self, tmp_path):
+    def test_creates_deep_dive_directory(self, tmp_path):
         init_wiki.init_deep_wiki(str(tmp_path))
-        assert (tmp_path / ".deepwiki" / "wiki" / "capabilities").is_dir()
-
-    def test_creates_internals_directory(self, tmp_path):
-        init_wiki.init_deep_wiki(str(tmp_path))
-        assert (tmp_path / ".deepwiki" / "wiki" / "internals").is_dir()
+        assert (tmp_path / ".deepwiki" / "wiki" / "deep-dive").is_dir()
 
     def test_creates_reference_directory(self, tmp_path):
         init_wiki.init_deep_wiki(str(tmp_path))

@@ -2,7 +2,7 @@
 
 所有生成的文档必须满足以下标准：
 
-- **源码追溯是强制要求**：每个章节末尾必须包含 `[filename](file:///path/to/file.ts#L1-L50)` 引用，方便读者跳转到对应源码。
+- **源码追溯是强制要求**：模块文档标题后必须包含 `Relevant source files` 区块，列出 3-10 个最相关源码文件；每个章节末尾必须包含 `[filename](file:///path/to/file.ts#L1-L50)` 引用，方便读者跳转到对应源码；页面末尾必须包含 `Sources` 区块，汇总本页所有实际引用过的源码文件和行号范围。
 - **每个模块文档至少包含 1 个视觉元素（Mermaid 图表或结构化表格）**。Config/Util/Test 类模块此要求为可选项。根据内容选择合适的图表类型：
   - `classDiagram` 用于类继承、接口和类型关系
   - `flowchart` 用于流程、工作流和架构概览
@@ -17,6 +17,26 @@
 
 ## 源码链接格式
 
+每篇模块文档必须在标题后立即包含源码文件索引：
+
+```markdown
+<details open>
+<summary>Relevant source files</summary>
+
+- src/
+  - auth/
+    - [service.ts](file:///src/auth/service.ts#L24-L88) `L24-L88` - 认证主流程和错误分支
+    - [token.ts](file:///src/auth/token.ts#L10-L43) `L10-L43` - token 生成与校验
+
+</details>
+```
+
+`Relevant source files` 必须使用上面的树形列表样式：
+
+- 不要使用 Markdown 表格。
+- 不要生成"文件/用途/行数/链接"或"文件路径/说明"表格。
+- 目录节点只写目录名；文件节点保留源码链接、行号范围和原说明。
+
 每个章节末尾必须包含源码引用：
 
 ```markdown
@@ -28,8 +48,34 @@
 代码块标题应包含内联源码链接：
 
 ```markdown
-### `functionName` [源码](file:///path/to/file.ts#L42)
+**Source:** [path/to/file.ts](file:///path/to/file.ts#L42-L80) `L42-L80`
 ```
+
+## 页面末尾 Sources 区块
+
+模块文档末尾（nav-links 之前）必须包含 `Sources` 区块，汇总本页各章节中实际引用过的所有源码文件和行号范围。与顶部 `Relevant source files` 的分工：
+
+- **顶部 Relevant source files**：告诉读者"本页主要看哪些源码"。
+- **章节内 Section sources / Source:**：证明当前段落或代码片段来自哪里。
+- **末尾 Sources**：汇总本页实际引用过的源码范围，方便读者最后统一核对。
+
+格式：
+
+```markdown
+---
+
+## Sources
+
+- [src/auth/service.ts](file:///src/auth/service.ts#L24-L88) — 认证主流程和错误分支
+- [src/auth/token.ts](file:///src/auth/token.ts#L10-L43) — token 生成与校验
+- [src/config/settings.ts](file:///src/config/settings.ts#L1-L32) — 环境变量配置管理
+
+---
+```
+
+- Sources 列表为各章节 `Source:` 链接和 `Section sources` 链接的并集，按文件路径去重排列。
+- 每项包含 file:// 链接（含行号范围）和一句话说明。
+- Test 类模块可豁免此要求。
 
 ## Mermaid 图表选择指南
 
@@ -45,9 +91,9 @@
 
 ## 交叉链接要求
 
-- 能力页/内部实现页必须链接到：架构位置、相关能力或内部实现、参考索引。
-- 参考资料页必须链接到：相关能力页/内部实现页、使用示例、相关类型定义。
-- overview.md 必须链接到：核心能力页、内部实现入口和文档地图。
+- 深入理解页必须链接到：架构位置、相关深入理解页、参考索引。
+- 参考资料页必须链接到：相关深入理解页、使用示例、相关类型定义。
+- overview.md 必须链接到：核心深入理解页和文档地图。
 - overview.md 必须链接到：架构文档、快速开始和继续开发指南。
 
 ## 质量等级
@@ -168,6 +214,7 @@ Professional 级文档建议包含置信度标注（>= 3 个），每个标注 +
 | `overview` | 模块概述 | P0 |
 | `api-table` | 接口总览 | P0 |
 | `nav-links` | 导航链接 | P0 |
+| `sources` | 页面末尾源码汇总 | P0 |
 | `architecture-fit` | 架构定位与职责边界 | P1 |
 | `design-rationale` | 设计思路与替代方案 | P1 |
 | `internal-structure` | 内部结构与职责分工 | P1 |

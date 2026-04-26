@@ -81,7 +81,7 @@
 
 ## menu.json 模板
 
-> `menu.json` 定义整个 wiki 的导航层级。由步骤 7 生成，步骤 8 引用各模块在菜单中的位置生成面包屑和前后链接。
+> `menu.json` 定义整个 wiki 的导航层级。由 generate-menu 生成，generate-module-docs 引用各模块在菜单中的位置生成面包屑和前后链接。
 
 ### JSON 结构
 
@@ -89,32 +89,26 @@
 {
   "version": "1.0",
   "generated_at": "2024-01-01T00:00:00Z",
-  "sections": [
+  "menu": [
     {
-      "id": "overview",
       "title": "概览",
-      "fixed": true,
       "items": [
-        { "id": "home",         "title": "首页",     "path": "overview.md" },
-        { "id": "architecture", "title": "架构总览", "path": "overview.md" },
-        { "id": "doc-map",      "title": "文档地图", "path": "doc-map.md" },
-        { "id": "quickstart",   "title": "快速开始", "path": "getting-started.md" }
+        { "title": "首页",     "path": "overview.md" },
+        { "title": "文档地图", "path": "doc-map.md" },
+        { "title": "快速开始", "path": "getting-started.md" }
       ]
     },
     {
-      "id": "auth",
       "title": "认证与鉴权",
       "items": [
-        { "id": "auth-core",    "title": "认证核心逻辑",   "path": "capabilities/auth.md" },
-        { "id": "permissions",  "title": "权限模型核心逻辑",   "path": "capabilities/permissions.md" }
+        { "title": "认证核心逻辑", "path": "deep-dive/auth.md" },
+        { "title": "权限模型核心逻辑", "path": "deep-dive/permissions.md" }
       ]
     },
     {
-      "id": "contributing",
       "title": "贡献指南",
-      "fixed": false,
       "items": [
-        { "id": "contributing", "title": "贡献指南", "path": "contributing.md" }
+        { "title": "贡献指南", "path": "contributing.md" }
       ]
     }
   ]
@@ -125,19 +119,17 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `sections[].id` | string | 分区唯一标识（英文，用于锚点） |
-| `sections[].title` | string | 面向读者的语义名称（中文或英文） |
-| `sections[].fixed` | boolean | `true` = 首尾固定区块，步骤 7 不得调整顺序 |
-| `items[].id` | string | 条目唯一标识 |
+| `menu[].title` | string | 面向读者的分区名称（中文或英文） |
+| `menu[].items` | array | 分区下的导航条目 |
 | `items[].title` | string | 导航显示名称 |
 | `items[].path` | string | 相对 `wiki/` 目录的文件路径 |
 | `items[].planned` | boolean | `true` = 文档尚未生成（增量模式占位），默认 `false` |
 
 ### AI 生成菜单 5 条规则
 
-1. **按读者旅程排序**：首区块"概览"→ "理解项目"→ "能力导览"→ "内部实现"→ "参考资料"→ 尾区块"贡献指南"
+1. **按读者旅程排序**：首区块"概览"→ "理解项目"→ "深入理解"→ "参考资料"→ 尾区块"贡献指南"
 2. **语义命名**：`title` 面向读者（"认证与鉴权"），不使用路径（"src/auth"）或 CodePurpose 枚举（"Service"）
-3. **层级不超过 3 级**：`sections > items`（最多再加一层 `sub-items`），避免深层嵌套
+3. **层级不超过 3 级**：`menu > items`（最多再加一层 `items`），避免深层嵌套
 4. **首区块固定**：概览区块始终最前。尾区块（贡献指南）仅当项目包含 CONTRIBUTING.md 或类似文件时添加，不应强制生成。
 5. **增量占位**：增量更新时已知但未生成的文档，添加 `"planned": true`，不留空条目
 

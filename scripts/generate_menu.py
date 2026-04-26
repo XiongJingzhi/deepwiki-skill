@@ -8,8 +8,8 @@
 
 分组策略（默认模式）：
   - 有 cache_dir 时，数据驱动分组：
-    1. doc-topology.json 的 concepts/capabilities/internals/reference 知识树
-    2. 磁盘扫描 concepts/、capabilities/、internals/、reference/ 目录
+    1. doc-topology.json 的 concepts/deep-dive/reference 知识树
+    2. 磁盘扫描 concepts/、deep-dive/、reference/ 目录
   - 无 cache_dir 时，按新知识目录扫描
 """
 
@@ -24,8 +24,8 @@ from common import CACHE_SCHEMA_VERSION
 
 # 多语言标签映射
 _LABELS = {
-    'zh': {'overview': '概览', 'concepts': '理解项目', 'capabilities': '能力导览',
-           'internals': '内部实现', 'reference': '参考资料',
+    'zh': {'overview': '概览', 'concepts': '理解项目', 'deep-dive': '深入理解',
+           'reference': '参考资料',
            'more': '更多', 'other': '其他',
            'subdirs': {
                'guides': '指南',
@@ -37,20 +37,19 @@ _LABELS = {
                'reference': '参考资料',
                'references': '参考资料',
                'concepts': '理解项目',
-               'capabilities': '能力导览',
-               'internals': '内部实现',
+               'deep-dive': '深入理解',
                'docs': '文档',
                'decisions': '设计决策',
                'adr': '架构决策',
                'contributing': '贡献指南',
                'changelog': '更新日志',
            }},
-    'en': {'overview': 'Overview', 'concepts': 'Understand', 'capabilities': 'Capabilities',
-           'internals': 'Internals', 'reference': 'Reference',
+    'en': {'overview': 'Overview', 'concepts': 'Understand', 'deep-dive': 'Deep Dive',
+           'reference': 'Reference',
            'more': 'More', 'other': 'Other', 'subdirs': {}},
 }
 
-_KNOWLEDGE_DIRS = ('concepts', 'capabilities', 'internals', 'reference')
+_KNOWLEDGE_DIRS = ('concepts', 'deep-dive', 'reference')
 
 
 def _labels(wiki_dir: str) -> Dict[str, str]:
@@ -95,33 +94,6 @@ def _load_json(path: Path, default=None):
         return json.loads(path.read_text(encoding='utf-8'))
     except (json.JSONDecodeError, OSError):
         return default
-
-
-def _extract_semantic_groups(analysis: dict) -> Dict[str, str]:
-    """从 module-analysis.json 提取 {module_name: semantic_group} 映射。
-
-    兼容两种格式：
-    - 字典格式 {"modules": {"auth": {"semantic_group": "...", ...}, ...}}
-    - 数组格式 {"modules": [{"name": "auth", "semantic_group": "...", ...}, ...]}
-    """
-    groups: Dict[str, str] = {}
-    if not analysis:
-        return groups
-    if isinstance(analysis, dict):
-        modules = analysis.get('modules', {})
-        if isinstance(modules, dict):
-            for mod_name, mod_data in modules.items():
-                if isinstance(mod_data, dict):
-                    sg = mod_data.get('semantic_group')
-                    if sg:
-                        groups[mod_name] = sg
-        elif isinstance(modules, list):
-            for item in modules:
-                mod_name = item.get('module_path', item.get('name', ''))
-                sg = item.get('semantic_group')
-                if sg:
-                    groups[mod_name] = sg
-    return groups
 
 
 def _envelope(menu: list, project_name: str) -> Dict[str, Any]:
@@ -180,8 +152,7 @@ def _build_menu_from_topology(
     group_label_map = {
         'overview': L['overview'],
         'concepts': L['concepts'],
-        'capabilities': L['capabilities'],
-        'internals': L['internals'],
+        'deep-dive': L['deep-dive'],
         'reference': L['reference'],
         'more': L['more'],
     }
@@ -214,7 +185,11 @@ def _build_menu_from_topology(
             })
 
         if direct_items:
-            menu.append({'title': section_title, 'items': direct_items})
+            existing = next((group for group in menu if group.get('title') == section_title), None)
+            if existing:
+                existing.setdefault('items', []).extend(direct_items)
+            else:
+                menu.append({'title': section_title, 'items': direct_items})
 
     if not menu:
         return None
@@ -240,6 +215,11 @@ def _build_directory_section(wiki_path: Path, dirname: str, L: dict) -> Optional
     if not items:
         return None
     return {'title': L.get(dirname, dirname), 'items': items}
+
+
+def _build_deep_dive_section(wiki_path: Path, L: dict) -> Optional[Dict[str, Any]]:
+    """Build the deep-dive section from the latest wiki/deep-dive layout."""
+    return _build_directory_section(wiki_path, 'deep-dive', L)
 
 
 def _build_more_section(wiki_path: Path, L: dict) -> Optional[Dict]:
@@ -293,8 +273,7 @@ def build_menu(wiki_dir: str, project_name: str = '', cache_dir: str = None) -> 
     目录布局:
       wiki/overview.md, wiki/getting-started.md, wiki/doc-map.md
       wiki/concepts/*.md
-      wiki/capabilities/*.md
-      wiki/internals/*.md
+      wiki/deep-dive/*.md
       wiki/reference/*.md
       wiki/changelog.md, wiki/其他顶层文件.md
       wiki/subdir/ (自定义子目录)
@@ -327,7 +306,11 @@ def build_menu(wiki_dir: str, project_name: str = '', cache_dir: str = None) -> 
 
     # ---------- 一等知识目录 ----------
     for dirname in _KNOWLEDGE_DIRS:
-        section = _build_directory_section(wiki_path, dirname, L)
+        section = (
+            _build_deep_dive_section(wiki_path, L)
+            if dirname == 'deep-dive'
+            else _build_directory_section(wiki_path, dirname, L)
+        )
         if section:
             menu.append(section)
 
@@ -407,7 +390,12 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
     for group in menu_data.get('menu', []):
         items = reconcile_items(group.get('items', []))
         if items:
-            updated_menu.append({**group, 'items': items})
+            group_title = group.get('title')
+            existing = next((g for g in updated_menu if g.get('title') == group_title), None)
+            if existing:
+                existing.setdefault('items', []).extend(items)
+            else:
+                updated_menu.append({**group, 'title': group_title, 'items': items})
 
     known_paths = {
         item.get('path', '')
@@ -417,7 +405,11 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
     }
 
     for dirname in _KNOWLEDGE_DIRS:
-        section = _build_directory_section(wiki_path, dirname, L)
+        section = (
+            _build_deep_dive_section(wiki_path, L)
+            if dirname == 'deep-dive'
+            else _build_directory_section(wiki_path, dirname, L)
+        )
         if not section:
             continue
         missing_items = [

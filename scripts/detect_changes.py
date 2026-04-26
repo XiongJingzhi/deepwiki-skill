@@ -125,13 +125,9 @@ def load_cached_checksums(wiki_dir: str) -> Dict[str, Dict[str, str]]:
     if checksums_path.exists():
         with open(checksums_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        # 版本校验
-        if data.get("cache_schema_version") is not None:
-            if data["cache_schema_version"] != CACHE_SCHEMA_VERSION:
-                return {}
-            return data.get("checksums", {})
-        # 遗留格式（无版本字段）：直接返回整个 dict
-        return data
+        if data["cache_schema_version"] != CACHE_SCHEMA_VERSION:
+            return {}
+        return data.get("checksums", {})
     return {}
 
 

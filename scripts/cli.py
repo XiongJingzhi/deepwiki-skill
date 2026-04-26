@@ -3,7 +3,7 @@
 
 import argparse
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from analyze_project import analyze_project
 from build_evidence_index import build_evidence_index
@@ -18,16 +18,12 @@ from extract_structure import run_extract_structure
 from init_wiki import init_deep_wiki
 from plan_doc_topology import plan_doc_topology
 from validate_skill import validate_skill
+from serve_wiki import serve_wiki
 
 
 def _deepwiki_path(path: str) -> Path:
     target = Path(path)
     return target if target.name == ".deepwiki" else target / ".deepwiki"
-
-
-def _module_map(module_analysis: Dict[str, Any]) -> Dict[str, Any]:
-    modules = module_analysis.get("modules")
-    return modules if isinstance(modules, dict) else module_analysis
 
 
 def validate_analysis(project_path: Path, verbose: bool = False) -> int:
@@ -39,7 +35,7 @@ def validate_analysis(project_path: Path, verbose: bool = False) -> int:
         print("module-analysis.json root must be an object")
         return 2
 
-    modules = _module_map(module_analysis)
+    modules = module_analysis.get("modules", {})
     if not modules:
         print("module-analysis.json is empty; skipping analysis validation")
         return 0
@@ -92,6 +88,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_self_check = subparsers.add_parser("self-check", help="Validate skill package")
     p_self_check.add_argument("skill_dir", nargs="?", default=str(Path(__file__).parent.parent))
 
+    p_serve = subparsers.add_parser("serve", help="Start local wiki documentation server")
+    p_serve.add_argument("project_path", help="Path to project with .deepwiki/ directory")
+    p_serve.add_argument("--port", type=int, default=8742, help="Server port (default: 8742)")
+    p_serve.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
+
     args = parser.parse_args(argv)
 
     if args.command == "init":
@@ -138,6 +139,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         for error in result["errors"]:
             print(f"  - {error}")
         return 1
+
+    if args.command == "serve":
+        serve_wiki(args.project_path, port=args.port, host=args.host)
+        return 0
 
     return 1
 

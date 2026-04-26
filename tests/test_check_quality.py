@@ -116,6 +116,21 @@ class TestAnalyzeDocument:
         m3 = check_doc_quality.analyze_document(str(p3))
         assert m3.has_source_tracing is True
 
+        # Relevant source files with line ranges
+        p5 = tmp_path / "e.md"
+        p5.write_text(
+            "# Module\n\n"
+            "<details open>\n"
+            "<summary>Relevant source files</summary>\n\n"
+            "- [src/main.py](file:///src/main.py#L10-L24) `L10-L24` - 主流程\n"
+            "</details>\n",
+            encoding="utf-8",
+        )
+        m5 = check_doc_quality.analyze_document(str(p5))
+        assert m5.has_source_tracing is True
+        assert m5.has_relevant_source_files is True
+        assert m5.source_range_link_count == 1
+
         # No source tracing
         p4 = tmp_path / "d.md"
         p4.write_text("## Intro\n\nSome text.\n", encoding="utf-8")
@@ -333,6 +348,8 @@ class TestGenerateIssues:
             code_example_count=3,
             cross_link_count=2,
             has_source_tracing=True,
+            has_relevant_source_files=True,
+            source_range_link_count=1,
             source_link_valid_count=0,
             source_link_broken_count=0,
             has_best_practices=True,
@@ -351,6 +368,16 @@ class TestGenerateIssues:
         m = self._make(has_source_tracing=False)
         issues = check_doc_quality.generate_issues(m)
         assert any("源码追溯" in i for i in issues)
+
+    def test_missing_relevant_source_files_for_module(self):
+        m = self._make(has_relevant_source_files=False)
+        issues = check_doc_quality.generate_issues(m)
+        assert any("Relevant source files" in i for i in issues)
+
+    def test_missing_source_range_links_for_module(self):
+        m = self._make(source_range_link_count=0)
+        issues = check_doc_quality.generate_issues(m)
+        assert any("#Lx-Ly" in i for i in issues)
 
     def test_no_cross_links(self):
         m = self._make(cross_link_count=0)
@@ -515,17 +542,30 @@ class TestBuildEvidenceIndex:
         (cache / "module-analysis.json").write_text(
             json.dumps(
                 {
-                    "auth": {
-                        "module_path": "src/auth",
-                        "module_summary": "Handles authentication.",
-                        "module_role": "Owns sign-in decisions.",
-                        "semantic_group": "Authentication",
-                        "files": [
-                            {
-                                "path": "src/auth/service.py",
-                                "summary": "Auth service.",
-                            }
-                        ],
+                    "cache_schema_version": 2,
+                    "modules": {
+                        "auth": {
+                            "module_path": "src/auth",
+                            "module_summary": "Handles authentication.",
+                            "module_role": "Owns sign-in decisions.",
+                            "semantic_group": "Authentication",
+                            "files": [
+                                {
+                                    "path": "src/auth/service.py",
+                                    "summary": "Auth service.",
+                                    "public_interfaces": [
+                                        {"name": "login", "line": 10, "end_line": 24}
+                                    ],
+                                    "core_source_ranges": [
+                                        {
+                                            "label": "login flow",
+                                            "start_line": 10,
+                                            "end_line": 24,
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
                     }
                 }
             ),
@@ -535,9 +575,59 @@ class TestBuildEvidenceIndex:
         result = build_evidence_index.build_evidence_index(tmp_path)
         claims = result["claims"]
         assert claims
-        assert claims[0]["page_id"] == "capability:auth"
+        assert claims[0]["page_id"] == "deep-dive:auth"
         assert claims[0]["evidence"]
+        assert claims[0]["evidence"][0]["ranges"] == [
+            {"start_line": 10, "end_line": 24, "label": "login flow"},
+            {"start_line": 10, "end_line": 24, "label": "login"},
+        ]
         assert (cache / "evidence-index.json").exists()
+
+    def test_deep_dive_internal_doc_matches_internal_evidence(self, tmp_path):
+        deepwiki = tmp_path / ".deepwiki"
+        cache = deepwiki / "cache"
+        wiki = deepwiki / "wiki"
+        deep_dive = wiki / "deep-dive"
+        cache.mkdir(parents=True)
+        deep_dive.mkdir(parents=True)
+
+        (tmp_path / "src" / "db").mkdir(parents=True)
+        (tmp_path / "src" / "db" / "storage.py").write_text(
+            "\n".join(f"line {i}" for i in range(1, 40)),
+            encoding="utf-8",
+        )
+        (deep_dive / "storage.md").write_text(
+            "# Storage\n\n"
+            "<details open>\n"
+            "<summary>Relevant source files</summary>\n\n"
+            "- src/\n"
+            "  - db/\n"
+            "    - [storage.py](file:///src/db/storage.py#L1-L20) `L1-L20` - 存储实现\n\n"
+            "</details>\n\n"
+            "## 概述\n\n"
+            "存储实现。\n\n"
+            "**Section sources**\n"
+            "[storage.py](file:///src/db/storage.py#L1-L20)\n",
+            encoding="utf-8",
+        )
+        (cache / "evidence-index.json").write_text(
+            json.dumps(
+                {
+                    "claims": [
+                        {
+                            "page_id": "deep-dive:storage",
+                            "claim_text": "Storage internals.",
+                            "evidence": [{"path": "src/db/storage.py"}],
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        report = check_doc_quality.check_wiki_quality(str(deepwiki))
+        storage = next(doc for doc in report.docs if doc.file_path.endswith("storage.md"))
+        assert not any("缺少证据索引" in issue for issue in storage.issues)
 
 
 # ---------------------------------------------------------------------------
@@ -607,7 +697,15 @@ class TestCheckAnalysisQuality:
                 {
                     "path": "src/auth/service.py",
                     "summary": "Authentication service.",
-                    "public_interfaces": [{"name": "login"}],
+                    "public_interfaces": [{"name": "login", "line": 10, "end_line": 24}],
+                    "core_source_ranges": [
+                        {
+                            "label": "login flow",
+                            "start_line": 10,
+                            "end_line": 24,
+                            "reason": "Covers the authentication happy path.",
+                        }
+                    ],
                     "key_insights": ["Keeps credential handling isolated."],
                 }
             ],
@@ -639,3 +737,24 @@ class TestCheckAnalysisQuality:
         )
         assert errors == []
         assert warnings == []
+
+    def test_missing_source_ranges_warns(self):
+        module = self._module(
+            module_role="Owns authentication decisions.",
+            upstream_inputs=["HTTP credentials"],
+            downstream_outputs=["Session token"],
+            risk_points=["Password handling"],
+            extension_points=["Add SSO provider"],
+            files=[
+                {
+                    "path": "src/auth/service.py",
+                    "summary": "Authentication service.",
+                    "public_interfaces": [{"name": "login"}],
+                    "key_insights": ["Keeps credential handling isolated."],
+                }
+            ],
+        )
+        errors, warnings = check_analysis_quality.check_module_quality("auth", module)
+        assert errors == []
+        assert any("line/end_line" in warning for warning in warnings)
+        assert any("core_source_ranges" in warning for warning in warnings)

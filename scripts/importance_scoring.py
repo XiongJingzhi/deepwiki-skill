@@ -120,7 +120,7 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
         size: 文件大小（字节）
         return_breakdown: 是否返回各组分数明细
         archetype: 项目原型标签（如 "web-service"），用于动态调整权重；
-                   为 None 时使用默认权重（import_degree 权重为 0，向后兼容）
+                   为 None 时使用默认权重
         import_degree: 该文件被其他文件 import 的次数（入度）
 
     Returns:

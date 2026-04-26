@@ -158,8 +158,34 @@ CodePurpose: {{ CODE_PURPOSE }}
 4. **模块文档侧重设计理念和核心逻辑理解**：解释"为什么这样设计"，并通过精简源码、注释源码和逐段说明讲清内部实现逻辑和数据流。
 5. **核心逻辑必须充分但不堆叠**：只选择代表主路径、核心算法或关键扩展点的代码；先抽象，再贴关键源码，不整文件搬运。
 6. **先自上而下，再中层建模，最后深入核心逻辑**：先解释架构定位、设计思路、模式和权衡，再解释内部结构/执行流/数据流，最后进入核心逻辑。
+7. **源码追溯必须精确到行范围**：所有源码证据链接必须使用 `file:///<path>#L<start>-L<end>`。若只能定位单行，使用 `#L<line>`；不要只写文件名。
 
 ## 生成要求
+
+### 0. 相关源码文件（Relevant source files，必需）
+- 页面标题后必须立即生成一个可折叠区块，标题固定为 `Relevant source files`。
+- 列出 3-10 个和本页最相关的源码文件，按重要性排序。
+- 每一项必须包含：源码链接、行号范围、为什么相关。
+- 链接格式固定为：`[src/path/file.ext](file:///src/path/file.ext#L12-L48)`。
+- 行号范围必须来自 `public_interfaces.line/end_line`、`core_source_ranges`、`parse-results.json` / `code-structure.json.definitions`，或从本轮读取的源码片段中精确计算。
+- 文件必须按目录组织成**树形列表**，不要使用表格，不要生成"文件/用途/行数/链接"这类表格。
+- 目录节点只写目录名，文件节点保留源码链接、行号范围和说明；说明文字不要改写或移到单独列。
+
+模板：
+
+```markdown
+<details open>
+<summary>Relevant source files</summary>
+
+- src/
+  - auth/
+    - [service.ts](file:///src/auth/service.ts#L24-L88) `L24-L88` - 认证主流程和错误分支
+    - [token.ts](file:///src/auth/token.ts#L10-L43) `L10-L43` - token 生成与校验
+  - config/
+    - [settings.ts](file:///src/config/settings.ts#L1-L32) `L1-L32` - 环境变量配置管理
+
+</details>
+```
 
 ### 1. 概述（overview 组件，必需）
 - 用 2-3 段文字描述模块的目的、解决的问题、核心价值
@@ -220,6 +246,7 @@ CodePurpose: {{ CODE_PURPOSE }}
 ### 14. 核心逻辑（code-walkthrough 组件，条件：复杂度 >= 50、CodePurpose in [Agent, Service, Api, Command] 或存在核心执行路径）
 - **精简版核心源码**：先给 10-30 行伪代码或裁剪代码，概括主执行路径，让读者先看懂骨架。
 - **带注释关键源码**：再给 1-3 段真实源码片段，每段 20-80 行；添加中文注释解释关键变量、分支、调用、状态变化、错误处理和输出。
+- **源码范围**：每段真实源码片段前必须写 `Source: [path](file:///path#Lx-Ly) \`Lx-Ly\``，代码块内容必须与该行范围对应。
 - **逐段解释**：代码块后必须提供表格：| 片段 | 做什么 | 为什么这样做 | 关键变量/调用 | 风险 |
 - **重要解释**：补充说明核心算法、关键条件、依赖调用、错误路径、边界情况、设计取舍和维护注意事项。
 - 若源码过长，先给精简伪代码/裁剪片段，再说明省略了哪些非关键细节；不要整文件搬运。
@@ -242,16 +269,38 @@ CodePurpose: {{ CODE_PURPOSE }}
 - 错误类型及触发条件表
 
 ### 20. 相关文档（nav-links 组件，必需）
-- 架构文档链接、相关能力页/内部实现页/参考索引链接
+- 架构文档链接、相关深入理解页/参考索引链接
+
+### 21. Sources（sources 组件，必需，Test 类模块可豁免）
+
+- 汇总本页各章节中实际引用过的所有源码文件和行号范围
+- 来源：各章节 `Source:` 链接和 `Section sources` 链接的并集
+- 按文件路径去重排列，每项包含 file:// 链接（含行号范围）和一句话说明
 
 ---
 
 ### 源码追溯要求
 
-描述源码行为的章节（概述、公开接口、核心逻辑、核心类与函数）末尾应包含源码引用，格式：
+页面必须包含三级源码追溯：
+
+1. 页面顶部 `Relevant source files` 折叠区块，列出本页最相关源码文件和行范围。
+2. 描述源码行为的章节（概述、公开接口、核心逻辑、核心类与函数）末尾应包含源码引用。
+3. 页面末尾 `Sources` 区块（nav-links 之前），汇总本页所有实际引用过的源码文件和行号范围。
+
+章节源码引用格式：
 
 > **Section sources**
 > [filename.ts](file:///path/to/file.ts#L1-L50)
+
+核心逻辑源码片段格式：
+
+````markdown
+**Source:** [src/auth/service.ts](file:///src/auth/service.ts#L24-L88) `L24-L88`
+
+```ts
+// 这里的代码必须对应 L24-L88 的裁剪片段
+```
+````
 
 纯导航章节（相关文档）和聚合数据章节（依赖关系、模块依赖图）可豁免此要求。
 
@@ -286,6 +335,15 @@ CodePurpose: {{ CODE_PURPOSE }}
 # {MODULE_NAME}
 
 > {模块一句话描述}
+
+---
+
+<details open>
+<summary>Relevant source files</summary>
+
+[source-file-list 组件：3-10 个源码文件，按目录组织成树形列表；目录节点只写目录名；文件节点包含 file:// 链接、Lx-Ly 行范围和相关原因；不要使用表格]
+
+</details>
 
 ---
 
@@ -385,7 +443,7 @@ CodePurpose: {{ CODE_PURPOSE }}
 
 > **章节名自适应**：Config 模块改用"配置逻辑"，Dao/Database 模块改用"数据访问逻辑"，Util 模块改用"实现要点"，Agent/Service/Api/Command 模块优先使用"核心逻辑"。
 
-[code-walkthrough 组件：精简版核心源码 + 带注释关键源码 + 逐段讲解表格 + 重要解释]
+[code-walkthrough 组件：精简版核心源码 + Source 链接（file://...#Lx-Ly）+ 带注释关键源码 + 逐段讲解表格 + 重要解释]
 
 ---
 
@@ -430,6 +488,13 @@ CodePurpose: {{ CODE_PURPOSE }}
 > **语言选择**：代码示例优先使用项目主要语言；多语言项目可选择模块自身语言或最相关的语言。SDK/Library 模块应包含调用方语言示例。
 
 [code-example 组件：使用示例]
+
+---
+
+<!-- HEAVY | STANDARD | LIGHT -->
+## Sources
+
+[sources 组件：汇总本页各章节实际引用过的所有源码文件和行号范围，按文件去重排列；每项包含 file:// 链接和一句话说明；Test 类模块可豁免]
 
 ---
 
