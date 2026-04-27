@@ -136,7 +136,7 @@ class TestInitDeepWiki:
         assert gitignore_path.is_file()
         content = gitignore_path.read_text(encoding="utf-8")
         assert "cache/" in content
-        assert "*.bak" in content
+        assert "*.bak" not in content
 
     def test_refuses_without_force(self, tmp_path):
         init_wiki.init_deep_wiki(str(tmp_path))
@@ -146,11 +146,13 @@ class TestInitDeepWiki:
 
     def test_force_reinitializes(self, tmp_path):
         init_wiki.init_deep_wiki(str(tmp_path))
+        stale_doc = tmp_path / ".deepwiki" / "wiki" / "old.md"
+        stale_doc.write_text("old", encoding="utf-8")
         result = init_wiki.init_deep_wiki(str(tmp_path), force=True)
         assert result["success"] is True
-        # Config should be backed up
+        assert not stale_doc.exists()
         backup_path = tmp_path / ".deepwiki" / "config.yaml.bak"
-        assert backup_path.is_file()
+        assert not backup_path.exists()
 
     def test_returns_result_structure(self, tmp_path):
         result = init_wiki.init_deep_wiki(str(tmp_path))

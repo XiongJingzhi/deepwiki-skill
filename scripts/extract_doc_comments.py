@@ -806,7 +806,7 @@ def _read_doc_entries_from_cache(file_path: str, project_root: str) -> Optional[
 
 
 # ---------------------------------------------------------------------------
-# Public API（所有新参数均为可选，保持向后兼容）
+# Public API
 # ---------------------------------------------------------------------------
 
 def extract_jsdoc(content: str, file_path: str, project_root: str = None) -> List[DocEntry]:

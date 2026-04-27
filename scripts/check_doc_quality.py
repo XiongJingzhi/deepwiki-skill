@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 DeepWiki 文档质量检查脚本
-检查生成的文档是否符合 v3.0.2 质量标准
+检查生成的文档是否符合当前质量标准
 """
 
 import os
@@ -29,6 +29,20 @@ def _infer_doc_type(file_path: str) -> str:
     if parent == 'api':
         return 'api'
     return 'module'
+
+
+def _has_top_relevant_source_files(content: str) -> bool:
+    """Return True only when the source index is the first block after H1."""
+    return bool(
+        re.search(
+            r'\A\s*#\s+[^\n]+\n+'
+            r'(?:[ \t]*\n)*'
+            r'<details\b[^>]*\bopen\b[^>]*>\s*\n'
+            r'\s*<summary>\s*Relevant source files\s*</summary>',
+            content,
+            re.IGNORECASE,
+        )
+    )
 
 
 DOC_TYPE_WEIGHTS = {
@@ -112,6 +126,7 @@ class QualityMetrics:
     has_troubleshooting: bool = False  # 是否有错误处理/调试章节
     source_link_valid_count: int = 0  # 有效的源码链接数
     source_link_broken_count: int = 0  # 失效的源码链接数
+    source_link_missing_lines: int = 0  # 缺少行号范围的源码链接数
     source_link_invalid_lines: int = 0  # 行号超出文件范围的链接数
     source_link_corrected: int = 0  # 可自动修正的链接数
     quality_level: str = "basic"  # basic / standard / professional
@@ -176,16 +191,12 @@ def analyze_document(file_path: str, structure_path: str = None,
     internal_links = re.findall(r'\[.*?\]\((?!http).*?\.md.*?\)', content)
     metrics.cross_link_count = len(internal_links)
 
-    # 检查源码追溯
-    metrics.has_source_tracing = bool(
-        re.search(r'\*\*Section sources\*\*|\*\*Diagram sources\*\*|file://', content)
-    )
-    metrics.has_relevant_source_files = bool(
-        re.search(r'Relevant source files|相关源码文件', content, re.IGNORECASE)
-    )
     metrics.source_range_link_count = len(
         re.findall(r'file:///[^)\s#]+#L\d+(?:-L\d+)?', content)
     )
+    # 检查源码追溯：第一版规范要求 file:// 链接必须精确到行号范围。
+    metrics.has_source_tracing = metrics.source_range_link_count > 0
+    metrics.has_relevant_source_files = _has_top_relevant_source_files(content)
 
     # 统计置信度标注
     metrics.confidence_high_count = len(re.findall(r'\U0001f7e2', content))
@@ -211,6 +222,7 @@ def analyze_document(file_path: str, structure_path: str = None,
         metrics.source_link_broken_count = broken
         # 行号有效性验证
         line_result = validate_source_link_with_lines(content, project_root)
+        metrics.source_link_missing_lines = line_result['missing_lines']
         metrics.source_link_invalid_lines = line_result['invalid_lines']
         metrics.source_link_corrected = line_result['corrected']
 
@@ -274,6 +286,7 @@ def validate_source_link_with_lines(content: str, project_root: str) -> Dict[str
         {
             'valid': 有效链接数,
             'broken': 文件不存在的链接数,
+            'missing_lines': 缺少行号范围的链接数,
             'invalid_lines': 行号超出范围的链接数,
             'corrected': 可自动修正的链接数
         }
@@ -282,9 +295,9 @@ def validate_source_link_with_lines(content: str, project_root: str) -> Dict[str
     matches = link_pattern.findall(content)
     
     if not matches:
-        return {'valid': 0, 'broken': 0, 'invalid_lines': 0, 'corrected': 0}
+        return {'valid': 0, 'broken': 0, 'missing_lines': 0, 'invalid_lines': 0, 'corrected': 0}
     
-    result = {'valid': 0, 'broken': 0, 'invalid_lines': 0, 'corrected': 0}
+    result = {'valid': 0, 'broken': 0, 'missing_lines': 0, 'invalid_lines': 0, 'corrected': 0}
     seen = set()
     
     for link_path, line_start, line_end in matches:
@@ -308,7 +321,7 @@ def validate_source_link_with_lines(content: str, project_root: str) -> Dict[str
             continue
         
         if not line_start:
-            result['valid'] += 1
+            result['missing_lines'] += 1
             continue
         
         try:
@@ -495,17 +508,20 @@ def generate_issues(m: QualityMetrics, structure_path: str = None) -> List[str]:
         issues.append(f"代码示例不足: {m.code_example_count}/{expected['min_examples']}")
     
     if not m.has_source_tracing:
-        issues.append("缺少源码追溯 (file:// 链接)")
+        issues.append("缺少源码追溯 (file:// 行号范围链接)")
 
     doc_type = _infer_doc_type(m.file_path)
     if doc_type == "module":
         if not m.has_relevant_source_files:
-            issues.append("缺少 Relevant source files 源码文件区块")
+            issues.append("模块文档标题后立即包含 Relevant source files 折叠源码索引")
         if m.source_range_link_count < 1:
             issues.append("缺少带行号范围的源码链接 (#Lx-Ly)")
 
     if m.source_link_broken_count > 0:
         issues.append(f"失效的源码链接: {m.source_link_broken_count} 个 (有效: {m.source_link_valid_count})")
+
+    if m.source_link_missing_lines > 0:
+        issues.append(f"缺少行号范围的源码链接: {m.source_link_missing_lines} 个")
 
     if m.source_link_invalid_lines > 0:
         msg = f"行号超出范围的源码链接: {m.source_link_invalid_lines} 个"
@@ -685,7 +701,7 @@ def print_report(report: QualityReport, verbose: bool = False):
     if report.basic_count > 0:
         print(f"- 运行 `升级 wiki` 命令升级 {report.basic_count} 个 Basic 级文档")
     if not any(d.has_source_tracing for d in report.docs):
-        print("- 添加源码追溯 (Section sources / Diagram sources)")
+        print("- 添加带行号范围的 file:// 源码链接")
     if not any(d.class_diagram_count > 0 for d in report.docs):
         print("- 为核心类添加 classDiagram 类图")
     
@@ -729,6 +745,8 @@ def save_report_json(report: QualityReport, output_path: str):
                 "has_source_tracing": doc.has_source_tracing,
                 "source_link_valid": doc.source_link_valid_count,
                 "source_link_broken": doc.source_link_broken_count,
+                "source_link_missing_lines": doc.source_link_missing_lines,
+                "source_link_invalid_lines": doc.source_link_invalid_lines,
                 "has_best_practices": doc.has_best_practices,
                 "has_performance": doc.has_performance,
                 "has_troubleshooting": doc.has_troubleshooting

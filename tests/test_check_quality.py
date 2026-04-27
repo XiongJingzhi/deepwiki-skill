@@ -97,24 +97,24 @@ class TestAnalyzeDocument:
         assert m.cross_link_count == 0
 
     def test_source_tracing_detection(self, tmp_path):
-        """Source tracing is detected via **Section sources** or **Diagram sources** or file://."""
-        # Section sources keyword
+        """Source tracing requires a file:// link with a line range."""
+        # Section sources keyword without a source link is not enough.
         p1 = tmp_path / "a.md"
         p1.write_text("## Code\n\n**Section sources**: file1.py\n", encoding="utf-8")
         m1 = check_doc_quality.analyze_document(str(p1))
-        assert m1.has_source_tracing is True
+        assert m1.has_source_tracing is False
 
-        # Diagram sources keyword
+        # Diagram sources keyword without a source link is not enough.
         p2 = tmp_path / "b.md"
         p2.write_text("## Diagram\n\n**Diagram sources**: diagram.py\n", encoding="utf-8")
         m2 = check_doc_quality.analyze_document(str(p2))
-        assert m2.has_source_tracing is True
+        assert m2.has_source_tracing is False
 
-        # file:// link
+        # A file:// link without a line range is not enough.
         p3 = tmp_path / "c.md"
         p3.write_text("## Ref\n\nSee file:///src/main.py\n", encoding="utf-8")
         m3 = check_doc_quality.analyze_document(str(p3))
-        assert m3.has_source_tracing is True
+        assert m3.has_source_tracing is False
 
         # Relevant source files with line ranges
         p5 = tmp_path / "e.md"
@@ -130,6 +130,22 @@ class TestAnalyzeDocument:
         assert m5.has_source_tracing is True
         assert m5.has_relevant_source_files is True
         assert m5.source_range_link_count == 1
+
+        # A late table-style source index should not count as the required top block.
+        p6 = tmp_path / "f.md"
+        p6.write_text(
+            "# Module\n\n"
+            "## 概述\n\n"
+            "模块说明。\n\n"
+            "## 相关源码文件\n\n"
+            "| 文件 | 说明 |\n"
+            "|------|------|\n"
+            "| [src/main.py](file:///src/main.py#L10-L24) | 主流程 |\n",
+            encoding="utf-8",
+        )
+        m6 = check_doc_quality.analyze_document(str(p6))
+        assert m6.has_source_tracing is True
+        assert m6.has_relevant_source_files is False
 
         # No source tracing
         p4 = tmp_path / "d.md"
@@ -434,6 +450,19 @@ class TestValidateSourceLinks:
         valid, broken = check_doc_quality.validate_source_links(content, str(tmp_path))
         assert valid == 0
         assert broken == 0
+
+    def test_source_links_without_line_ranges_are_reported(self, tmp_path):
+        src = tmp_path / "utils.py"
+        src.write_text("line 1\nline 2\n", encoding="utf-8")
+
+        content = (
+            "[with range](file:///utils.py#L1-L2)\n"
+            "[without range](file:///utils.py)\n"
+        )
+        result = check_doc_quality.validate_source_link_with_lines(content, str(tmp_path))
+
+        assert result["valid"] == 1
+        assert result["missing_lines"] == 1
 
 
 # ---------------------------------------------------------------------------

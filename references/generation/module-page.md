@@ -163,12 +163,12 @@ CodePurpose: {{ CODE_PURPOSE }}
 ## 生成要求
 
 ### 0. 相关源码文件（Relevant source files，必需）
-- 页面标题后必须立即生成一个可折叠区块，标题固定为 `Relevant source files`。
+- 页面标题后必须立即生成一个可折叠区块，标题固定为 `Relevant source files`；这是 H1 后的第一个内容块，不要在它前面放摘要、分隔线、概述、截图式表格或 `## 源码索引` 标题。
 - 列出 3-10 个和本页最相关的源码文件，按重要性排序。
 - 每一项必须包含：源码链接、行号范围、为什么相关。
 - 链接格式固定为：`[src/path/file.ext](file:///src/path/file.ext#L12-L48)`。
 - 行号范围必须来自 `public_interfaces.line/end_line`、`core_source_ranges`、`parse-results.json` / `code-structure.json.definitions`，或从本轮读取的源码片段中精确计算。
-- 文件必须按目录组织成**树形列表**，不要使用表格，不要生成"文件/用途/行数/链接"这类表格。
+- 文件必须按目录组织成**树形列表**，不要使用表格，不要生成"文件/用途/行数/链接"、"文件/说明"或"源码索引"这类表格。
 - 目录节点只写目录名，文件节点保留源码链接、行号范围和说明；说明文字不要改写或移到单独列。
 
 模板：
@@ -334,16 +334,16 @@ CodePurpose: {{ CODE_PURPOSE }}
 ```markdown
 # {MODULE_NAME}
 
-> {模块一句话描述}
-
----
-
 <details open>
 <summary>Relevant source files</summary>
 
 [source-file-list 组件：3-10 个源码文件，按目录组织成树形列表；目录节点只写目录名；文件节点包含 file:// 链接、Lx-Ly 行范围和相关原因；不要使用表格]
 
 </details>
+
+---
+
+> {模块一句话描述}
 
 ---
 

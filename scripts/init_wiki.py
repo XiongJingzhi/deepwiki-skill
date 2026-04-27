@@ -153,12 +153,7 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
             result["message"] = ".deepwiki 目录已存在。使用 force=True 重新初始化。"
             return result
         else:
-            # 备份现有配置
-            config_path = wiki_dir / "config.yaml"
-            if config_path.exists():
-                backup_path = wiki_dir / "config.yaml.bak"
-                shutil.copy(config_path, backup_path)
-                result["skipped"].append("config.yaml (已备份)")
+            shutil.rmtree(wiki_dir)
 
     try:
         # 创建目录结构
@@ -252,7 +247,7 @@ def init_deep_wiki(project_root: str, force: bool = False) -> dict:
         gitignore_path = wiki_dir / ".gitignore"
         if not gitignore_path.exists():
             with open(gitignore_path, 'w', encoding='utf-8') as f:
-                f.write("cache/\n*.bak\n")
+                f.write("cache/\n")
             result["created"].append(".gitignore")
 
     except (PermissionError, OSError) as e:

@@ -19,8 +19,8 @@
   ```bash
   python scripts/init_wiki.py <项目目录绝对路径>
   ```
-- **需要重新初始化**：添加 `--force` 参数强制覆盖已有 `.deepwiki/` 目录（会保留已有 wiki 文件，重建缓存和配置）：
+- **需要重新初始化**：添加 `--force` 参数删除已有 `.deepwiki/` 目录并重新创建干净结构：
   ```bash
   python scripts/init_wiki.py <项目目录绝对路径> --force
   ```
-- **已存在**：读取项目目录下的 `config.yaml` 和 `cache/structure.json` 获取增量更新上下文。检查 `meta.json` 的版本兼容性。
+- **已存在**：默认停止并提示使用 `--force`；第一版不做旧 `.deepwiki` 结构兼容或迁移。需要重建时显式运行 `--force`。

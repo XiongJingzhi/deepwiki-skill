@@ -35,6 +35,60 @@ class TestFixFlowchart:
         fixed, count = fix_mermaid.fix_flowchart(text)
         assert count >= 1
 
+    def test_hyphenated_node_id_label_gets_quoted(self):
+        text = 'api-gw[HTTP 请求] --> chat-service[POST /api/chat]\n'
+        fixed, count = fix_mermaid.fix_flowchart(text)
+        assert count == 2
+        assert 'api-gw["HTTP 请求"]' in fixed
+        assert 'chat-service["POST /api/chat"]' in fixed
+
+    def test_chat_routes_example_gets_quoted(self):
+        text = """flowchart TB
+    Client[客户端] --> HTTP[POST /api/chat]
+    Client --> SSE[POST /api/chat/stream]
+    Client --> WS[WS /ws/chat/{session_id}]
+
+    HTTP --> RunChat[run_chat]
+    SSE --> RunChat
+    WS --> RunChat
+
+    RunChat --> Pre[PreProcessor.process]
+    Pre --> WF[workflow_app.ainvoke]
+    WF --> Resp[ChatResponse]
+
+    HTTP --> SyncResp[同步 JSON 响应]
+    SSE --> StreamResp[SSE 事件流]
+    WS --> WsResp[WebSocket 消息]
+"""
+        fixed, count = fix_mermaid.fix_mermaid_block(text)
+        assert count >= 9
+        assert 'HTTP["POST /api/chat"]' in fixed
+        assert 'WS["WS /ws/chat/{session_id}"]' in fixed
+        assert 'SyncResp["同步 JSON 响应"]' in fixed
+
+    def test_middleware_routes_example_gets_quoted(self):
+        text = """graph TD
+    REQ[HTTP 请求] --> MW[RequestLoggingMiddleware]
+    MW --> CHAT[POST /chat]
+    MW --> SSE[GET /chat/stream]
+    MW --> WS[/ws/chat]
+    MW --> HLTH[GET /health]
+    MW --> SKILLS[POST /skills/reload]
+"""
+        fixed, count = fix_mermaid.fix_mermaid_block(text)
+        assert count >= 6
+        assert 'REQ["HTTP 请求"]' in fixed
+        assert 'WS["/ws/chat"]' in fixed
+        assert 'SKILLS["POST /skills/reload"]' in fixed
+
+    def test_common_node_shapes_get_quoted(self):
+        text = 'Start(HTTP 请求) --> Decision{是否成功?}\nDecision --> Store[(SQLite DB)]\n'
+        fixed, count = fix_mermaid.fix_flowchart(text)
+        assert count == 3
+        assert 'Start("HTTP 请求")' in fixed
+        assert 'Decision{"是否成功?"}' in fixed
+        assert 'Store[("SQLite DB")]' in fixed
+
 
 class TestFixClassDiagram:
     """Tests for fix_class_diagram()."""

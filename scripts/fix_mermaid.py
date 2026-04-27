@@ -42,6 +42,7 @@ def extract_mermaid_blocks(content: str) -> List[Tuple[int, int, str]]:
 # ── 辅助函数 ──
 
 _SAFE_ID_RE = re.compile(r'^[A-Za-z_][\w-]*$')
+_FLOW_NODE_ID = r'(?<![\w-])([A-Za-z_][\w-]*)'
 
 
 def _needs_quoting(text: str) -> bool:
@@ -67,17 +68,38 @@ def fix_flowchart(text: str) -> Tuple[str, int]:
     """
     fix_count = 0
 
-    def fix_node_def(m):
+    def quote_label(label: str) -> str:
         nonlocal fix_count
-        node_id = m.group(1)
-        label = m.group(2)
-        if _needs_quoting(label) and not (label.startswith('"') or label.startswith("'")):
+        unwrapped_label = label.lstrip('([{/<\\')
+        if _needs_quoting(label) and not (unwrapped_label.startswith('"') or unwrapped_label.startswith("'")):
             fix_count += 1
-            return f'{node_id}[{_quote(label)}]'
-        return m.group(0)
+            return _quote(label)
+        return label
 
-    # 修复节点定义：ID[label] -> ID["label"]
-    text = re.sub(r'(\w+)\[([^\]]+)\]', fix_node_def, text)
+    def fix_node_shape(pattern: str, formatter):
+        def repl(m):
+            node_id = m.group(1)
+            label = m.group(2)
+            quoted_label = quote_label(label)
+            if quoted_label == label:
+                return m.group(0)
+            return formatter(node_id, quoted_label)
+
+        return re.sub(pattern, repl, text)
+
+    # 修复常见节点定义：
+    # ID[label] -> ID["label"]
+    # ID(label) -> ID("label")
+    # ID{label} -> ID{"label"}
+    # ID[(label)] -> ID[("label")]
+    shape_patterns = [
+        (rf'{_FLOW_NODE_ID}\[\(([^\]\n]+?)\)\]', lambda node_id, label: f'{node_id}[({label})]'),
+        (rf'{_FLOW_NODE_ID}\(([^)\n]+?)\)', lambda node_id, label: f'{node_id}({label})'),
+        (rf'{_FLOW_NODE_ID}\{{([^}}\n]+?)\}}', lambda node_id, label: f'{node_id}{{{label}}}'),
+        (rf'{_FLOW_NODE_ID}\[([^\]\n]+?)\]', lambda node_id, label: f'{node_id}[{label}]'),
+    ]
+    for pattern, formatter in shape_patterns:
+        text = fix_node_shape(pattern, formatter)
 
     # 修复边标签：A -->|label| B -> A -->|"label"| B
     def fix_edge_label(m):
