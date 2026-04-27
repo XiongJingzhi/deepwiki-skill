@@ -14,7 +14,14 @@
       "Bash(grep -n '`invariants`' references/rules/components-guide.md)",
       "Bash(python3 -c ' *)",
       "Bash(grep -v '^$')",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki/cache/structure.json'\\)\\); print\\('schema_version:', d.get\\('cache_schema_version'\\)\\); print\\('project:', d.get\\('project_name'\\)\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki/cache/checksums.json'\\)\\); print\\('schema_version:', d.get\\('cache_schema_version'\\)\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki/cache/progress.json'\\)\\); print\\('schema_version:', d.get\\('cache_schema_version'\\)\\)\")",
+      "Bash(python3 -m pytest tests/ --tb=no -q)"
+    ],
+    "additionalDirectories": [
+      "/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki"
     ]
   }
 }

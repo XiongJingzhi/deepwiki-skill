@@ -204,10 +204,10 @@ class TestBuildMenu:
         assert other_group[0]["items"][0]["path"] == "changelog.md"
 
     def test_known_dirs_excluded_from_subdirs(self, tmp_path):
-        """Known directories (modules, api, assets) are not listed as custom subdirs."""
+        """Known directories (concepts, deep-dive, reference, assets) are not listed as custom subdirs."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        for d in ["modules", "api", "assets"]:
+        for d in ["concepts", "deep-dive", "reference", "assets"]:
             (wiki / d).mkdir()
             (wiki / d / "dummy.md").write_text("# Dummy\nX.", encoding="utf-8")
 
@@ -215,7 +215,7 @@ class TestBuildMenu:
         sections = {g["title"]: g for g in menu["menu"]}
         if "更多" in sections:
             for item in sections["更多"]["items"]:
-                assert item["title"] not in {"modules", "api", "assets"}
+                assert item["title"] not in {"concepts", "deep-dive", "reference", "assets"}
 
     def test_dot_and_underscore_dirs_excluded(self, tmp_path):
         """Directories starting with '.' or '_' are excluded from custom subdirs."""

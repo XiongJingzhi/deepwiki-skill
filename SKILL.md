@@ -66,7 +66,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | `generate-overview` | [references/workflow/generate-overview.md](references/workflow/generate-overview.md) |
 | `generate-menu` | [references/workflow/generate-menu.md](references/workflow/generate-menu.md) |
 | `generate-module-docs` | [references/workflow/generate-module-docs.md](references/workflow/generate-module-docs.md) |
-| `finalize` | [references/workflow/generate-module-docs.md](references/workflow/generate-module-docs.md) | 文档收尾工具（mermaid 修复/质量检查/一致性检查） |
+| `finalize` | `scripts/finalize.py <command>` | 文档收尾工具（mermaid 修复/质量检查/一致性检查） |
 | `self-check` | 脚本：`scripts/cli.py self-check`，检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
 | `check-cross-module-consistency` | 脚本：`scripts/finalize.py consistency`（详见 [`generate-module-docs.md`](references/workflow/generate-module-docs.md)） |
 | `codepurpose-detection`（规则） | [references/rules/codepurpose-detection.md](references/rules/codepurpose-detection.md) |

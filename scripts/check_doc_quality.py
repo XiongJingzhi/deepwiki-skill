@@ -17,17 +17,16 @@ from datetime import datetime
 def _infer_doc_type(file_path: str) -> str:
     """从文件路径推断文档类型。
 
-    Returns: 'overview' | 'getting-started' | 'api' | 'module'
+    Returns: 'overview' | 'getting-started' | 'reference' | 'module'
     """
-    from pathlib import Path as P
-    name = P(file_path).stem.lower()
-    parent = P(file_path).parent.name.lower()
+    name = Path(file_path).stem.lower()
+    parent = Path(file_path).parent.name.lower()
     if name in ('overview', 'index'):
         return 'overview'
     if name in ('getting-started', 'quickstart'):
         return 'getting-started'
-    if parent == 'api':
-        return 'api'
+    if parent == 'reference':
+        return 'reference'
     return 'module'
 
 
@@ -48,7 +47,7 @@ def _has_top_relevant_source_files(content: str) -> bool:
 DOC_TYPE_WEIGHTS = {
     "overview":  {"must_pct": 40, "should_pct": 30, "nice_pct": 30},
     "getting-started": {"must_pct": 50, "should_pct": 30, "nice_pct": 20},
-    "api":       {"must_pct": 50, "should_pct": 30, "nice_pct": 20},
+    "reference": {"must_pct": 50, "should_pct": 30, "nice_pct": 20},
     "module":    {"must_pct": 50, "should_pct": 30, "nice_pct": 20},
 }
 
@@ -86,7 +85,7 @@ DOC_TYPE_CRITERIA = {
             lambda m: m.has_source_tracing,
         ],
     },
-    "api": {
+    "reference": {
         "must": [
             lambda m: m.section_count >= 3,
             lambda m: m.code_example_count >= 1,

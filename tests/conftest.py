@@ -69,10 +69,12 @@ def fake_wiki(tmp_path):
     deepwiki = tmp_path / ".deepwiki"
     cache = deepwiki / "cache"
     wiki = deepwiki / "wiki"
-    modules = wiki / "modules"
-    api = wiki / "api"
+    concepts = wiki / "concepts"
+    deep_dive = wiki / "deep-dive"
+    reference = wiki / "reference"
+    assets = wiki / "assets"
 
-    for d in [cache, wiki, modules, api]:
+    for d in [cache, wiki, concepts, deep_dive, reference, assets]:
         d.mkdir(parents=True)
 
     # config.yaml
@@ -83,13 +85,15 @@ def fake_wiki(tmp_path):
 
     # meta.json
     (deepwiki / "meta.json").write_text(
-        json.dumps({"version": "2.0.0", "modules": {}}), encoding="utf-8"
+        json.dumps({"version": "2.1.0", "generated_at": "2026-01-01T00:00:00+00:00", "last_updated": None, "modules": {}}),
+        encoding="utf-8",
     )
 
-    # structure.json
+    # structure.json (with cache_schema_version)
     (cache / "structure.json").write_text(
         json.dumps(
             {
+                "cache_schema_version": common.CACHE_SCHEMA_VERSION,
                 "project_name": "test",
                 "modules": [
                     {"name": "core", "path": "src/core", "importance_score": 0.7},
@@ -100,18 +104,22 @@ def fake_wiki(tmp_path):
         encoding="utf-8",
     )
 
-    # checksums.json
-    (cache / "checksums.json").write_text(json.dumps({}), encoding="utf-8")
+    # checksums.json (with cache_schema_version)
+    (cache / "checksums.json").write_text(
+        json.dumps({"cache_schema_version": common.CACHE_SCHEMA_VERSION, "checksums": {}}),
+        encoding="utf-8",
+    )
 
-    # progress.json
+    # progress.json (with cache_schema_version)
     (cache / "progress.json").write_text(
-        json.dumps({"last_updated": None, "phases": {}}), encoding="utf-8"
+        json.dumps({"cache_schema_version": common.CACHE_SCHEMA_VERSION, "last_updated": None, "phases": {}}),
+        encoding="utf-8",
     )
 
     # Sample wiki files
-    (wiki / "index.md").write_text("# Test Project\n\nOverview.", encoding="utf-8")
-    (wiki / "architecture.md").write_text("# Architecture\n\nSystem design.", encoding="utf-8")
-    (modules / "core.md").write_text("# Core Module\n\nCore functionality.", encoding="utf-8")
+    (wiki / "overview.md").write_text("# Test Project\n\nOverview.", encoding="utf-8")
+    (concepts / "architecture.md").write_text("# Architecture\n\nSystem design.", encoding="utf-8")
+    (deep_dive / "core.md").write_text("# Core Module\n\nCore functionality.", encoding="utf-8")
 
     return tmp_path
 

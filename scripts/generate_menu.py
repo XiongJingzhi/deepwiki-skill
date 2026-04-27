@@ -217,11 +217,6 @@ def _build_directory_section(wiki_path: Path, dirname: str, L: dict) -> Optional
     return {'title': L.get(dirname, dirname), 'items': items}
 
 
-def _build_deep_dive_section(wiki_path: Path, L: dict) -> Optional[Dict[str, Any]]:
-    """Build the deep-dive section from the latest wiki/deep-dive layout."""
-    return _build_directory_section(wiki_path, 'deep-dive', L)
-
-
 def _build_more_section(wiki_path: Path, L: dict) -> Optional[Dict]:
     """构建"更多"分区（其他顶层文件 + 自定义子目录）。"""
     known_top_files = {'overview.md', 'getting-started.md', 'doc-map.md'}
@@ -234,7 +229,7 @@ def _build_more_section(wiki_path: Path, L: dict) -> Optional[Dict]:
                 'path': md_file.name,
             })
 
-    known_dirs = {'assets', 'modules', 'api', *_KNOWLEDGE_DIRS}
+    known_dirs = {'assets', *_KNOWLEDGE_DIRS}
     subdir_items: List[Dict[str, Any]] = []
     for subdir in sorted(wiki_path.iterdir()):
         if not subdir.is_dir() or subdir.name.startswith('.') or subdir.name.startswith('_'):
@@ -306,11 +301,7 @@ def build_menu(wiki_dir: str, project_name: str = '', cache_dir: str = None) -> 
 
     # ---------- 一等知识目录 ----------
     for dirname in _KNOWLEDGE_DIRS:
-        section = (
-            _build_deep_dive_section(wiki_path, L)
-            if dirname == 'deep-dive'
-            else _build_directory_section(wiki_path, dirname, L)
-        )
+        section = _build_directory_section(wiki_path, dirname, L)
         if section:
             menu.append(section)
 
@@ -405,11 +396,7 @@ def reconcile_menu(wiki_dir: str, project_name: str = '',
     }
 
     for dirname in _KNOWLEDGE_DIRS:
-        section = (
-            _build_deep_dive_section(wiki_path, L)
-            if dirname == 'deep-dive'
-            else _build_directory_section(wiki_path, dirname, L)
-        )
+        section = _build_directory_section(wiki_path, dirname, L)
         if not section:
             continue
         missing_items = [
