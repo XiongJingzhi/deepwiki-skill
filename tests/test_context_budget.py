@@ -3,11 +3,10 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 
 def test_estimate_token_cost_uses_language_ratio(tmp_path):
-    import context_budget
+    from scripts.analysis import context_budget
 
     py_file = tmp_path / "small.py"
     py_file.write_text("x" * 800, encoding="utf-8")
@@ -16,7 +15,7 @@ def test_estimate_token_cost_uses_language_ratio(tmp_path):
 
 
 def test_compute_context_budget_reserves_generation_and_prioritizes_files(tmp_path):
-    import context_budget
+    from scripts.analysis import context_budget
 
     src = tmp_path / "src"
     src.mkdir()

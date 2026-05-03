@@ -7,6 +7,9 @@ generation:
   include_examples: true         # 包含代码使用示例
   link_to_source: true           # 代码块链接到源码
   max_file_size: 100000          # 跳过大于此大小的文件（字节）
+  scheduling:
+    max_subagents: 6             # 最大同时运行的 subagent 数量
+    batch_size: 6                # 每批处理的模块数量
 
 # 排除规则（涵盖所有支持语言的依赖目录与构建产物，可在末尾追加项目特有规则）
 exclude:

@@ -7,9 +7,8 @@ from pathlib import Path
 import pytest
 
 # Ensure scripts/ is on sys.path (conftest.py also does this)
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-import import_relations
+from scripts.analysis import import_relations
 
 
 # ── extract_import_relations ────────────────────────────────────────────

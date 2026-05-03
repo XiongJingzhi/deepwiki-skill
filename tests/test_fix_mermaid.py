@@ -2,7 +2,7 @@
 
 import json
 import pytest
-import fix_mermaid
+from scripts.wiki import fix_mermaid
 
 
 class TestFixFlowchart:
@@ -24,6 +24,40 @@ class TestFixFlowchart:
         text = 'A["Data Processing"] --> B\n'
         fixed, count = fix_mermaid.fix_flowchart(text)
         assert count == 0
+
+
+    def test_nested_double_quotes_replaced_with_single(self):
+        # A["Skill.run(\"message, context\")"] -> A["Skill.run('message, context')"]
+        text = 'A["Skill.run("message, context")"] --> B["init"]\n'
+        fixed, count = fix_mermaid.fix_flowchart(text)
+        assert count == 1
+        assert "Skill.run('message, context')" in fixed
+        assert 'B["init"]' in fixed
+
+    def test_multiple_nested_double_quotes_in_diagram(self):
+        real_text = (
+            'graph TD\n'
+            '    A["fn("x", "y")"] --> B["plain"]\n'
+            '    B --> C["other("z")"] --> D["no quotes"]\n'
+        )
+        fixed, count = fix_mermaid.fix_flowchart(real_text)
+        assert count == 2
+        assert "fn('x', 'y')" in fixed
+        assert "other('z')" in fixed
+        assert 'D["no quotes"]' in fixed
+
+    def test_nested_quotes_in_full_diagram(self):
+        diagram = (
+            'graph TD\n'
+            '    A["Skill.run("message, context")"] --> B["初始化 scratchpad"]\n'
+            '    B --> C["Tool 1: extract_params("message, context, scratchpad")"]\n'
+            '    C --> D["render_prompt("template, message, tool_results, variables")"]\n'
+        )
+        fixed, count = fix_mermaid.fix_flowchart(diagram)
+        assert count == 3
+        assert "Skill.run('message, context')" in fixed
+        assert "extract_params('message, context, scratchpad')" in fixed
+        assert "render_prompt('template, message, tool_results, variables')" in fixed
 
     def test_simple_label_unchanged(self):
         text = 'A[Process] --> B\n'
@@ -89,9 +123,62 @@ class TestFixFlowchart:
         assert 'Decision{"是否成功?"}' in fixed
         assert 'Store[("SQLite DB")]' in fixed
 
+    def test_session_header_nested_quotes(self):
+        """节点标签内嵌套双引号的 JSON 场景：内部双引号应替换为单引号。"""
+        text = """flowchart TD
+    HEADER["SessionHeader\\n{'type: session, id, timestamp, cwd'}"]
+    HEADER --> E1["Entry A\\n{"type: message, id: a1, parentId: null"}"]
+    E1 --> E2["Entry B\\n{"type: message, id: a2, parentId: a1"}"]
+    E2 --> E3["Entry C\\n{"type: message, id: a3, parentId: a2"}"]
+    E3 --> E4["Entry D (branch)\\n{"type: message, id: a4, parentId: a1"}"]
+    E3 --> E5["Entry E\\n{"type: message, id: a5, parentId: a3"}"]
+
+    style E4 fill:#f9f,stroke:#333
+"""
+        fixed, count = fix_mermaid.fix_mermaid_block(text)
+        # HEADER 内部已是单引号，不需要修改
+        assert '"SessionHeader' in fixed
+        assert "'type: session" in fixed
+        # E1-E5 内部双引号应被替换为单引号
+        assert "'type: message, id: a1, parentId: null'" in fixed
+        assert "'type: message, id: a2, parentId: a1'" in fixed
+        assert "'type: message, id: a4, parentId: a1'" in fixed
+        assert "'type: message, id: a5, parentId: a3'" in fixed
+        # style 行不变
+        assert 'style E4 fill:#f9f,stroke:#333' in fixed
+        # 5 处修复 (E1-E5)
+        assert count == 5
+
 
 class TestFixClassDiagram:
     """Tests for fix_class_diagram()."""
+
+    def test_generic_class_def_tilde(self):
+        """class "Model~TApi~" → class "Model<TApi>" as Model"""
+        text = 'class "Model~TApi~" {\n        +string id\n    }\n'
+        fixed, count = fix_mermaid.fix_class_diagram(text)
+        assert count >= 1
+        assert 'class "Model<TApi>" as Model' in fixed
+
+    def test_generic_member_type_tilde(self):
+        """Record~string,string~ → Record<string, string> in member type"""
+        text = '    +Record~string,string~ headers\n'
+        fixed, count = fix_mermaid.fix_class_diagram(text)
+        assert count >= 1
+        assert 'Record<string, string>' in fixed
+
+    def test_generic_relationship_ref(self):
+        """关系行引用泛型 display name → 替换为 alias"""
+        text = (
+            'class "Model~TApi~" {\n'
+            '        +string id\n'
+            '    }\n'
+            '    Model~TApi~ : "tagged with"\n'
+        )
+        fixed, count = fix_mermaid.fix_class_diagram(text)
+        assert count >= 2  # class def + relationship ref
+        assert 'Model : "tagged with"' in fixed
+        assert 'class "Model<TApi>" as Model' in fixed
 
     def test_member_with_spaces(self):
         text = '  class MyClass {\n    +process data()\n  }\n'
@@ -108,6 +195,69 @@ class TestFixClassDiagram:
         text = 'class MyClass {\n    +process()\n    -helper()\n}\n'
         fixed, count = fix_mermaid.fix_class_diagram(text)
         assert count == 0
+
+    def test_full_generic_class_diagram(self):
+        """完整 classDiagram 测试：泛型类定义、成员类型含空格、方法返回值泛型、关系行。"""
+        text = """classDiagram
+    class "Model~TApi~"
+        +string id
+        +string name
+        +TApi api
+        +Provider provider
+        +string baseUrl
+        +boolean reasoning
+        +Cost cost
+        +number contextWindow
+        +number maxTokens
+        +Record~string,string~ headers
+        +Compat compat
+    }
+
+    class "ApiProvider~TApi~"
+        +TApi api
+        +StreamFunction stream
+        +StreamFunction streamSimple
+    }
+
+    class ApiRegistry {
+        -Map~string, RegisteredApiProvider~ registry
+        +registerApiProvider(provider, sourceId)
+        +getApiProvider(api) ApiProviderInternal
+        +getApiProviders() ApiProviderInternal[]
+        +unregisterApiProviders(sourceId)
+        +clearApiProviders()
+    }
+
+    class StreamFunction {
+        <<type>>
+        (model, context, options) → AssistantMessageEventStream
+    }
+
+    class AssistantMessageEventStream {
+        +push(event)
+        +end(result?)
+        +result() Promise~AssistantMessage~
+    }
+
+    ApiRegistry --> ApiProvider : manages
+    ApiProvider --> StreamFunction : exposes
+    StreamFunction --> AssistantMessageEventStream : returns
+    Model  : "tagged with"
+    Model  : "served by"
+"""
+        fixed, count = fix_mermaid.fix_class_diagram(text)
+        # 泛型类定义
+        assert 'class "Model<TApi>" as Model' in fixed
+        assert 'class "ApiProvider<TApi>" as ApiProvider' in fixed
+        # 成员类型中的泛型
+        assert 'Record<string, string>' in fixed
+        # 泛型参数含空格
+        assert 'Map<string, RegisteredApiProvider>' in fixed
+        # 方法返回值中的泛型
+        assert 'Promise<AssistantMessage>' in fixed
+        # 关系行中的泛型引用应被解析为 alias
+        assert 'ApiProvider : ' in fixed
+        assert count >= 5
 
 
 class TestFixSequenceDiagram:
@@ -260,5 +410,4 @@ class TestFixAllMermaid:
 
     def test_nonexistent_directory(self, tmp_path):
         results = fix_mermaid.fix_all_mermaid(str(tmp_path / "nonexistent"))
-        assert len(results) == 1
-        assert "error" in results[0]
+        assert len(results) == 0

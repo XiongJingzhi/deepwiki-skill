@@ -6,9 +6,8 @@ from pathlib import Path
 import pytest
 
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from project_detection import (
+from scripts.analysis.project_detection import (
     detect_project_types,
     detect_package_manager,
     detect_monorepo_tools,

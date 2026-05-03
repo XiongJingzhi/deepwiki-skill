@@ -4,6 +4,8 @@
 >
 > **优先级规则：依赖数据（层1）> semantic_group（层2）> 本文档（层3）**
 >
+> **与 `semantic_group` 的关系：** `extract-docs` 阶段在 `module-analysis.json` 中写入的 `semantic_group` 字段（命名指南见 [`module-analysis-spec.md`](module-analysis-spec.md)）应与本文档的"常见语义主题"对齐。两者互补：`semantic_group` 是自下而上的模块级标注，本文档是自上而下的项目级分组参考。
+>
 > 每种原型提供：常见语义主题（分组灵感）、粒度建议、常见反模式。
 
 ---

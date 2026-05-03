@@ -1,41 +1,42 @@
-# validate-analysis：分析质量门禁与证据索引
-
-> `validate-analysis` 是对外主路径中的分析验证阶段。它封装 `check-analysis-quality` 与 `build-evidence-index`，让用户只需要理解一个质量门控步骤，同时保留底层脚本供调试。
-
-## 位置
-
-| 项 | 内容 |
-|----|------|
-| **前置** | `extract-docs`（依赖 `architecture-skeleton.json` 时需 `generate-skeleton` 已完成） |
-| **后置** | `plan-doc-topology`、`generate-overview`、`generate-module-docs` |
-| **输入** | `cache/module-analysis.json` |
-| **输出** | 质量门禁结果、`cache/evidence-index.json` |
-
-## 执行命令
+# validate-analysis
 
 ```bash
 python3 scripts/cli.py validate-analysis <项目路径>
 ```
 
-如需只调试单个子步骤，可继续使用：
+前置：`extract-docs` | 后置：`plan-doc-topology`、`generate-overview`、`generate-module-docs`
 
-```bash
-python3 scripts/check_analysis_quality.py <项目路径>
-python3 scripts/build_evidence_index.py <项目路径>
-```
+输入：`cache/module-analysis.json`
+输出：质量门禁结果、`cache/evidence-index.json`
 
-## 行为
-
-1. 读取 `cache/module-analysis.json`。
-2. 执行分析质量门禁，检查模块必需字段、认知结构字段、文件摘要与接口洞察。
-3. 如果质量门禁失败，返回非零退出码，不构建证据索引。
-4. 如果质量门禁通过，构建 `cache/evidence-index.json`。
+执行：检查模块必需字段、认知结构字段、文件摘要与接口洞察 → 通过后构建证据索引。
 
 ## 退出码
 
 | 退出码 | 含义 |
 |--------|------|
-| `0` | 分析质量通过，证据索引已生成或无需生成 |
+| `0` | 通过，证据索引已生成 |
 | `1` | 存在模块质量问题，需要补充分析 |
-| `2` | 输入缺失、格式错误或项目目录无效 |
+| `2` | 输入缺失或格式错误 |
+
+## 调试子步骤
+
+```bash
+python3 scripts/quality/check_analysis_quality.py <项目路径>
+python3 scripts/quality/build_evidence_index.py <项目路径>
+```
+
+## 缓存失效
+
+`validate-analysis` 完成后，`relationship-summary.json` 会在下游步骤读取时通过 mtime 对比自动失效（`synthesize-deps` 规则负责检测），无需手动删除。
+
+## 重试流程
+
+exit=1 时，主 Agent 应：
+
+1. 查看 check-analysis-quality 报告中的 `failed_modules` 列表
+2. 对每个失败模块重新运行 `extract-docs`（仅该模块）
+3. 再次运行 `validate-analysis`
+
+建议最多重试 2 次。超过后仍失败则跳过该模块并记录警告。
 

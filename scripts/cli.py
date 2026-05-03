@@ -2,23 +2,29 @@
 """统一封装 DeepWiki skill 的本地工具入口。"""
 
 import argparse
+import sys
 from pathlib import Path
 from typing import List, Optional
 
-from analyze_project import analyze_project
-from build_evidence_index import build_evidence_index
-from check_analysis_quality import (
+# Ensure project root is on sys.path when run as a script
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from scripts.analysis.analyze_project import analyze_project
+from scripts.quality.build_evidence_index import build_evidence_index
+from scripts.quality.check_analysis_quality import (
     check_analysis_quality,
-    load_module_analysis,
     print_report,
 )
-from check_doc_quality import check_wiki_quality
-from detect_changes import detect_changes, print_changes
-from extract_structure import run_extract_structure
-from init_wiki import init_deep_wiki
-from plan_doc_topology import plan_doc_topology
-from validate_skill import validate_skill
-from serve_wiki import serve_wiki
+from scripts.core.common import load_module_analysis
+from scripts.quality.check_doc_quality import check_wiki_quality
+from scripts.pipeline.detect_changes import detect_changes, print_changes
+from scripts.pipeline.extract_doc_comments import extract_docs_from_file, docs_to_markdown
+from scripts.analysis.extract_structure import run_extract_structure
+from scripts.wiki.init_wiki import init_deep_wiki
+from scripts.pipeline.plan_doc_topology import plan_doc_topology
+from scripts.quality.validate_skill import validate_skill
+from scripts.serve import serve_wiki
+from scripts.pipeline.page_context import get_page_context, print_context
 
 
 def _deepwiki_path(path: str) -> Path:
@@ -35,12 +41,19 @@ def validate_analysis(project_path: Path, verbose: bool = False) -> int:
         print("module-analysis.json root must be an object")
         return 2
 
+    # relationship-summary 的派生数据依赖 module-analysis，
+    # 一旦进入 validate-analysis 即表明 module-analysis 可能已更新，
+    # 必须先失效缓存以确保下游步骤重新计算。
+    rel_summary_path = project_path / ".deepwiki" / "cache" / "relationship-summary.json"
+    if rel_summary_path.exists():
+        rel_summary_path.unlink()
+
     modules = module_analysis.get("modules", {})
     if not modules:
         print("module-analysis.json is empty; skipping analysis validation")
         return 0
 
-    all_errors, all_warnings, failed_modules = check_analysis_quality(
+    all_errors, all_warnings, failed_modules, _checked = check_analysis_quality(
         modules, verbose=verbose
     )
     print_report(all_errors, all_warnings, failed_modules, verbose, len(modules))
@@ -93,6 +106,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_serve.add_argument("--port", type=int, default=8742, help="Server port (default: 8742)")
     p_serve.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
 
+    p_extract_docs = subparsers.add_parser(
+        "extract-doc-comments",
+        help="Extract JSDoc/TSDoc/docstring comments from a source file",
+    )
+    p_extract_docs.add_argument("file_path", help="Path to source file")
+    p_extract_docs.add_argument(
+        "--lang", default="zh", choices=["zh", "en"],
+        help="Output language for section labels (default: zh)",
+    )
+
+    p_page_ctx = subparsers.add_parser(
+        "page-context",
+        help="Extract generation context for a wiki page (for targeted regeneration)",
+    )
+    p_page_ctx.add_argument("project_path", help="Path to project root")
+    p_page_ctx.add_argument(
+        "wiki_path",
+        help="Wiki-relative path, e.g. deep-dive/graph.md or wiki/deep-dive/graph.md",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "init":
@@ -143,6 +176,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "serve":
         serve_wiki(args.project_path, port=args.port, host=args.host)
         return 0
+
+    if args.command == "extract-doc-comments":
+        entries = extract_docs_from_file(args.file_path)
+        print(docs_to_markdown(entries, language=args.lang))
+        return 0
+
+    if args.command == "page-context":
+        ctx = get_page_context(Path(args.project_path), args.wiki_path)
+        print_context(ctx)
+        return 1 if ctx.get("errors") else 0
 
     return 1
 

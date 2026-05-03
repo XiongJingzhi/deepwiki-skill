@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-import common
-import analyze_project
+from scripts.core import common
+from scripts.analysis import analyze_project
 
 
 # =====================================================================
@@ -85,31 +85,21 @@ class TestAnalyzeProject:
 
         expected_keys = [
             "project_name",
-            "project_type",
             "languages",
             "entry_points",
             "modules",
             "core_files",
             "high_priority_files",
-            "directories",
-            "file_types",
-            "size_distribution",
-            "docs_found",
-            "stats",
-            "analyzed_at",
         ]
         for key in expected_keys:
             assert key in result, f"Missing key: {key}"
 
         # Verify some values
         assert result["project_name"] == tmp_path.name
-        assert isinstance(result["project_type"], list)
         assert isinstance(result["languages"], list)
         assert isinstance(result["entry_points"], list)
         assert isinstance(result["modules"], list)
         assert isinstance(result["core_files"], list)
-        assert isinstance(result["stats"]["total_files"], int)
-        assert isinstance(result["stats"]["code_files"], int)
 
         # No cache file should exist
         cache_file = tmp_path / ".deepwiki" / "cache" / "structure.json"
@@ -132,7 +122,6 @@ class TestAnalyzeProject:
             cached = json.load(f)
 
         assert cached["project_name"] == result["project_name"]
-        assert cached["stats"]["total_files"] == result["stats"]["total_files"]
 
 
 # =====================================================================

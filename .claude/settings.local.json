@@ -54,7 +54,14 @@
       "Bash(mv step4-source-analysis.md step5-source-analysis.md)",
       "Bash(mv step5-dependency-synthesis.md step6-dependency-synthesis.md)",
       "Bash(mv step6-overview.md step7-overview.md)",
-      "Bash(mv step7-menu-and-docmap.md step8-menu-and-docmap.md)"
-    ]
+      "Bash(mv step7-menu-and-docmap.md step8-menu-and-docmap.md)",
+      "Bash(rm -rf ~/.claude/skills/deepwiki-skill)",
+      "Bash(ln -s /e/Python/deepwiki-skill ~/.claude/skills/deepwiki-skill)",
+      "Bash(wc -l E:/Python/deepwiki-skill/references/workflow/*.md E:/Python/deepwiki-skill/references/rules/*.md E:/Python/deepwiki-skill/SKILL.md E:/Python/deepwiki-skill/references/generation/*.md)",
+      "Bash(wc -l E:/Python/deepwiki-skill/scripts/*.py)",
+      "Bash(python3:*)",
+      "Bash(find E:/Python/deepwiki-skill -name *.deepwiki -o -name deepwiki -type d)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }

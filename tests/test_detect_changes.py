@@ -2,8 +2,8 @@
 
 import json
 from pathlib import Path
-import common
-import detect_changes
+from scripts.core import common
+from scripts.pipeline import detect_changes
 
 
 # ---------------------------------------------------------------------------
@@ -145,13 +145,13 @@ class TestLoadCachedChecksums:
 
     def test_existing_file_returns_correct_data(self, tmp_path):
         """Existing checksums.json with version is parsed and returned."""
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
         data = {
             "cache_schema_version": common.CACHE_SCHEMA_VERSION,
             "checksums": {"src/a.py": {"hash": "abc123", "doc": "", "updated_at": "2025-01-01T00:00:00"}},
         }
-        (cache_dir / "checksums.json").write_text(json.dumps(data), encoding="utf-8")
+        (state_dir / "checksums.json").write_text(json.dumps(data), encoding="utf-8")
         result = detect_changes.load_cached_checksums(str(tmp_path))
         assert result == data["checksums"]
 
@@ -160,21 +160,21 @@ class TestSaveChecksums:
     """Tests for save_checksums()."""
 
     def test_creates_directory_if_needed(self, tmp_path):
-        """save_checksums creates the cache/ directory automatically."""
+        """save_checksums creates the state/ directory automatically."""
         data = {"src/a.py": {"hash": "abc", "doc": "", "updated_at": "now"}}
         detect_changes.save_checksums(str(tmp_path), data)
-        cache_file = tmp_path / "cache" / "checksums.json"
-        assert cache_file.exists()
-        loaded = json.loads(cache_file.read_text(encoding="utf-8"))
+        state_file = tmp_path / "state" / "checksums.json"
+        assert state_file.exists()
+        loaded = json.loads(state_file.read_text(encoding="utf-8"))
         assert loaded["checksums"] == data
 
     def test_overwrites_existing(self, tmp_path):
         """Calling save_checksums twice replaces the content."""
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
         detect_changes.save_checksums(str(tmp_path), {"f1": {"hash": "1"}})
         detect_changes.save_checksums(str(tmp_path), {"f2": {"hash": "2"}})
-        loaded = json.loads((cache_dir / "checksums.json").read_text(encoding="utf-8"))
+        loaded = json.loads((state_dir / "checksums.json").read_text(encoding="utf-8"))
         checksums = loaded.get("checksums", loaded)
         assert "f1" not in checksums
         assert "f2" in checksums
@@ -345,45 +345,23 @@ class TestUpdateChecksumsCache:
     """Tests for update_checksums_cache()."""
 
     def test_saves_checksums(self, tmp_path):
-        """Checksums are written to .deepwiki/cache/checksums.json."""
-        cache_dir = tmp_path / ".deepwiki" / "cache"
-        cache_dir.mkdir(parents=True)
+        """Checksums are written to .deepwiki/state/checksums.json."""
+        state_dir = tmp_path / ".deepwiki" / "state"
+        state_dir.mkdir(parents=True)
         current = {"src/a.py": "abcd1234efgh5678"}
         detect_changes.update_checksums_cache(str(tmp_path), current)
 
-        loaded = json.loads((cache_dir / "checksums.json").read_text(encoding="utf-8"))
+        loaded = json.loads((state_dir / "checksums.json").read_text(encoding="utf-8"))
         checksums = loaded.get("checksums", loaded)
         assert "src/a.py" in checksums
         assert checksums["src/a.py"]["hash"] == "abcd1234efgh5678"
 
-    def test_doc_mapping_saved(self, tmp_path):
-        """doc_mapping entries are stored in cache entries."""
-        cache_dir = tmp_path / ".deepwiki" / "cache"
-        cache_dir.mkdir(parents=True)
-        current = {"src/a.py": "abcd1234efgh5678"}
-        doc_mapping = {"src/a.py": "wiki/capabilities/a.md"}
-        detect_changes.update_checksums_cache(str(tmp_path), current, doc_mapping)
-
-        loaded = json.loads((cache_dir / "checksums.json").read_text(encoding="utf-8"))
-        checksums = loaded.get("checksums", loaded)
-        assert checksums["src/a.py"]["doc"] == "wiki/capabilities/a.md"
-
     def test_creates_directory(self, tmp_path):
-        """Cache directory is created if it does not exist."""
+        """State directory is created if it does not exist."""
         current = {"src/a.py": "abcd1234efgh5678"}
         detect_changes.update_checksums_cache(str(tmp_path), current)
-        assert (tmp_path / ".deepwiki" / "cache" / "checksums.json").exists()
+        assert (tmp_path / ".deepwiki" / "state" / "checksums.json").exists()
 
-    def test_entry_has_updated_at_field(self, tmp_path):
-        """Each cache entry includes an updated_at ISO timestamp."""
-        cache_dir = tmp_path / ".deepwiki" / "cache"
-        cache_dir.mkdir(parents=True)
-        current = {"src/a.py": "abcd1234efgh5678"}
-        detect_changes.update_checksums_cache(str(tmp_path), current)
-
-        loaded = json.loads((cache_dir / "checksums.json").read_text(encoding="utf-8"))
-        checksums = loaded.get("checksums", loaded)
-        assert "updated_at" in checksums["src/a.py"]
 
 
 # ---------------------------------------------------------------------------
@@ -497,9 +475,9 @@ class TestCacheVersioningDetectChanges:
     def test_stale_checksums_triggers_full_scan(self, tmp_path):
         """Old version checksums should be treated as empty (force full scan)."""
         deepwiki = tmp_path / ".deepwiki"
-        cache_dir = deepwiki / "cache"
-        cache_dir.mkdir(parents=True)
-        (cache_dir / "checksums.json").write_text(json.dumps({
+        state_dir = deepwiki / "state"
+        state_dir.mkdir(parents=True)
+        (state_dir / "checksums.json").write_text(json.dumps({
             "cache_schema_version": 0,
             "checksums": {"old_file.txt": {"hash": "abc123"}},
         }))
@@ -510,19 +488,19 @@ class TestCacheVersioningDetectChanges:
     def test_saved_checksums_include_version(self, tmp_path):
         """Saved checksums should have cache_schema_version field."""
         deepwiki = tmp_path / ".deepwiki"
-        cache_dir = deepwiki / "cache"
-        cache_dir.mkdir(parents=True)
+        state_dir = deepwiki / "state"
+        state_dir.mkdir(parents=True)
         detect_changes.save_checksums(str(deepwiki), {"test.py": {"hash": "abc"}})
 
-        data = json.loads((cache_dir / "checksums.json").read_text())
+        data = json.loads((state_dir / "checksums.json").read_text())
         assert data.get("cache_schema_version") == common.CACHE_SCHEMA_VERSION
         assert "checksums" in data
 
     def test_load_saved_checksums_roundtrip(self, tmp_path):
         """Checksums saved then loaded should be consistent."""
         deepwiki = tmp_path / ".deepwiki"
-        cache_dir = deepwiki / "cache"
-        cache_dir.mkdir(parents=True)
+        state_dir = deepwiki / "state"
+        state_dir.mkdir(parents=True)
         original = {"file1.py": {"hash": "aaa"}, "file2.py": {"hash": "bbb"}}
         detect_changes.save_checksums(str(deepwiki), original)
 

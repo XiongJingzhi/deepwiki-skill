@@ -13,6 +13,7 @@ dependencies = [
     "tree-sitter-java>=0.23.0",
     "tree-sitter-kotlin>=0.23.0",
     "pyyaml>=6.0",
+    "jsonschema>=4.0",
 ]
 
 [project.optional-dependencies]

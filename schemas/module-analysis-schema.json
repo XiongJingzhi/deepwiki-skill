@@ -111,17 +111,6 @@
           "type": "string",
           "description": "AI free-text annotation of this module's semantic theme, used as soft signal for menu grouping (e.g. '认证与鉴权', '消息路由', 'Data Persistence'). Named after reader-facing concepts, NOT CodePurpose enums."
         },
-        "semantic_group_confidence": {
-          "type": "string",
-          "enum": ["high", "low"],
-          "description": "high = module has a clear, distinct semantic boundary; low = AI is uncertain (overlapping responsibilities or unclear scope). generate-menu reduces grouping weight for low-confidence entries.",
-          "default": "high"
-        },
-        "semantic_group_override": {
-          "type": "boolean",
-          "description": "true means this semantic_group comes from deep source analysis and differs from generate-skeleton suggestion. generate-menu will prioritize this naming and write back the correction to the skeleton file.",
-          "default": false
-        },
         "files": {
           "type": "array",
           "description": "Per-file analysis results for files in this module",
@@ -160,16 +149,6 @@
           "type": "array",
           "description": "Important source ranges suitable for Relevant source files and core logic walkthroughs",
           "items": { "$ref": "#/definitions/SourceRange" }
-        },
-        "internal_dependencies": {
-          "type": "array",
-          "description": "Intra-module dependencies (other files in same module this file imports)",
-          "items": { "type": "string" }
-        },
-        "design_patterns": {
-          "type": "array",
-          "description": "Detected design patterns (e.g. singleton, strategy, observer)",
-          "items": { "type": "string" }
         },
         "key_insights": {
           "type": "array",
@@ -213,21 +192,6 @@
         "description": {
           "type": "string",
           "description": "What this interface does and when to use it (min 1 sentence)"
-        },
-        "params": {
-          "type": "array",
-          "description": "Parameter descriptions (optional, for complex functions)",
-          "items": {
-            "type": "object",
-            "required": ["name", "type", "description"],
-            "properties": {
-              "name": { "type": "string" },
-              "type": { "type": "string" },
-              "description": { "type": "string" },
-              "required": { "type": "boolean", "default": true }
-            },
-            "additionalProperties": false
-          }
         }
       },
       "additionalProperties": false

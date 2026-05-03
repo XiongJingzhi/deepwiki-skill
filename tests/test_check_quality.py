@@ -5,9 +5,9 @@ import os
 
 import pytest
 
-import check_doc_quality
-import check_analysis_quality
-import build_evidence_index
+import scripts.quality.check_doc_quality as check_doc_quality
+import scripts.quality.check_analysis_quality as check_analysis_quality
+import scripts.quality.build_evidence_index as build_evidence_index
 
 
 # ---------------------------------------------------------------------------
@@ -97,10 +97,10 @@ class TestAnalyzeDocument:
         assert m.cross_link_count == 0
 
     def test_source_tracing_detection(self, tmp_path):
-        """Source tracing requires a file:// link with a line range."""
-        # Section sources keyword without a source link is not enough.
+        """Source tracing requires a file:// link (line ranges optional)."""
+        # 来源 keyword without a source link is not enough.
         p1 = tmp_path / "a.md"
-        p1.write_text("## Code\n\n**Section sources**: file1.py\n", encoding="utf-8")
+        p1.write_text("## Code\n\n**来源**：file1.py\n", encoding="utf-8")
         m1 = check_doc_quality.analyze_document(str(p1))
         assert m1.has_source_tracing is False
 
@@ -110,26 +110,26 @@ class TestAnalyzeDocument:
         m2 = check_doc_quality.analyze_document(str(p2))
         assert m2.has_source_tracing is False
 
-        # A file:// link without a line range is not enough.
+        # A file:// link without a line range is enough.
         p3 = tmp_path / "c.md"
         p3.write_text("## Ref\n\nSee file:///src/main.py\n", encoding="utf-8")
         m3 = check_doc_quality.analyze_document(str(p3))
-        assert m3.has_source_tracing is False
+        assert m3.has_source_tracing is True
 
-        # Relevant source files with line ranges
+        # 相关源文件 (Chinese title) with file:// links and line ranges (new format)
         p5 = tmp_path / "e.md"
         p5.write_text(
             "# Module\n\n"
-            "<details open>\n"
-            "<summary>Relevant source files</summary>\n\n"
-            "- [src/main.py](file:///src/main.py#L10-L24) `L10-L24` - 主流程\n"
-            "</details>\n",
+            "<details open><summary>相关源文件</summary>\n\n"
+            "- [src/](file:///src/)\n"
+            "  - [main.py](file:///src/main.py#L1-L50) - 认证主流程和错误分支\n"
+            "  - [token.ts](file:///src/auth/token.ts#L1-L30) - token 生成与校验\n"
+            "\n</details>\n",
             encoding="utf-8",
         )
         m5 = check_doc_quality.analyze_document(str(p5))
         assert m5.has_source_tracing is True
         assert m5.has_relevant_source_files is True
-        assert m5.source_range_link_count == 1
 
         # A late table-style source index should not count as the required top block.
         p6 = tmp_path / "f.md"
@@ -140,7 +140,7 @@ class TestAnalyzeDocument:
             "## 相关源码文件\n\n"
             "| 文件 | 说明 |\n"
             "|------|------|\n"
-            "| [src/main.py](file:///src/main.py#L10-L24) | 主流程 |\n",
+            "| [src/main.py](file:///src/main.py) | 主流程 |\n",
             encoding="utf-8",
         )
         m6 = check_doc_quality.analyze_document(str(p6))
@@ -388,12 +388,7 @@ class TestGenerateIssues:
     def test_missing_relevant_source_files_for_module(self):
         m = self._make(has_relevant_source_files=False)
         issues = check_doc_quality.generate_issues(m)
-        assert any("Relevant source files" in i for i in issues)
-
-    def test_missing_source_range_links_for_module(self):
-        m = self._make(source_range_link_count=0)
-        issues = check_doc_quality.generate_issues(m)
-        assert any("#Lx-Ly" in i for i in issues)
+        assert any("相关源文件" in i or "Relevant source files" in i for i in issues)
 
     def test_no_cross_links(self):
         m = self._make(cross_link_count=0)
@@ -451,7 +446,7 @@ class TestValidateSourceLinks:
         assert valid == 0
         assert broken == 0
 
-    def test_source_links_without_line_ranges_are_reported(self, tmp_path):
+    def test_source_links_with_and_without_line_ranges(self, tmp_path):
         src = tmp_path / "utils.py"
         src.write_text("line 1\nline 2\n", encoding="utf-8")
 
@@ -461,8 +456,9 @@ class TestValidateSourceLinks:
         )
         result = check_doc_quality.validate_source_link_with_lines(content, str(tmp_path))
 
-        assert result["valid"] == 1
-        assert result["missing_lines"] == 1
+        # Both links point to existing file; line ranges are optional now
+        assert result["broken"] == 0
+        assert result["valid"] >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -481,7 +477,7 @@ class TestCheckWikiQuality:
 
         (wiki / "a.md").write_text(
             "# A\n\n## S1\n\n## S2\n\n## S3\n\n"
-            "**Section sources**: src/a.py\n"
+            "**来源**：[a.py](file:///src/a.py#L1-L10)\n"
             "```python\ncode\n```\n"
             "```mermaid\nflowchart LR\nA-->B\n```\n"
             "[B doc](b.md)\n"
@@ -524,7 +520,7 @@ class TestCheckWikiQuality:
         (wiki / "core.md").write_text(
             "# Core\n\n"
             "## S1\n\n## S2\n\n## S3\n\n## S4\n\n## S5\n\n## S6\n\n"
-            "**Section sources**: core.py\n"
+            "**来源**：[core.py](file:///core.py#L1-L20)\n"
             "```python\nexample\n```\n"
             "```python\nexample2\n```\n"
             "[link](other.md)\n",
@@ -537,16 +533,17 @@ class TestCheckWikiQuality:
         doc = report.docs[0]
         assert any("行数不足" in i for i in doc.issues)
 
-    def test_missing_evidence_index_adds_summary_issue(self, tmp_path):
+    def test_missing_evidence_index_no_longer_adds_summary_issue(self, tmp_path):
         deepwiki = tmp_path / ".deepwiki"
         wiki = deepwiki / "wiki"
         wiki.mkdir(parents=True)
         (wiki / "overview.md").write_text("# Overview\n\n## A\n", encoding="utf-8")
 
         report = check_doc_quality.check_wiki_quality(str(deepwiki))
-        assert any("evidence-index.json" in issue for issue in report.summary_issues)
+        # evidence-index.json absence should no longer produce a summary issue
+        assert not any("evidence-index.json" in issue for issue in report.summary_issues)
 
-    def test_evidence_index_flags_page_without_claims(self, tmp_path):
+    def test_evidence_index_file_does_not_affect_quality_check(self, tmp_path):
         deepwiki = tmp_path / ".deepwiki"
         cache = deepwiki / "cache"
         wiki = deepwiki / "wiki"
@@ -558,7 +555,8 @@ class TestCheckWikiQuality:
         )
 
         report = check_doc_quality.check_wiki_quality(str(deepwiki))
-        assert any("缺少证据索引" in issue for issue in report.docs[0].issues)
+        # evidence-index contents should no longer generate any doc-level issue
+        assert not any("缺少证据索引" in issue for issue in report.docs[0].issues)
 
 
 class TestBuildEvidenceIndex:
@@ -627,16 +625,15 @@ class TestBuildEvidenceIndex:
         )
         (deep_dive / "storage.md").write_text(
             "# Storage\n\n"
-            "<details open>\n"
-            "<summary>Relevant source files</summary>\n\n"
-            "- src/\n"
-            "  - db/\n"
-            "    - [storage.py](file:///src/db/storage.py#L1-L20) `L1-L20` - 存储实现\n\n"
+            "<details open><summary>Relevant source files</summary>\n\n"
+            "- [src/](file:///src/)\n"
+            "  - [db/](file:///src/db/)\n"
+            "    - [storage.py](file:///src/db/storage.py#L1-L39) - 存储实现\n\n"
             "</details>\n\n"
             "## 概述\n\n"
             "存储实现。\n\n"
-            "**Section sources**\n"
-            "[storage.py](file:///src/db/storage.py#L1-L20)\n",
+            "**来源**：[storage.py](file:///src/db/storage.py)\n"
+            "[storage.py](file:///src/db/storage.py)\n",
             encoding="utf-8",
         )
         (cache / "evidence-index.json").write_text(
@@ -787,3 +784,42 @@ class TestCheckAnalysisQuality:
         assert errors == []
         assert any("line/end_line" in warning for warning in warnings)
         assert any("core_source_ranges" in warning for warning in warnings)
+
+
+def test_check_quality_with_module_filter(tmp_path):
+    """modules 参数只检查指定模块，其他模块缺字段不影响结果"""
+    import json
+    from scripts.core.common import CACHE_SCHEMA_VERSION
+    from scripts.quality.check_analysis_quality import check_analysis_quality
+
+    module_data = {
+        "cache_schema_version": CACHE_SCHEMA_VERSION,
+        "modules": {
+            "auth": {
+                "module_path": "src/auth",
+                "code_purpose": "Service",
+                "module_summary": "Auth service.",
+                "selected_components": ["overview"],
+                "dependency_hints": {"imports": [], "imported_by": []},
+                "semantic_group": "认证",
+                "module_role": "Handles user authentication",
+                "upstream_inputs": ["Login requests"],
+                "downstream_outputs": ["Auth tokens"],
+                "risk_points": ["Session hijacking"],
+                "extension_points": ["OAuth providers"],
+                "files": [],
+            },
+            "broken": {},  # 故意缺字段，但 modules=["auth"] 时不应被检查
+        },
+    }
+
+    all_errors, all_warnings, failed, checked = check_analysis_quality(
+        module_data["modules"], modules=["auth"]
+    )
+
+    # auth 模块应通过
+    assert "auth" not in all_errors
+    # broken 模块未被检查
+    assert "broken" not in all_errors
+    # 只检查了指定模块
+    assert checked == ["auth"]

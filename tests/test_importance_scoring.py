@@ -5,9 +5,8 @@ from pathlib import Path
 import pytest
 
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from importance_scoring import calculate_file_importance, normalize_path_scores
+from scripts.core.importance_scoring import calculate_file_importance, normalize_path_scores
 
 
 # =====================================================================

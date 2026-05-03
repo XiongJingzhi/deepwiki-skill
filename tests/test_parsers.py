@@ -3,11 +3,10 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 
 def test_get_lang_for_ext_is_case_insensitive():
-    import parsers
+    from scripts.core import parsers
 
     manager = parsers.ParserManager()
 
@@ -17,7 +16,7 @@ def test_get_lang_for_ext_is_case_insensitive():
 
 
 def test_parser_and_query_are_cached():
-    import parsers
+    from scripts.core import parsers
 
     manager = parsers.ParserManager()
 
@@ -28,7 +27,7 @@ def test_parser_and_query_are_cached():
 
 
 def test_parse_file_returns_tree_and_source_for_python(tmp_path):
-    import parsers
+    from scripts.core import parsers
 
     source_path = tmp_path / "app.py"
     source_path.write_text("def main():\n    return 42\n", encoding="utf-8")

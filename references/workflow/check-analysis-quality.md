@@ -3,59 +3,24 @@
 > 本文档描述 `validate-analysis` 内部的质量门控规则：在 `extract-docs` 完成后，用脚本自动检查 `module-analysis.json` 是否满足最低质量标准。它通常不作为外部主流程步骤单独执行，除非需要调试质量门控。
 
 
-## 契約
+## 契约
 
 | 項 | 值 |
 |----|-----|
-| **脚本** | `python scripts/check_analysis_quality.py <项目路径> [--verbose] [--json FILE]` |
+| **脚本** | `python scripts/quality/check_analysis_quality.py <项目路径> [--verbose] [--json FILE]` |
 | **输入** | `cache/module-analysis.json` |
 | **输出** | 质量报告（stdout），退出码（0/1/2） |
 | **前置** | `extract-docs` |
 | **后置** | exit=0 → `validate-analysis` 继续构建证据索引；exit=1 → 增量补充后重跑本工具；exit=2 → 重跑 `extract-docs` |
-
-## 目标与收益
-
-### 当前问题
-
-```
-extract-docs（分析） → generate-module-docs（文档生成） → generate-module-docs 收尾质检（质检）
-                                              │
-                                   发现 50% 文档是 Basic
-                                              │
-                              ◀── 回到 extract-docs 重做（巨大浪费）
-```
-
-当 `finalize.py quality` 在generate-module-docs 收尾质检发现大量 Basic 文档时，整个后半段流水线需要重头执行。根本原因是分析质量标准是在生成后检查的，而不是在生成前强制约束的。
-
-### 优化后流程
-
-```
-extract-docs（分析）→ module-analysis.json
-                       │
-                 validate-analysis（对外质量门）
-                       │
-          ┌────通过────┤
-          │           └───不通过→ 增量补充分析（只补缺失字段）
-          ▼
-      plan-doc-topology / generate-overview → 继续流水线
-```
-
-### 预期收益
-
-- 消除generate-module-docs 收尾质检 → extract-docs的大规模返工循环
-- 单模块补充分析的 token 成本远低于全量重做
-- 质量达标确定性提升：前置门控 + 即时生成校验 = 双重保障，质量达标率从 ~60% 提升到 ~90%
-
----
 
 ## 执行方式
 
 从技能目录运行门控脚本：
 
 ```bash
-python scripts/check_analysis_quality.py <项目目录绝对路径>
-python scripts/check_analysis_quality.py <项目目录绝对路径> --verbose
-python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-report.json
+python scripts/quality/check_analysis_quality.py <项目目录绝对路径>
+python scripts/quality/check_analysis_quality.py <项目目录绝对路径> --verbose
+python scripts/quality/check_analysis_quality.py <项目目录绝对路径> --json gate-report.json
 ```
 
 ---
@@ -100,7 +65,7 @@ python scripts/check_analysis_quality.py <项目目录绝对路径> --json gate-
 
 - `public_interfaces`：空列表意味着generate-module-docs 无接口表格，会降级为 Basic 文档
 - `public_interfaces[].line/end_line`：缺失时 generate-module-docs 无法生成精确源码范围，只能降级为文件级链接
-- `core_source_ranges`：缺失时 `Relevant source files` 和核心逻辑源码讲解缺少稳定输入，需从源码重新推导
+- `core_source_ranges`：缺失时 `相关源文件` 和核心逻辑源码讲解缺少稳定输入，需从源码重新推导
 - `key_insights`：缺失意味着generate-module-docs 无设计意图说明，无法解释 WHY
 
 > **例外**：`code_purpose` 为 `Config`、`Test`、`Util` 的模块不检查 `public_interfaces` 和 `key_insights`（这类模块接口稀少属正常情况）。

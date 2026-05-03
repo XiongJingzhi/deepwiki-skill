@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 import pytest
-import common
-import extract_structure
+from scripts.core import common
+from scripts.analysis import extract_structure
 
 
 # =====================================================================
@@ -129,68 +129,7 @@ class TestExtractCallGraph:
 
 
 # =====================================================================
-# 3. detect_patterns
-# =====================================================================
-
-class TestDetectPatterns:
-    def test_express_middleware(self, tmp_path):
-        f = tmp_path / "app.ts"
-        f.write_text(
-            "app.use(cors());\n"
-            "app.use(express.json());\n"
-            "app.get('/users', authMiddleware, userController.list);\n"
-        )
-        patterns = extract_structure.detect_patterns([f], languages=["typescript"])
-        types = [p["type"] for p in patterns]
-        assert "middleware_chain" in types
-        assert "http_route" in types
-
-    def test_orm_usage(self, tmp_path):
-        f = tmp_path / "dao.ts"
-        f.write_text(
-            "const users = await prisma.user.findMany();\n"
-            "await prisma.user.create({ data: dto });\n"
-        )
-        patterns = extract_structure.detect_patterns([f])
-        types = [p["type"] for p in patterns]
-        assert "orm_usage" in types
-
-    def test_react_component(self, tmp_path):
-        f = tmp_path / "Button.tsx"
-        f.write_text(
-            "import React, { useState } from 'react';\n"
-            "export function Button({ onClick }) {\n"
-            "  const [active, setActive] = useState(false);\n"
-            "  return <button onClick={onClick}>{active}</button>;\n"
-            "}\n"
-        )
-        patterns = extract_structure.detect_patterns([f], languages=["typescript"])
-        types = [p["type"] for p in patterns]
-        assert "react_component" in types
-        assert "state_management" in types
-
-    def test_no_patterns_plain_util(self, tmp_path):
-        f = tmp_path / "utils.ts"
-        f.write_text(
-            "export function clamp(n: number, min: number, max: number) {\n"
-            "  return Math.max(min, Math.min(max, n));\n"
-            "}\n"
-        )
-        patterns = extract_structure.detect_patterns([f])
-        # A pure util should produce no or minimal patterns
-        assert isinstance(patterns, list)
-
-    def test_pattern_includes_file_reference(self, tmp_path):
-        f = tmp_path / "routes.ts"
-        f.write_text("router.get('/health', (req, res) => res.json({ ok: true }));\n")
-        patterns = extract_structure.detect_patterns([f], languages=["typescript"])
-        for p in patterns:
-            assert "files" in p
-            assert isinstance(p["files"], list)
-
-
-# =====================================================================
-# 4. build_key_sequences
+# 3. build_key_sequences
 # =====================================================================
 
 class TestBuildKeySequences:
@@ -271,12 +210,7 @@ class TestRunExtractStructure:
         data = json.loads(out_file.read_text())
         assert "archetype" in data
         assert "call_graph" in data
-        assert "patterns" in data
         assert "key_sequences" in data
-        assert "registration_points" in data
-        assert "state_access_paths" in data
-        assert "config_entry_points" in data
-        assert "cross_module_bridges" in data
 
     def test_missing_structure_json_raises(self, tmp_path):
         """Should raise FileNotFoundError if structure.json is missing."""
@@ -285,48 +219,48 @@ class TestRunExtractStructure:
 
 
 # =========================================================================
-# 新增测试：_has_dep() 词边界匹配
+# 新增测试：manifest_has_dependency() 词边界匹配
 # =========================================================================
 
 class TestHasDep:
-    """Tests for _has_dep() word-boundary matching."""
+    """Tests for manifest_has_dependency() word-boundary matching."""
 
     def test_torch_not_matches_torchaudio(self, tmp_path):
         """torch should NOT match torchaudio in requirements.txt."""
         (tmp_path / "requirements.txt").write_text("torchaudio>=2.0\ntensorboard\n")
-        assert not extract_structure._has_dep(tmp_path, {"torch"})
+        assert not common.manifest_has_dependency(tmp_path, {"torch"})
 
     def test_torch_matches_torch(self, tmp_path):
         (tmp_path / "requirements.txt").write_text("torch>=2.0\n")
-        assert extract_structure._has_dep(tmp_path, {"torch"})
+        assert common.manifest_has_dependency(tmp_path, {"torch"})
 
     def test_gin_not_matches_engine(self, tmp_path):
         """gin should NOT match engine in go.mod."""
         (tmp_path / "go.mod").write_text("module example.com/engine\n")
-        assert not extract_structure._has_dep(tmp_path, {"gin"})
+        assert not common.manifest_has_dependency(tmp_path, {"gin"})
 
     def test_vue_not_matches_vuepress(self, tmp_path):
         """vue should NOT match vuepress in package.json."""
         (tmp_path / "package.json").write_text('{"devDependencies":{"vuepress":"^1.0"}}')
-        assert not extract_structure._has_dep(tmp_path, {"vue"})
+        assert not common.manifest_has_dependency(tmp_path, {"vue"})
 
     def test_vue_matches_vue(self, tmp_path):
         (tmp_path / "package.json").write_text('{"dependencies":{"vue":"^3.0","vue-router":"^4"}}')
-        assert extract_structure._has_dep(tmp_path, {"vue"})
+        assert common.manifest_has_dependency(tmp_path, {"vue"})
 
     def test_multiple_names_any_match(self, tmp_path):
         (tmp_path / "requirements.txt").write_text("flask>=2.0\n")
-        assert extract_structure._has_dep(tmp_path, {"django", "flask", "fastapi"})
+        assert common.manifest_has_dependency(tmp_path, {"django", "flask", "fastapi"})
 
     def test_no_manifest_no_crash(self, tmp_path):
-        assert not extract_structure._has_dep(tmp_path, {"anything"})
+        assert not common.manifest_has_dependency(tmp_path, {"anything"})
 
     def test_gin_in_go_mod(self, tmp_path):
         """gin should match gin-gonic in go.mod."""
         (tmp_path / "go.mod").write_text("module example.com/app\ngo 1.21\nrequire github.com/gin-gonic/gin v1.9.0\n")
         # Note: "gin" in "github.com/gin-gonic" - the preceding "/" is not a word char,
         # so this SHOULD match. This is the correct behavior.
-        assert extract_structure._has_dep(tmp_path, {"gin"})
+        assert common.manifest_has_dependency(tmp_path, {"gin"})
 
 
 # =========================================================================

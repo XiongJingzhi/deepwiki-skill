@@ -1,8 +1,13 @@
 # 文档质量标准
 
+> **与 `check-analysis-quality` 的区别：** 本文档定义的是**最终文档**（Markdown）的质量评分体系（百分制，basic/standard/professional），由 `postprocess.py quality` 执行。`check-analysis-quality`（见 [`../workflow/check-analysis-quality.md`](../workflow/check-analysis-quality.md)）是**中间产物**（`module-analysis.json`）的字段完整性门控（二值 pass/fail），由 `validate-analysis` 步骤执行。两者服务于不同阶段，不可混淆。
+>
+> **Config/Test/Util 豁免说明：** `check-analysis-quality` 对 Config/Test/Util 模块的 `key_insights` 检查有豁免规则。本文档的硬门槛不涉及此豁免——这类模块的最终文档仍需满足源码追溯等基本要求。
+
 所有生成的文档必须满足以下标准：
 
-- **源码追溯是强制要求**：模块文档标题后必须立即包含 `Relevant source files` 折叠区块，作为 H1 后的第一个内容块，列出 3-10 个最相关源码文件；每个章节末尾必须包含 `[filename](file:///path/to/file.ts#L1-L50)` 引用，方便读者跳转到对应源码；页面末尾必须包含 `Sources` 区块，汇总本页所有实际引用过的源码文件和行号范围。
+- **源码追溯是强制要求**：模块文档标题后必须立即包含 `相关源文件`（英文：`Relevant source files`）折叠区块，作为 H1 后的第一个内容块，使用 `<details open>` 默认展开，列出 3-10 个最相关源码文件及行号范围；每个章节末尾必须包含 `[filename](file:///path/to/file.ts#Lx-Ly)` 引用，方便读者跳转到对应源码。
+- **禁止链接到整个文件**：所有 `file://` 源码链接必须包含行号范围（`#L起-L止`）。行号来源于 `generation-plan.json` 中 `source_files[].ranges`、`module-analysis.json` 中 `core_source_ranges` 和 `public_interfaces.line/end_line`。未确定行号时，从源码注释/签名位置推导；实在无法确定则使用文件前 50 行作为兜底，不得省略 `#Lx-Ly`。
 - **每个模块文档至少包含 1 个视觉元素（Mermaid 图表或结构化表格）**。Config/Util/Test 类模块此要求为可选项。根据内容选择合适的图表类型：
   - `classDiagram` 用于类继承、接口和类型关系
   - `flowchart` 用于流程、工作流和架构概览
@@ -20,63 +25,89 @@
 每篇模块文档必须在标题后立即包含源码文件索引。它必须是 H1 后的第一个内容块，前面不能放摘要、分隔线、概述或任何二级标题：
 
 ```markdown
-<details open>
-<summary>Relevant source files</summary>
+<details open><summary>Relevant source files</summary>
 
-- src/
-  - auth/
-    - [service.ts](file:///src/auth/service.ts#L24-L88) `L24-L88` - 认证主流程和错误分支
-    - [token.ts](file:///src/auth/token.ts#L10-L43) `L10-L43` - token 生成与校验
+- [src/auth/](file:///src/auth/)
+  - [service.ts](file:///src/auth/service.ts#L1-L120) - 认证主流程和错误分支
+  - [token.ts](file:///src/auth/token.ts#L1-L48) - token 生成与校验
 
 </details>
 ```
 
-`Relevant source files` 必须使用上面的树形列表样式：
-
-- 不要使用 Markdown 表格。
-- 不要生成"文件/用途/行数/链接"或"文件路径/说明"表格。
-- 不要生成 `## 源码索引` / `## 相关源码文件` 章节来替代顶部折叠块。
-- 目录节点只写目录名；文件节点保留源码链接、行号范围和原说明。
-
-每个章节末尾必须包含源码引用：
+中文文档使用 `相关源文件` 作为 summary 标题：
 
 ```markdown
-**Section sources**
-- [filename.ts](file:///path/to/file.ts#L1-L50)
-- [another.ts](file:///path/to/another.ts#L20-L80)
+<details open><summary>相关源文件</summary>
+
+- [src/auth/](file:///src/auth/)
+  - [service.ts](file:///src/auth/service.ts#L1-L120) - 认证主流程和错误分支
+  - [token.ts](file:///src/auth/token.ts#L1-L48) - token 生成与校验
+
+</details>
+```
+
+`相关源文件` / `Relevant source files` 必须使用上面的树形列表样式：
+
+- **必须使用 `<details open>` 折叠块**，默认展开状态（`open` 属性不可省略）
+- **summary 标题**：英文文档用 `Relevant source files`，中文文档用 `相关源文件`
+- **只能使用树形列表格式**，不要使用表格或其他形态
+- 目录节点只写目录名（带斜杠后缀），可附带 `file://` 目录链接
+- 文件节点必须包含带行号范围的 `file://` 链接（格式：`#L起-L止`）和简短描述
+- 不要生成"文件/用途/链接"或"文件路径/说明"表格
+- 不要生成 `## 源码索引` / `## 相关源码文件` 章节来替代顶部折叠块
+
+### 源码链接显示格式
+
+源码链接必须遵循以下格式，确保前端渲染正确：
+
+**正确示例：**
+```markdown
+[build_evidence_index](file:///E:/Python/deepwiki-skill/scripts/quality/build_evidence_index.py#L51-L84)
+```
+
+显示效果：`build_evidence_index` + `L51-L84`
+
+**错误示例：**
+```markdown
+[_page_prefix_for_module (L47-48)](file:///...)  # ❌ 不要在链接文本中包含行号
+[L30-44](file:///...)                             # ❌ 不要只显示行号
+```
+
+### 章节来源引用
+
+每个章节末尾必须包含源码引用，使用行内样式，与前文同行或紧接在章节末尾：
+
+```markdown
+**来源**：[filename.ts](file:///path/to/filename.ts#L10-L25) · [another.ts](file:///path/to/another.ts#L30-L45)
 ```
 
 代码块标题应包含内联源码链接：
 
 ```markdown
-**Source:** [path/to/file.ts](file:///path/to/file.ts#L42-L80) `L42-L80`
+**源码：** [path/to/file.ts](file:///path/to/file.ts#L50-L80)
 ```
 
-## 页面末尾 Sources 区块
+### 相关文档链接
 
-模块文档末尾（nav-links 之前）必须包含 `Sources` 区块，汇总本页各章节中实际引用过的所有源码文件和行号范围。与顶部 `Relevant source files` 的分工：
+相关文档链接必须使用有效的 wiki 内部链接，确保可以跳转：
 
-- **顶部 Relevant source files**：告诉读者"本页主要看哪些源码"。
-- **章节内 Section sources / Source:**：证明当前段落或代码片段来自哪里。
-- **末尾 Sources**：汇总本页实际引用过的源码范围，方便读者最后统一核对。
-
-格式：
-
+**正确示例：**
 ```markdown
----
-
-## Sources
-
-- [src/auth/service.ts](file:///src/auth/service.ts#L24-L88) — 认证主流程和错误分支
-- [src/auth/token.ts](file:///src/auth/token.ts#L10-L43) — token 生成与校验
-- [src/config/settings.ts](file:///src/config/settings.ts#L1-L32) — 环境变量配置管理
-
----
+- [认证模块](deep-dive/auth.md) - 用户认证流程详解
+- [配置参考](reference/config.md) - 完整配置项说明
 ```
 
-- Sources 列表为各章节 `Source:` 链接和 `Section sources` 链接的并集，按文件路径去重排列。
-- 每项包含 file:// 链接（含行号范围）和一句话说明。
-- Test 类模块可豁免此要求。
+**错误示例：**
+```markdown
+- `references/workflow/validate-analysis.md`  # ❌ 不要使用 code 标签包裹链接
+- shared-foundation deep-dive                   # ❌ 不要使用纯文本
+```
+
+### Mermaid 图前文字描述（强制要求）
+
+任何 Mermaid 图表组件前，**必须**有一段简短文字描述（2-4 句），解释图表展示的核心流程或关系。读者在不查看图表的情况下也能通过文字描述理解大致内容。
+
+**格式**：在 ````mermaid` 代码块之前，用普通段落描述图表的核心内容。
 
 ## Mermaid 图表选择指南
 
@@ -97,95 +128,15 @@
 - overview.md 必须链接到：核心深入理解页和文档地图。
 - overview.md 必须链接到：架构文档、快速开始和继续开发指南。
 
-## 质量等级
+## 质量等级与评分
 
-`finalize.py quality` 基于行数、章节数、图表和示例综合评分，得出 `basic / standard / professional` 三级。
+> 完整的评分体系（评分公式、文档类型 Profile、等级阈值、硬门槛、动态期望值、置信度标注等）见 [`quality-standards-scoring.md`](quality-standards-scoring.md)。生成文档时仅需了解硬门槛和格式要求（见上方），评分公式仅供质量检查参考。
 
-### 评分公式
-
-加权评分：忠实性 30% + 可理解性 25% + 结构完整性 20% + 视觉辅助 15% + 可导航性 10%
-
-| 维度 | 检查项 | 权重 |
-|------|--------|------|
-| **忠实性** | 所有章节有 Section sources 链接且链接有效 | 30% |
-| **可理解性** | `key_insights` 非空且 ≥ 2 条（解释 WHY，非 WHAT） | 25% |
-| **结构完整性** | 章节数 ≥ 模块重要性对应的动态最低值（见下方动态期望值表） | 20% |
-| **视觉辅助** | Mermaid 图表数量 ≥ 与模块复杂度匹配的期望值 | 15% |
-| **可导航性** | 含交叉链接 + nav-links 组件 | 10% |
-
-> **代码示例是条件必须项**：`CodePurpose in [Api, Util, Widget, Dao, Service, Command]` 时，缺少代码示例扣 15 分（等同于视觉辅助维度全失）。`CodePurpose in [Config, Model, Database, Test, Other]` 时代码示例为可选项，缺失不影响评分。
-
-### 文档类型分 Profile
-
-不同文档类型的评分维度权重不同：
-
-| 文档类型 | must（必备项） | should（推荐项） | nice（加分项） | 说明 |
-|----------|---------------|-----------------|---------------|------|
-| **overview** | 溯源 + ≥3 节 (40%) | 图表 + 交叉链接 + 表格 (30%) | 最佳实践 + 性能 + classDiagram (30%) | 代码示例不作为必备项 |
-| **getting-started** | ≥3 节 + ≥1 示例 (50%) | 图表 + 交叉链接 + 表格 (30%) | FAQ + ≥2 示例 + 溯源 (20%) | 重视可操作性 |
-| **api** | ≥3 节 + ≥1 示例 (50%) | 交叉链接 + 表格 + 溯源 (30%) | 最佳实践 + ≥2 示例 + classDiagram (20%) | 重视准确性和可复现 |
-| **module** | 示例 + ≥3 节 (50%) | 图表 + 交叉链接 + 故障排查 (30%) | 最佳实践 + 性能 + classDiagram (20%) | 当前默认（不变） |
-
-### 等级阈值
-
-| 等级 | 最低得分 | 要求 |
-|------|---------|------|
-| **Professional** | >= 80% | 源码追溯 + 代码示例 + 章节 + 图表/链接 + 至少 2 项加分 |
-| **Standard** | >= 50% | 源码追溯 + 代码示例 + 章节 + 图表或链接 |
-| **Basic** | < 50% | 缺少源码追溯（硬门槛）或其他必须项不足 |
-
-### 硬门槛
+### 硬门槛（生成时必须满足）
 
 - **源码追溯是模块文档和 API 文档的硬门槛**。概览文档和快速开始文档此要求为推荐项。缺少时，模块/API 文档质量等级上限为 `basic`。
 - **源码链接全部失效时**，同样降级为 `basic`。
 - **`key_insights` 全部为空时**（模块分析深度不足），质量等级上限为 `standard`。
-
-### 动态期望值
-
-根据模块重要性动态调整期望：
-
-| 模块重要性 | 最低行数 | 最低章节 | 最低图表 | 最低 key_insights |
-|-----------|---------|---------|---------|-----------------|
-| 高（>= 0.6） | 200 | 6 | 2 | 3 |
-| 中（0.4-0.6） | 120 | 4 | 1 | 2 |
-| 低（< 0.4） | 60 | 3 | 1 | 1 |
-
-### 概述章节字数指引
-
-概述长度应根据模块复杂度和 CodePurpose 自适应：
-
-| CodePurpose | 最低字数 | 建议字数 | 说明 |
-|-------------|---------|---------|------|
-| Entry, Agent, Service | 80 | 150-250 | 核心模块需要充分说明设计理念 |
-| Api, Page, Command | 60 | 100-180 | 功能性模块侧重职责描述 |
-| Model, Database, Widget | 40 | 80-150 | 数据/展示模块可相对精简 |
-| Config, Util, Test, Other | 30 | 50-100 | 辅助模块一句话职责即可 |
-
-> 概述字数不作为硬性门槛，仅为 AI 生成时的参考指引。
-
-### 置信度标注
-
-Professional 级文档建议包含置信度标注（>= 3 个），每个标注 +5 分：
-
-| 置信度 | 标记 | 含义 |
-|--------|------|------|
-| 高 | 🟢 | 断言直接来自源码或文档注释 |
-| 中 | 🟡 | 断言从代码结构推断 |
-| 低 | 🔴 | 断言从命名约定或常见模式推断 |
-
-> 插件内部的 API 文档质量评级与此独立，可能出现不同结果，属正常情况。
-
----
-
-## 评分维度与工程目标的对应关系
-
-| 评分维度 | 对应工程目标 | 设计原因 |
-|---------|------------|---------|
-| 忠实性（源码追溯） | P1：文档必须与源码对应，无幻觉 | 让读者能直接验证文档内容 |
-| 可理解性（key_insights WHY） | P2：读者能快速建立心智模型 | 理解"为什么"比"是什么"更有价值 |
-| 结构完整性（章节数动态） | P2：人工阅读可读性高 | 动态要求，避免简单模块堆砌空壳章节 |
-| 视觉辅助（图表） | P2：可读性辅助 | Mermaid 图表帮助读者快速理解结构 |
-| 可导航性（链接） | P2：文档网络连贯性 | 交叉链接让读者能在文档网络中导航 |
 
 ## 模板设计原则
 
@@ -208,35 +159,6 @@ Professional 级文档建议包含置信度标注（>= 3 个），每个标注 +
 
 ### 组件引用
 
-所有组件定义详见 [`components-registry.yaml`](components-registry.yaml)。关键组件：
-
-| 组件 | 用途 | 优先级 |
-|------|------|:------:|
-| `overview` | 模块概述 | P0 |
-| `relevant-source-files` | 页面顶部源码索引 | P0 |
-| `api-table` | 接口总览 | P0 |
-| `nav-links` | 导航链接 | P0 |
-| `sources` | 页面末尾源码汇总 | P0 |
-| `architecture-fit` | 架构定位与职责边界 | P1 |
-| `design-rationale` | 设计思路与替代方案 | P1 |
-| `internal-structure` | 内部结构与职责分工 | P1 |
-| `execution-flow` | 模块主执行流程 | P1 |
-| `data-flow` | 数据输入、转换与输出 | P1 |
-| `sequence-diagram` | 时序图 | P1 |
-| `code-walkthrough` | 核心逻辑：精简源码、注释源码与逐段解释 | P1 |
-| `architecture-diagram` | 架构图 | P1 |
-| `design-patterns` | 设计模式与代码证据 | P2 |
-| `performance-tradeoffs` | 性能取舍与瓶颈分析 | P2 |
-| `tradeoff-analysis` | 综合取舍分析 | P2 |
-| `side-effects` | 外部副作用 | P2 |
-| `invariants` | 不变量与边界约束 | P2 |
-| `class-diagram` | 类图 | P2 |
-| `state-diagram` | 状态图 | P2 |
-| `dependency-diagram` | 依赖图 | P2 |
-| `decision-table` | 决策表 | P2 |
-| `code-example` | 代码示例 | P2 |
-| `error-table` | 错误处理表 | P3 |
-| `file-structure` | 文件结构 | P3 |
-| `usage-patterns` | 使用模式 | P3 |
+> 组件优先级和选配规则见 [`module-page-components.md`](../generation/module-page-components.md)（P0 权威定义）、[`module-page-extended.md`](../generation/module-page-extended.md)（P1/P2/P3 定义）和 [`components-guide.md`](components-guide.md)（使用指南）。
 
 ---

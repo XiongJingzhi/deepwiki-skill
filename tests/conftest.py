@@ -4,11 +4,11 @@ import sys
 import json
 from pathlib import Path
 
-# Add scripts/ to sys.path so tests can import scripts directly
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+# Add project root to sys.path so tests can import scripts as packages
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
-import common
+from scripts.core import common
 
 
 @pytest.fixture(autouse=True)
@@ -18,7 +18,7 @@ def reset_gitignore_cache():
     GitignoreCache uses a class-level singleton pattern, so we reset
     the class itself rather than module-level attributes.
     """
-    from common import GitignoreCache
+    from scripts.core.common import GitignoreCache
     if GitignoreCache._instance is not None:
         GitignoreCache._instance.reset()
 

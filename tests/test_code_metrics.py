@@ -5,9 +5,8 @@ from pathlib import Path
 import pytest
 
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from code_metrics import estimate_complexity, count_important_lines
+from scripts.core.code_metrics import estimate_complexity, count_important_lines
 
 
 # =====================================================================

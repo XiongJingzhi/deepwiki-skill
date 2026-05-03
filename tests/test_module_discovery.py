@@ -5,11 +5,10 @@ from pathlib import Path
 import pytest
 
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from module_discovery import discover_modules, categorize_module
-from importance_scoring import calculate_file_importance
-from common import CODE_EXTENSIONS
+from scripts.analysis.module_discovery import discover_modules, categorize_module
+from scripts.core.importance_scoring import calculate_file_importance
+from scripts.core.common import CODE_EXTENSIONS
 
 
 # =====================================================================
@@ -112,8 +111,8 @@ class TestDiscoverModules:
         ]
         assert by_path["pycommon"]["discovery_basis"] == "fallback-root:dependency-module"
 
-    def test_split_stops_at_three_path_levels(self, tmp_path):
-        """Submodule splitting should not create module paths deeper than three levels."""
+    def test_split_respects_max_depth(self, tmp_path):
+        """Submodule splitting should not exceed MAX_MODULE_PATH_DEPTH (8)."""
         (tmp_path / "app" / "main.py").parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / "app" / "main.py").write_text("pass\n", encoding="utf-8")
         (tmp_path / "app" / "modules" / "graph" / "nodes" / "intent.py").parent.mkdir(parents=True, exist_ok=True)
@@ -128,9 +127,10 @@ class TestDiscoverModules:
         modules = discover_modules(tmp_path)
         paths = {m["path"] for m in modules}
 
-        assert "app/modules/graph" in paths
-        assert "app/modules/graph/nodes" not in paths
-        assert all(len(Path(path).parts) <= 3 for path in paths)
+        # depth=8 allows splitting into graph/nodes and graph/edges
+        assert "app/modules/graph/nodes" in paths
+        assert "app/modules/graph/edges" in paths
+        assert all(len(Path(path).parts) <= 8 for path in paths)
 
     def test_flat_structure(self, tmp_path):
         """Flat structure with auth/, api/ at root (no src/)"""

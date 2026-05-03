@@ -4,7 +4,7 @@ import json
 import pytest
 from pathlib import Path
 
-import init_wiki
+from scripts.wiki import init_wiki
 
 
 class TestGetDefaultConfig:
@@ -110,7 +110,7 @@ class TestInitDeepWiki:
 
     def test_creates_checksums_json(self, tmp_path):
         init_wiki.init_deep_wiki(str(tmp_path))
-        path = tmp_path / ".deepwiki" / "cache" / "checksums.json"
+        path = tmp_path / ".deepwiki" / "state" / "checksums.json"
         assert path.is_file()
         data = json.loads(path.read_text(encoding="utf-8"))
         assert isinstance(data, dict)
@@ -125,10 +125,20 @@ class TestInitDeepWiki:
 
     def test_creates_progress_json(self, tmp_path):
         init_wiki.init_deep_wiki(str(tmp_path))
-        path = tmp_path / ".deepwiki" / "cache" / "progress.json"
+        path = tmp_path / ".deepwiki" / "state" / "progress.json"
         assert path.is_file()
         data = json.loads(path.read_text(encoding="utf-8"))
         assert "phases" in data
+
+    def test_creates_state_directory(self, tmp_path):
+        init_wiki.init_deep_wiki(str(tmp_path))
+        assert (tmp_path / ".deepwiki" / "state").is_dir()
+
+    def test_cache_dir_has_no_state_files(self, tmp_path):
+        init_wiki.init_deep_wiki(str(tmp_path))
+        cache = tmp_path / ".deepwiki" / "cache"
+        assert not (cache / "checksums.json").exists()
+        assert not (cache / "progress.json").exists()
 
     def test_creates_gitignore(self, tmp_path):
         init_wiki.init_deep_wiki(str(tmp_path))
@@ -136,6 +146,7 @@ class TestInitDeepWiki:
         assert gitignore_path.is_file()
         content = gitignore_path.read_text(encoding="utf-8")
         assert "cache/" in content
+        assert "state/" in content
         assert "*.bak" not in content
 
     def test_refuses_without_force(self, tmp_path):
@@ -175,7 +186,7 @@ def test_progress_json_has_analysis_phase(tmp_path):
     """初始化后 progress.json 应包含 analysis 阶段（第4步并行追踪）"""
     import json
     init_wiki.init_deep_wiki(str(tmp_path))
-    progress_path = tmp_path / ".deepwiki" / "cache" / "progress.json"
+    progress_path = tmp_path / ".deepwiki" / "state" / "progress.json"
     assert progress_path.exists()
     progress = json.loads(progress_path.read_text(encoding="utf-8"))
     assert "phases" in progress
@@ -189,7 +200,7 @@ def test_progress_json_overview_documents(tmp_path):
     """progress.json 的 overview.documents 应包含 overview.md 而非 index.md/architecture.md"""
     import json
     init_wiki.init_deep_wiki(str(tmp_path))
-    progress_path = tmp_path / ".deepwiki" / "cache" / "progress.json"
+    progress_path = tmp_path / ".deepwiki" / "state" / "progress.json"
     progress = json.loads(progress_path.read_text(encoding="utf-8"))
     docs = progress["phases"]["overview"]["documents"]
     assert "overview.md" in docs, "overview.md 应在 overview.documents 中"

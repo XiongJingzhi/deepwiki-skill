@@ -1,15 +1,14 @@
-"""Tests for finalize.py command dispatch."""
+"""Tests for postprocess.py command dispatch."""
 
 import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 
 def _run_finalize(monkeypatch, argv, returncode=0):
-    import finalize
+    from scripts import postprocess as finalize
 
     calls = []
 

@@ -4,13 +4,12 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from common import CACHE_SCHEMA_VERSION, cache_path
-from analyze_project import analyze_project
-from extract_structure import run_extract_structure
-from init_wiki import init_deep_wiki
-from plan_doc_topology import plan_doc_topology
+from scripts.core.common import CACHE_SCHEMA_VERSION, cache_path
+from scripts.analysis.analyze_project import analyze_project
+from scripts.analysis.extract_structure import run_extract_structure
+from scripts.wiki.init_wiki import init_deep_wiki
+from scripts.pipeline.plan_doc_topology import plan_doc_topology
 
 
 class TestPlanDocTopology:

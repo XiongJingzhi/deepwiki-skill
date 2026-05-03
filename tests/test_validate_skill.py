@@ -3,22 +3,16 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 
 def _write_minimal_skill(root: Path, cli_text: str) -> None:
     """Create just enough files for validate_skill to focus on CLI behavior."""
-    (root / "agents").mkdir()
     (root / "scripts").mkdir()
     (root / "references" / "rules").mkdir(parents=True)
     (root / "references" / "workflow").mkdir(parents=True)
 
     (root / "SKILL.md").write_text(
         "---\nname: deepwiki\ndescription: test skill\n---\n# DeepWiki\n",
-        encoding="utf-8",
-    )
-    (root / "agents" / "openai.yaml").write_text(
-        "interface:\n  display_name: DeepWiki\n  default_prompt: Use $deepwiki\n",
         encoding="utf-8",
     )
     for rel_path in [
@@ -36,27 +30,26 @@ def _write_minimal_skill(root: Path, cli_text: str) -> None:
 
 def test_validate_skill_reports_current_package_ready():
     """The repository should expose a deterministic skill integrity check."""
-    from validate_skill import validate_skill
+    from scripts.quality.validate_skill import validate_skill
 
     result = validate_skill(Path(__file__).parent.parent)
 
     assert result["ok"]
     assert result["errors"] == []
     assert "SKILL.md" in result["checked"]
-    assert "agents/openai.yaml" in result["checked"]
     assert "scripts/cli.py" in result["checked"]
 
 
 def test_cli_self_check_command_runs():
     """Unified CLI should expose the package self-check."""
-    import cli
+    from scripts import cli
 
     assert cli.main(["self-check", str(Path(__file__).parent.parent)]) == 0
 
 
 def test_validate_skill_checks_cli_help_not_just_source_text(tmp_path):
     """CLI validation should verify commands exposed by argparse help."""
-    from validate_skill import validate_skill
+    from scripts.quality.validate_skill import validate_skill
 
     command_names = (
         "init analyze extract-structure detect-changes plan-doc-topology "
@@ -83,7 +76,7 @@ parser.parse_args()
 
 def test_validate_skill_reports_broken_entrypoint_markdown_links(tmp_path):
     """Entrypoint docs should not point future agents at missing files."""
-    from validate_skill import validate_skill
+    from scripts.quality.validate_skill import validate_skill
 
     commands = [
         "init",
@@ -113,6 +106,11 @@ parser.parse_args()
         "# DeepWiki\n[Broken](references/workflow/missing.md)\n",
         encoding="utf-8",
     )
+
+    result = validate_skill(tmp_path)
+
+    assert not result["ok"]
+    assert any("Broken markdown link" in error for error in result["errors"])
 
     result = validate_skill(tmp_path)
 

@@ -1,4 +1,4 @@
-"""Tests for serve_wiki.py"""
+"""Tests for serve_wiki (scripts/serve/)"""
 
 import json
 import sys
@@ -12,10 +12,9 @@ from http.server import HTTPServer
 
 import pytest
 
-# Add scripts/ to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-import serve_wiki
-from serve_wiki import WikiHandler, resolve_wiki_dir
+import scripts.serve.handler as _handler
+from scripts.serve import resolve_wiki_dir
+from scripts.serve.handler import WikiHandler
 
 
 @pytest.fixture
@@ -44,7 +43,7 @@ def wiki_project(tmp_path):
         "title": "TestProject",
         "version": "1.0",
         "generated_at": "2026-01-01T00:00:00+00:00",
-        "menu": [
+        "items": [
             {
                 "title": "Overview",
                 "items": [
@@ -67,8 +66,8 @@ def wiki_project(tmp_path):
 
 def _start_server(project_path, port=0):
     """Start server on OS-assigned port, return (server, actual_port)."""
-    serve_wiki.project_root = Path(project_path).resolve()
-    serve_wiki.wiki_dir = serve_wiki.resolve_wiki_dir(str(project_path))
+    _handler.project_root = Path(project_path).resolve()
+    _handler.wiki_dir = resolve_wiki_dir(str(project_path))
     server = HTTPServer(("127.0.0.1", port), WikiHandler)
     t = Thread(target=server.serve_forever, daemon=True)
     t.start()
@@ -91,13 +90,13 @@ class TestResolveWikiDir:
 
 
 class TestWikiHandler:
-    def test_ignores_menu_without_latest_menu_array(self, wiki_project):
+    def test_ignores_menu_without_latest_items_array(self, wiki_project):
         menu_path = wiki_project / ".deepwiki" / "wiki" / "menu.json"
         menu_path.write_text(
             json.dumps(
                 {
                     "title": "InvalidProject",
-                    "items": [
+                    "menu": [
                         {"title": "项目概览", "path": "overview.md"},
                     ],
                 }
@@ -110,7 +109,7 @@ class TestWikiHandler:
             resp = _fetch(f"http://127.0.0.1:{port}/api/menu")
             data = json.loads(resp.read().decode("utf-8"))
             assert data["title"] == "InvalidProject"
-            assert data["menu"] == []
+            assert data["items"] == []
         finally:
             server.shutdown()
 
@@ -190,7 +189,7 @@ class TestWikiHandler:
             body = resp.read().decode("utf-8")
             data = json.loads(body)
             assert data["title"] == "TestProject"
-            assert len(data["menu"]) == 2
+            assert len(data["items"]) == 2
         finally:
             server.shutdown()
 
@@ -296,6 +295,6 @@ class TestWikiHandler:
             resp = _fetch(f"http://127.0.0.1:{port}/api/menu")
             data = json.loads(resp.read().decode("utf-8"))
             assert data["title"] == "Wiki"
-            assert data["menu"] == []
+            assert data["items"] == []
         finally:
             server.shutdown()

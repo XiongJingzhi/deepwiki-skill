@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import generate_menu
+from scripts.wiki import generate_menu
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ class TestEmptyMenu:
         assert menu["title"] == ""
         assert menu["version"] == "1.0"
         assert menu["generated_at"] != ""
-        assert menu["menu"] == []
+        assert menu["items"] == []
 
     def test_project_name(self):
         """Project name is stored in the title field."""
@@ -105,7 +105,7 @@ class TestBuildMenu:
         (wiki / "getting-started.md").write_text("# Getting Started\nInstall.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         assert "概览" in sections
         paths = [item["path"] for item in sections["概览"]["items"]]
         assert "overview.md" in paths
@@ -120,7 +120,7 @@ class TestBuildMenu:
         (wiki / "doc-map.md").write_text("# Map\nIndex.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         titles = {item["title"]: item["path"] for item in sections["概览"]["items"]}
         assert titles["Overview"] == "overview.md"
         assert titles["Getting Started"] == "getting-started.md"
@@ -134,7 +134,7 @@ class TestBuildMenu:
         (wiki / "deep-dive" / "database.md").write_text("# Database\nDB layer.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         assert "深入理解" in sections
         module_names = [item["title"] for item in sections["深入理解"]["items"]]
         # When H1 matches the title-cased filename, the raw filename stem is used
@@ -151,7 +151,7 @@ class TestBuildMenu:
         (mods / "real.md").write_text("# Real\nKeep this.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         assert len(sections["深入理解"]["items"]) == 1
         # H1 "Real" == "Real".title(), so filename stem "real" is used
         assert sections["深入理解"]["items"][0]["title"] == "real"
@@ -163,7 +163,7 @@ class TestBuildMenu:
         (wiki / "deep-dive" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         auth_item = sections["深入理解"]["items"][0]
         assert auth_item["title"] == "auth"
         assert auth_item["path"] == "deep-dive/auth.md"
@@ -178,7 +178,7 @@ class TestBuildMenu:
         (guides / "tutorial.md").write_text("# Tutorial\nStep by step.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         assert "更多" in sections
         more_items = sections["更多"]["items"]
         # The custom subdir appears as a sub-group
@@ -196,7 +196,7 @@ class TestBuildMenu:
         (wiki / "changelog.md").write_text("# Changelog\nChanges.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         assert "更多" in sections
         more_items = sections["更多"]["items"]
         other_group = [i for i in more_items if i["title"] == "其他"]
@@ -212,7 +212,7 @@ class TestBuildMenu:
             (wiki / d / "dummy.md").write_text("# Dummy\nX.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         if "更多" in sections:
             for item in sections["更多"]["items"]:
                 assert item["title"] not in {"concepts", "deep-dive", "reference", "assets"}
@@ -228,7 +228,7 @@ class TestBuildMenu:
 
         menu = generate_menu.build_menu(str(wiki))
         # Should not appear at all or under 更多
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         if "更多" in sections:
             for item in sections["更多"]["items"]:
                 assert item["title"] not in {".hidden", "_private"}
@@ -283,7 +283,7 @@ class TestBuildMenu:
         )
 
         menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
-        section_titles = [section["title"] for section in menu["menu"]]
+        section_titles = [section["title"] for section in menu["items"]]
         assert "Core Flows" in section_titles
 
     def test_topology_builtin_group_keys_use_chinese_labels(self, tmp_path):
@@ -321,16 +321,16 @@ class TestBuildMenu:
         )
 
         menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
-        section_titles = [section["title"] for section in menu["menu"]]
+        section_titles = [section["title"] for section in menu["items"]]
         assert section_titles == ["概览", "深入理解"]
-        deep_dive = menu["menu"][1]["items"][0]
+        deep_dive = menu["items"][1]["items"][0]
         assert deep_dive["title"] == "auth"
         assert deep_dive["path"] == "deep-dive/auth.md"
 
     def test_nonexistent_dir_returns_empty_menu(self, tmp_path):
         """Nonexistent wiki directory returns an empty menu structure."""
         menu = generate_menu.build_menu(str(tmp_path / "no_such_dir"))
-        assert menu["menu"] == []
+        assert menu["items"] == []
         assert menu["version"] == "1.0"
 
     def test_version_is_1_0(self, tmp_path):
@@ -355,7 +355,7 @@ class TestBuildMenu:
         (wiki / "modules" / "core.md").write_text("# Core\nModule.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = [g["title"] for g in menu["menu"]]
+        sections = [g["title"] for g in menu["items"]]
         assert "概览" not in sections
 
     def test_no_more_when_no_extra_files(self, tmp_path):
@@ -365,7 +365,7 @@ class TestBuildMenu:
         (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki))
-        sections = [g["title"] for g in menu["menu"]]
+        sections = [g["title"] for g in menu["items"]]
         assert "更多" not in sections
 
     def test_overview_md_in_overview_section(self, tmp_path):
@@ -375,7 +375,7 @@ class TestBuildMenu:
         (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
         (wiki / "getting-started.md").write_text("# Getting Started\n", encoding="utf-8")
         result = generate_menu.build_menu(str(wiki))
-        menu = result.get("menu", [])
+        menu = result.get("items", [])
         assert menu, "menu 不应为空"
         overview_group = menu[0]
         paths = [item.get("path") for item in overview_group.get("items", [])]
@@ -388,7 +388,7 @@ class TestBuildMenu:
         (wiki / "index.md").write_text("# Home\nOld homepage.", encoding="utf-8")
         (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
         result = generate_menu.build_menu(str(wiki))
-        for group in result.get("menu", []):
+        for group in result.get("items", []):
             for item in group.get("items", []):
                 assert item.get("path") != "index.md", \
                     "index.md 不应出现在任何菜单组中（已被 overview.md 替代）"
@@ -400,7 +400,7 @@ class TestBuildMenu:
         (wiki / "architecture.md").write_text("# Architecture\nOld arch doc.", encoding="utf-8")
         (wiki / "overview.md").write_text("# Overview\nTech overview.", encoding="utf-8")
         result = generate_menu.build_menu(str(wiki))
-        for group in result.get("menu", []):
+        for group in result.get("items", []):
             for item in group.get("items", []):
                 assert item.get("path") != "architecture.md", \
                     "architecture.md 不应出现在任何菜单组中（已被 overview.md 替代）"
@@ -426,7 +426,7 @@ class TestReconcileMenu:
 
         menu = generate_menu.reconcile_menu(str(wiki), "Proj")
         assert menu["version"] == "1.0"
-        sections = [g["title"] for g in menu["menu"]]
+        sections = [g["title"] for g in menu["items"]]
         assert "概览" in sections
 
     def test_removes_planned_true_entries(self, tmp_path):
@@ -438,7 +438,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "Proj",
             "version": "1.0",
-            "menu": [
+            "items": [
                 {
                     "title": "深入理解",
                     "items": [
@@ -457,8 +457,8 @@ class TestReconcileMenu:
         )
 
         result = generate_menu.reconcile_menu(str(wiki))
-        auth_item = result["menu"][0]["items"][0]
-        assert result["menu"][0]["title"] == "深入理解"
+        auth_item = result["items"][0]["items"][0]
+        assert result["items"][0]["title"] == "深入理解"
         assert "planned" not in auth_item
 
     def test_removes_entries_for_missing_files(self, tmp_path):
@@ -470,7 +470,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "Proj",
             "version": "1.0",
-            "menu": [
+            "items": [
                 {
                     "title": "深入理解",
                     "items": [
@@ -486,7 +486,7 @@ class TestReconcileMenu:
         )
 
         result = generate_menu.reconcile_menu(str(wiki))
-        module_group = [g for g in result["menu"] if g["title"] == "深入理解"][0]
+        module_group = [g for g in result["items"] if g["title"] == "深入理解"][0]
         child_paths = [c["path"] for c in module_group["items"]]
         assert "deep-dive/auth.md" in child_paths
         assert "deep-dive/ghost.md" not in child_paths
@@ -502,7 +502,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "Proj",
             "version": "1.0",
-            "menu": [],
+            "items": [],
         }
         self._write(wiki / "deep-dive" / "auth.md", "# Auth\nModule.")
         self._write(wiki / "deep-dive" / "database.md", "# Database\nDB.")
@@ -511,7 +511,7 @@ class TestReconcileMenu:
         )
 
         result = generate_menu.reconcile_menu(str(wiki))
-        module_group = [g for g in result["menu"] if g["title"] == "深入理解"]
+        module_group = [g for g in result["items"] if g["title"] == "深入理解"]
         assert len(module_group) == 1
         module_titles = [item["title"] for item in module_group[0]["items"]]
         # H1 "Auth" == "Auth".title(), so raw stem "auth" is used
@@ -527,7 +527,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "Proj",
             "version": "1.0",
-            "menu": [
+            "items": [
                 {
                     "title": "深入理解",
                     "items": [
@@ -544,7 +544,7 @@ class TestReconcileMenu:
         )
 
         result = generate_menu.reconcile_menu(str(wiki))
-        module_group = [g for g in result["menu"] if g["title"] == "深入理解"][0]
+        module_group = [g for g in result["items"] if g["title"] == "深入理解"][0]
         auth_item = module_group["items"][0]
         assert auth_item["title"] == "Authentication System"
 
@@ -557,7 +557,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "Proj",
             "version": "1.0",
-            "menu": [],
+            "items": [],
         }
         (wiki / "menu.json").write_text(
             json.dumps(existing_menu, ensure_ascii=False), encoding="utf-8"
@@ -575,7 +575,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "Proj",
             "version": "1.0",
-            "menu": [],
+            "items": [],
         }
         (wiki / "menu.json").write_text(
             json.dumps(existing_menu, ensure_ascii=False), encoding="utf-8"
@@ -595,7 +595,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "Proj",
             "version": "1.0",
-            "menu": [
+            "items": [
                 {
                     "title": "深入理解",
                     "items": [
@@ -610,7 +610,7 @@ class TestReconcileMenu:
         )
 
         result = generate_menu.reconcile_menu(str(wiki))
-        group_titles = [g["title"] for g in result["menu"]]
+        group_titles = [g["title"] for g in result["items"]]
         assert "深入理解" not in group_titles
 
     def test_removes_top_level_planned_key(self, tmp_path):
@@ -623,7 +623,7 @@ class TestReconcileMenu:
             "title": "Proj",
             "version": "1.0",
             "planned": True,
-            "menu": [],
+            "items": [],
         }
         (wiki / "menu.json").write_text(
             json.dumps(existing_menu, ensure_ascii=False), encoding="utf-8"
@@ -650,7 +650,7 @@ class TestReconcileMenu:
         existing_menu = {
             "title": "ExistingProject",
             "version": "1.0",
-            "menu": [],
+            "items": [],
         }
         (wiki / "menu.json").write_text(
             json.dumps(existing_menu, ensure_ascii=False), encoding="utf-8"
@@ -672,7 +672,7 @@ class TestSaveMenu:
         """save_menu creates a menu.json file with the correct content."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        data = {"title": "Test", "version": "1.0", "menu": []}
+        data = {"cache_schema_version": 2, "title": "Test", "generated_at": "2026-01-01T00:00:00+00:00", "version": "1.0", "items": []}
 
         output = generate_menu.save_menu(str(wiki), data)
         assert output == str(wiki / "menu.json")
@@ -685,7 +685,7 @@ class TestSaveMenu:
     def test_creates_directory_if_needed(self, tmp_path):
         """save_menu creates the parent directory if it does not exist."""
         wiki = tmp_path / "nested" / "wiki"
-        data = {"title": "Nested", "version": "1.0", "menu": []}
+        data = {"cache_schema_version": 2, "title": "Nested", "generated_at": "2026-01-01T00:00:00+00:00", "version": "1.0", "items": []}
 
         output = generate_menu.save_menu(str(wiki), data)
         assert Path(output).exists()
@@ -695,149 +695,22 @@ class TestSaveMenu:
         """Output JSON is valid UTF-8 with Chinese characters."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        data = {"title": "测试项目", "menu": [{"title": "概览", "items": []}]}
+        data = {"cache_schema_version": 2, "title": "测试项目", "generated_at": "2026-01-01T00:00:00+00:00", "items": [{"title": "概览", "items": []}]}
 
         output = generate_menu.save_menu(str(wiki), data)
         with open(output, "r", encoding="utf-8") as f:
             loaded = json.load(f)
         assert loaded["title"] == "测试项目"
-        assert loaded["menu"][0]["title"] == "概览"
+        assert loaded["items"][0]["title"] == "概览"
 
     def test_return_value_is_string(self, tmp_path):
         """Return value is the file path as a string."""
         wiki = tmp_path / "wiki"
         wiki.mkdir()
-        data = {"title": "T", "version": "1.0", "menu": []}
+        data = {"cache_schema_version": 2, "title": "T", "generated_at": "2026-01-01T00:00:00+00:00", "version": "1.0", "items": []}
 
         result = generate_menu.save_menu(str(wiki), data)
         assert isinstance(result, str)
-
-
-# =====================================================================
-# TestReconcileSemanticGroups
-# =====================================================================
-
-
-class TestReconcileSemanticGroups:
-    """验证 --reconcile 模式读取 semantic_group 并输出分组建议"""
-
-    def _make_analysis(self, modules_dict: dict) -> dict:
-        return {
-            "cache_schema_version": 1,
-            "generated_at": "2026-04-24T00:00:00Z",
-            "modules": modules_dict,
-        }
-
-    def _make_module(self, semantic_group: str, confidence: str = "high",
-                     module_path: str = "src/x", code_purpose: str = "Service") -> dict:
-        return {
-            "semantic_group": semantic_group,
-            "semantic_group_confidence": confidence,
-            "module_path": module_path,
-            "code_purpose": code_purpose,
-            "analysis_depth": "standard",
-            "module_summary": "summary",
-            "selected_components": [],
-            "dependency_hints": {"imports": [], "imported_by": []},
-            "files": [],
-        }
-
-    def test_reconcile_outputs_semantic_group_hints(self, tmp_path):
-        """有两个模块同属一个 semantic_group 时，hints 中应包含该分组"""
-        wiki_dir = tmp_path / "wiki"
-        wiki_dir.mkdir()
-        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
-        (wiki_dir / "menu.json").write_text(
-            json.dumps({"menu": []}), encoding="utf-8"
-        )
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
-        analysis = self._make_analysis({
-            "auth": self._make_module("认证与鉴权", module_path="src/auth"),
-            "token": self._make_module("认证与鉴权", module_path="src/token",
-                                       code_purpose="Util"),
-        })
-        (cache_dir / "module-analysis.json").write_text(
-            json.dumps(analysis), encoding="utf-8"
-        )
-
-        report = generate_menu.reconcile_menu(
-            str(wiki_dir), "TestProject", cache_dir=str(cache_dir), verbose=False
-        )
-        assert "semantic_group_hints" in report, "report 应包含 semantic_group_hints"
-        hints = report["semantic_group_hints"]
-        assert "认证与鉴权" in hints, "hints 中应包含 '认证与鉴权' 分组"
-        assert len(hints["认证与鉴权"]) == 2, "分组内应有 2 个模块"
-        module_names = {m["module"] for m in hints["认证与鉴权"]}
-        assert module_names == {"auth", "token"}
-
-    def test_reconcile_without_cache_dir_still_works(self, tmp_path):
-        """不传 cache_dir 时，reconcile 仍然正常运行，hints 为空字典"""
-        wiki_dir = tmp_path / "wiki"
-        wiki_dir.mkdir()
-        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
-        (wiki_dir / "menu.json").write_text(
-            json.dumps({"menu": []}), encoding="utf-8"
-        )
-        report = generate_menu.reconcile_menu(str(wiki_dir), "TestProject")
-        assert report is not None
-        assert report.get("semantic_group_hints", {}) == {}
-
-    def test_reconcile_hints_include_confidence(self, tmp_path):
-        """hints 中每个模块条目应包含 confidence 字段"""
-        wiki_dir = tmp_path / "wiki"
-        wiki_dir.mkdir()
-        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
-        (wiki_dir / "menu.json").write_text(
-            json.dumps({"menu": []}), encoding="utf-8"
-        )
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
-        analysis = self._make_analysis({
-            "auth": self._make_module("认证与鉴权", confidence="high"),
-        })
-        (cache_dir / "module-analysis.json").write_text(
-            json.dumps(analysis), encoding="utf-8"
-        )
-
-        report = generate_menu.reconcile_menu(
-            str(wiki_dir), "TestProject", cache_dir=str(cache_dir)
-        )
-        hints = report.get("semantic_group_hints", {})
-        assert "认证与鉴权" in hints
-        entry = hints["认证与鉴权"][0]
-        assert "confidence" in entry, "每个模块条目应包含 confidence 字段"
-        assert entry["confidence"] == "high"
-
-    def test_reconcile_skips_modules_without_semantic_group(self, tmp_path):
-        """没有 semantic_group 字段的模块不应出现在 hints 中"""
-        wiki_dir = tmp_path / "wiki"
-        wiki_dir.mkdir()
-        (wiki_dir / "overview.md").write_text("# Overview\n", encoding="utf-8")
-        (wiki_dir / "menu.json").write_text(
-            json.dumps({"menu": []}), encoding="utf-8"
-        )
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
-        # 模块没有 semantic_group 字段
-        analysis = self._make_analysis({
-            "utils": {
-                "module_path": "src/utils", "code_purpose": "Util",
-                "analysis_depth": "quick", "module_summary": "utils",
-                "selected_components": [],
-                "dependency_hints": {"imports": [], "imported_by": []},
-                "files": [],
-            }
-        })
-        (cache_dir / "module-analysis.json").write_text(
-            json.dumps(analysis), encoding="utf-8"
-        )
-
-        report = generate_menu.reconcile_menu(
-            str(wiki_dir), "TestProject", cache_dir=str(cache_dir)
-        )
-        hints = report.get("semantic_group_hints", {})
-        assert hints == {}, f"无 semantic_group 的模块不应出现在 hints 中，实际 hints: {hints}"
 
 
 # ---------------------------------------------------------------------------
@@ -859,11 +732,10 @@ class TestBuildMenuDataDriven:
             "modules": modules_dict,
         }
 
-    def _make_module(self, semantic_group: str, confidence: str = "high",
-                     module_path: str = "src/x", code_purpose: str = "Service") -> dict:
+    def _make_module(self, semantic_group: str, module_path: str = "src/x",
+                     code_purpose: str = "Service") -> dict:
         return {
             "semantic_group": semantic_group,
-            "semantic_group_confidence": confidence,
             "module_path": module_path,
             "code_purpose": code_purpose,
             "analysis_depth": "standard",
@@ -892,7 +764,7 @@ class TestBuildMenuDataDriven:
         (cache / "module-analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
-        group_titles = [g["title"] for g in menu["menu"]]
+        group_titles = [g["title"] for g in menu["items"]]
         assert "深入理解" in group_titles
         assert "认证与鉴权" not in group_titles
 
@@ -904,7 +776,7 @@ class TestBuildMenuDataDriven:
         (wiki / "deep-dive" / "auth.md").write_text("# Auth\nAuth module.", encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki), cache_dir=None)
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         assert "深入理解" in sections
 
     def test_fallback_to_flat_when_empty_cache(self, tmp_path):
@@ -918,7 +790,7 @@ class TestBuildMenuDataDriven:
         empty_cache = tmp_path / "empty_cache"
         empty_cache.mkdir()
         menu = generate_menu.build_menu(str(wiki), cache_dir=str(empty_cache))
-        sections = {g["title"]: g for g in menu["menu"]}
+        sections = {g["title"]: g for g in menu["items"]}
         assert "深入理解" in sections
 
     def test_uses_topology_groups_when_available(self, tmp_path):
@@ -949,7 +821,7 @@ class TestBuildMenuDataDriven:
         (cache / "doc-topology.json").write_text(json.dumps(topology), encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
-        group_titles = [g["title"] for g in menu["menu"]]
+        group_titles = [g["title"] for g in menu["items"]]
         assert "深入理解" in group_titles
 
     def test_api_is_not_paired_as_child(self, tmp_path):
@@ -969,7 +841,7 @@ class TestBuildMenuDataDriven:
         (cache / "module-analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
-        auth_group = [g for g in menu["menu"] if g["title"] == "深入理解"][0]
+        auth_group = [g for g in menu["items"] if g["title"] == "深入理解"][0]
         auth_item = auth_group["items"][0]
         assert auth_item["path"] == "deep-dive/auth.md"
         assert "items" not in auth_item
@@ -1000,5 +872,102 @@ class TestBuildMenuDataDriven:
         (cache / "module-analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
 
         menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
-        group_titles = [g["title"] for g in menu["menu"]]
+        group_titles = [g["title"] for g in menu["items"]]
         assert "深入理解" in group_titles
+
+
+# ---------------------------------------------------------------------------
+# TestTopologyDedup
+# ---------------------------------------------------------------------------
+
+
+class TestTopologyDedup:
+    """验证 _build_menu_from_topology 的分组去重逻辑。"""
+
+    def _write(self, path: Path, content: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    def test_redundant_catch_all_group_removed(self, tmp_path):
+        """内置 deep-dive 分组被语义分组完全覆盖时应被移除，语义分组保留。"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        cache = tmp_path / "cache"
+        cache.mkdir()
+
+        topology = {
+            "pages": [
+                {"id": "dd:auth", "type": "capability", "title": "认证与鉴权",
+                 "output_path": "wiki/deep-dive/auth.md"},
+                {"id": "dd:token", "type": "internal", "title": "令牌管理",
+                 "output_path": "wiki/deep-dive/token.md"},
+            ],
+            "groupings": {
+                "认证与鉴权": ["dd:auth", "dd:token"],
+                "deep-dive": ["dd:auth", "dd:token"],
+            },
+        }
+        self._write(cache / "doc-topology.json", json.dumps(topology, ensure_ascii=False))
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        group_titles = [g["title"] for g in menu["items"]]
+        assert "认证与鉴权" in group_titles
+        assert "深入理解" not in group_titles, \
+            "兜底 deep-dive 分组应在语义分组完全覆盖时被移除"
+
+    def test_partial_overlap_keeps_both_groups(self, tmp_path):
+        """兜底 deep-dive 含独有页面时，两个分组都应保留。"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        cache = tmp_path / "cache"
+        cache.mkdir()
+
+        topology = {
+            "pages": [
+                {"id": "dd:auth", "type": "capability", "title": "认证与鉴权",
+                 "output_path": "wiki/deep-dive/auth.md"},
+                {"id": "dd:token", "type": "internal", "title": "令牌管理",
+                 "output_path": "wiki/deep-dive/token.md"},
+                {"id": "dd:db", "type": "internal", "title": "数据访问",
+                 "output_path": "wiki/deep-dive/db.md"},
+            ],
+            "groupings": {
+                "认证与鉴权": ["dd:auth", "dd:token"],
+                "deep-dive": ["dd:auth", "dd:token", "dd:db"],
+            },
+        }
+        self._write(cache / "doc-topology.json", json.dumps(topology, ensure_ascii=False))
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        group_titles = [g["title"] for g in menu["items"]]
+        assert "认证与鉴权" in group_titles
+        assert "深入理解" in group_titles, \
+            "兜底 deep-dive 分组包含独有页面（db.md）时不应被移除"
+
+    def test_semantic_group_never_removed(self, tmp_path):
+        """非内置语义分组即使路径被完全覆盖也不应被移除。"""
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        cache = tmp_path / "cache"
+        cache.mkdir()
+
+        topology = {
+            "pages": [
+                {"id": "dd:auth", "type": "capability", "title": "认证与鉴权",
+                 "output_path": "wiki/deep-dive/auth.md"},
+                {"id": "dd:token", "type": "internal", "title": "令牌管理",
+                 "output_path": "wiki/deep-dive/token.md"},
+            ],
+            "groupings": {
+                "认证与鉴权": ["dd:auth", "dd:token"],
+                "deep-dive": ["dd:auth", "dd:token"],
+            },
+        }
+        self._write(cache / "doc-topology.json", json.dumps(topology, ensure_ascii=False))
+
+        menu = generate_menu.build_menu(str(wiki), cache_dir=str(cache))
+        group_titles = [g["title"] for g in menu["items"]]
+        assert "认证与鉴权" in group_titles, \
+            "语义分组不应被移除"
+        assert "深入理解" not in group_titles, \
+            "路径被语义分组完全覆盖的内置 deep-dive 分组应被移除"

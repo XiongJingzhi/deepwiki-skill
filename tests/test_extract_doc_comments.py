@@ -2,8 +2,8 @@
 
 import pytest
 
-import extract_doc_comments
-from extract_doc_comments import (
+from scripts.pipeline import extract_doc_comments
+from scripts.pipeline.extract_doc_comments import (
     DocEntry,
     extract_jsdoc,
     extract_python_docstring,

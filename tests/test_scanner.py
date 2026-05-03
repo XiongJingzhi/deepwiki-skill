@@ -5,10 +5,9 @@ from pathlib import Path
 import pytest
 
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from scanner import scan_files, scan_directories, compute_file_stats, find_documentation
-from common import GitignoreCache
+from scripts.analysis.scanner import scan_files, scan_directories, compute_file_stats, find_documentation
+from scripts.core.common import GitignoreCache
 
 
 # =====================================================================
@@ -57,7 +56,7 @@ class TestScanFiles:
         (tmp_path / "debug.log").write_text("some log\n", encoding="utf-8")
 
         # Create a gitignore cache and ensure it's loaded for this project
-        from common import GitignoreCache, should_ignore_path, IGNORE_DIRS
+        from scripts.core.common import GitignoreCache, should_ignore_path, IGNORE_DIRS
         gitignore_cache = GitignoreCache()
         gitignore_cache.ensure_loaded(tmp_path)
 
