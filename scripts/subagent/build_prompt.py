@@ -49,12 +49,12 @@ def _build_extract_docs_vars(project_dir: Path, module_path: str | None) -> Dict
     skeleton = _load_json(cache_dir / "architecture-skeleton.json")
 
     # 模块分组列表
-    groups = skeleton.get("groups", [])
+    groups = skeleton.get("module_groups") or skeleton.get("groups", [])
     groups_lines = []
     for g in groups:
         name = g.get("name", "")
         modules = ", ".join(g.get("modules", []))
-        role = g.get("role", "")
+        role = g.get("role") or g.get("dominant_purpose", "")
         groups_lines.append(f"- {name}：{modules}（{role}）")
     groups_block = "\n".join(groups_lines) if groups_lines else "（骨架未生成分组信息）"
 

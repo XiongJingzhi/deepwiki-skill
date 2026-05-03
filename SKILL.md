@@ -14,13 +14,15 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 
 | 用户意图 | 模式 | 入口工具 |
 |---------|------|---------|
-| 生成/创建文档 | **全量生成** | `init-wiki` |
-| 重建 wiki | **增量更新** | `init-wiki`（`detect-changes` 自动跳过未变更模块） |
-| 检查 wiki 质量 | **仅质量检查** | `postprocess.py quality`（直接运行，不重新生成） |
-| 更新/升级文档 | **定向重生成** | `extract-docs`（跳过 `init-wiki` → `detect-changes`） |
+| 生成/创建文档 | **全量生成** | 从主路径第 1 步开始串行执行，`init-wiki` 只是初始化 |
+| 重建 wiki | **增量更新** | 已有 `.deepwiki/` 时从 `analyze-project` / `detect-changes` 继续，不要重新 `init-wiki` |
+| 检查 wiki 质量 | **仅质量检查** | `scripts/postprocess.py quality <project_path>/.deepwiki` |
+| 更新/升级文档 | **定向重生成** | `scripts/cli.py page-context` → 按 `generate-module-docs` 规则重生成目标页 |
 | 预览文档 | **启动本地服务** | `scripts/cli.py serve <project_path>`（默认端口 8742） |
 
 ## 工作流
+
+> **执行原则**：`init-wiki`、`analyze-project`、`extract-structure`、`generate-skeleton`、`prepare_module_context`、`detect-changes`、`validate-analysis`、`plan-doc-topology`、`generate-menu`、`finalize-wiki` 有脚本支撑；`extract-docs`、`generate-overview`、`generate-module-docs` 是 Agent 按参考规则生成内容的 AI 阶段，不能当作单个 shell 命令直接运行。
 
 **主路径（全量/增量）：**
 
@@ -32,10 +34,10 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 
 ### 阶段 A — 准备
 
-1. **`init-wiki`**：创建 `.deepwiki/` 目录结构
+1. **`init-wiki`**：创建 `.deepwiki/` 目录结构；仅首次生成使用。目录已存在时不要把失败当作生成失败，应继续增量流程或显式 `--force`
 2. **`analyze-project`**：项目结构分析，生成模块/入口点/技术栈。可选运行 `refine-modules`（模块边界失真时），**若运行必须在 `generate-skeleton` 之前**
 3. **`extract-structure`**：提取代码结构到 `cache/`
-4. **`generate-skeleton`**：生成 `architecture-skeleton.json`
+4. **`generate-skeleton`**：运行 `scripts/pipeline/generate_skeleton.py <project_path>` 生成 `architecture-skeleton.json` 的确定性字段，然后由 Agent 补齐 `project_nature`、`key_data_flows`
 
 ### 阶段 B — 分析注入
 
@@ -47,7 +49,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 
 8. **`plan-doc-topology`**：生成文档拓扑与编译计划
 9. **`generate-overview`**：复用 `synthesize-deps` 依赖综合规则，生成概述页 + 项目上下文摘要
-10. **`generate-menu`**（必须）：生成 `wiki/menu.json` 与 `wiki/doc-map.md`，为模块文档提供导航和面包屑
+10. **`generate-menu`**（必须）：运行 `scripts/wiki/generate_menu.py <project_path>/.deepwiki/wiki <project_name>` 生成 `wiki/menu.json` 与 `wiki/doc-map.md`，为模块文档提供导航和面包屑
 
 ### 阶段 D — 生成
 
@@ -71,9 +73,9 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 
 | 场景 | 操作 |
 |------|------|
-| 仅质量检查 | 直接运行 `postprocess.py quality` |
-| 定向重生成 | 从 `extract-docs` 开始，跳过 `init-wiki` → `detect-changes` |
-| 收尾四步 | `generate-menu --reconcile` → `postprocess.py mermaid` → `postprocess.py quality` → `postprocess.py consistency` |
+| 仅质量检查 | 直接运行 `scripts/postprocess.py quality <project_path>/.deepwiki` |
+| 定向重生成 | `scripts/cli.py page-context <project_path> <wiki_path>` → 重生成目标页 → `scripts/postprocess.py quality <project_path>/.deepwiki` |
+| 收尾四步 | `scripts/wiki/generate_menu.py <wiki_dir> <project_name> --reconcile` → `scripts/postprocess.py mermaid <deepwiki_dir>` → `scripts/postprocess.py quality <deepwiki_dir>` → `scripts/postprocess.py consistency <deepwiki_dir>` |
 | 预览文档 | `scripts/cli.py serve <project_path>`，浏览器打开 `http://127.0.0.1:8742` |
 | 定向更新单页 | `scripts/cli.py page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `postprocess.py quality` 确认 |
 

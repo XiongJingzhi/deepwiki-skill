@@ -7,6 +7,7 @@ DeepWiki 初始化脚本
 import os
 import json
 import shutil
+import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional

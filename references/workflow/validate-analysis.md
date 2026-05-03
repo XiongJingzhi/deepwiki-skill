@@ -28,7 +28,7 @@ python3 scripts/quality/build_evidence_index.py <项目路径>
 
 ## 缓存失效
 
-`validate-analysis` 完成后，`relationship-summary.json` 会在下游步骤读取时通过 mtime 对比自动失效（`synthesize-deps` 规则负责检测），无需手动删除。
+`scripts/cli.py validate-analysis` 会在进入门控时主动删除旧的 `cache/relationship-summary.json`。这样即使 `module-analysis.json` 只做了局部增量更新，下游 `synthesize-deps` 也会重新综合依赖摘要。
 
 ## 重试流程
 
@@ -39,4 +39,3 @@ exit=1 时，主 Agent 应：
 3. 再次运行 `validate-analysis`
 
 建议最多重试 2 次。超过后仍失败则跳过该模块并记录警告。
-

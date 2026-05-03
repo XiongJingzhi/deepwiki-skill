@@ -69,7 +69,7 @@ DeepWiki 是一个 [skills.sh](https://skills.sh) 兼容的技能包，让 AI Ag
 
 ```
 deepwiki/
-├── SKILL.md              # 主指令（9 步外部工作流）
+├── SKILL.md              # 主指令（确定性脚本 + Agent 生成阶段）
 ├── scripts/              # Python 工具脚本
 │   ├── cli.py                             # 本地统一入口
 │   ├── postprocess.py                     # CLI: mermaid/quality/consistency

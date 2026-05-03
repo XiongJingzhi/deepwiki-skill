@@ -256,6 +256,26 @@ class TestDetectChanges:
         added_paths = [p.replace("\\", "/") for p in result["added"]]
         assert any("new_module.py" in p for p in added_paths)
 
+    def test_changed_files_include_change_type_records(self, fake_python_project):
+        """The structured output should expose per-file change_type records."""
+        self._setup_deepwiki_cache(fake_python_project)
+        detect_changes.detect_changes(str(fake_python_project))
+
+        (fake_python_project / "src" / "new_module.py").write_text(
+            "# new module\n", encoding="utf-8"
+        )
+        (fake_python_project / "README.md").write_text(
+            "# Updated docs\n", encoding="utf-8"
+        )
+        (fake_python_project / "src" / "utils.py").unlink()
+
+        result = detect_changes.detect_changes(str(fake_python_project))
+        changed = {item["path"].replace("\\", "/"): item for item in result["changed_files"]}
+
+        assert changed["src/new_module.py"]["change_type"] == "new"
+        assert changed["README.md"]["change_type"] == "doc-only-change"
+        assert changed["src/utils.py"]["change_type"] == "deleted"
+
     def test_summary_format_added(self, fake_python_project):
         """Summary string for added files contains '+N'."""
         self._setup_deepwiki_cache(fake_python_project)

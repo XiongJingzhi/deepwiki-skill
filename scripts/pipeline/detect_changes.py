@@ -273,6 +273,29 @@ def _affected_pages_from_plan(
     return sorted(affected_pages), False
 
 
+def _classify_changed_file(path: str, kind: str, root: Path) -> Dict[str, str]:
+    """Build a structured change record for downstream incremental generation.
+
+    Historical checksums only store hashes, so modified code files are classified
+    conservatively as API changes unless they are documentation files.
+    """
+    if kind == "added":
+        change_type = "new"
+    elif kind == "deleted":
+        change_type = "deleted"
+    elif Path(path).suffix in DOC_EXTENSIONS:
+        change_type = "doc-only-change"
+    else:
+        full_path = root / path
+        try:
+            content = full_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            content = ""
+        public_markers = ("export ", "export\t", "pub ", "public ", "def ", "class ")
+        change_type = "api-change" if any(marker in content for marker in public_markers) else "impl-change"
+    return {"path": path, "change_type": change_type}
+
+
 def detect_changes(project_root: str, excludes: Set[str] = None,
                     dry_run: bool = False) -> Dict[str, Any]:
     """
@@ -392,6 +415,12 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
         generation_plan, affected_module_keys or all_affected_modules, has_changes
     )
 
+    changed_files = [
+        *(_classify_changed_file(path, "added", root) for path in sorted(added)),
+        *(_classify_changed_file(path, "modified", root) for path in sorted(modified)),
+        *(_classify_changed_file(path, "deleted", root) for path in sorted(deleted)),
+    ]
+
     result = {
         "added": sorted(added),
         "modified": sorted(modified),
@@ -400,6 +429,7 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
         "has_changes": has_changes,
         "summary": ", ".join(summary_parts),
         "current_checksums": current_checksums,
+        "changed_files": changed_files,
         "affected_pages": affected_pages,
         "recompile_all": recompile_all,
     }

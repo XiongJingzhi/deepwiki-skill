@@ -29,6 +29,23 @@ class TestPipelineIntegration:
         assert (fake_python_project / ".deepwiki" / "config.yaml").exists()
         assert (fake_python_project / ".deepwiki" / "meta.json").exists()
 
+    def test_init_existing_wiki_with_stale_cache_warns_without_crashing(self, fake_python_project, capsys):
+        """Existing stale caches should produce a warning, not a NameError."""
+        from scripts.wiki.init_wiki import init_deep_wiki
+
+        init_deep_wiki(str(fake_python_project))
+        cache = fake_python_project / ".deepwiki" / "cache"
+        (cache / "structure.json").write_text(
+            json.dumps({"cache_schema_version": 0, "modules": []}),
+            encoding="utf-8",
+        )
+
+        result = init_deep_wiki(str(fake_python_project))
+
+        captured = capsys.readouterr()
+        assert result["success"] is False
+        assert "schema" in captured.err
+
     def test_analyze_detects_project(self, fake_python_project):
         """analyze_project detects Python project with modules."""
         from scripts.analysis.analyze_project import analyze_project
@@ -147,6 +164,16 @@ class TestPipelineIntegration:
         assert (cache / "doc-topology.json").exists()
         assert (cache / "generation-plan.json").exists()
         assert (cache / "evidence-index.json").exists()
+
+    def test_cli_quality_preserves_quality_exit_code(self, fake_python_project):
+        """Unified quality command should fail when generated docs are Basic."""
+        from scripts import cli
+
+        wiki = fake_python_project / ".deepwiki" / "wiki"
+        wiki.mkdir(parents=True, exist_ok=True)
+        (wiki / "overview.md").write_text("# Overview\n\nToo short.\n", encoding="utf-8")
+
+        assert cli.main(["quality", str(fake_python_project / ".deepwiki")]) == 2
 
     def test_dependency_self_check_module(self):
         """Dependency self-check exposes a programmatic status."""

@@ -160,8 +160,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "quality":
-        check_wiki_quality(str(_deepwiki_path(args.path)))
-        return 0
+        from scripts.quality.check_doc_quality import print_report
+
+        report = check_wiki_quality(str(_deepwiki_path(args.path)))
+        return print_report(report)
 
     if args.command == "self-check":
         result = validate_skill(Path(args.skill_dir))
