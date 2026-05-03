@@ -11,7 +11,7 @@ extract_source_snippets.py
     项目源码文件
 
 输出:
-    <project_dir>/.deepwiki/cache/snippets/<page_id>.json
+    <project_dir>/.deepwiki/cache/snippets/<safe_page_id>.json
 """
 import json
 from pathlib import Path
@@ -138,7 +138,7 @@ def extract_all_snippets(project_dir: Path) -> Dict[str, str]:
             continue
 
         # 安全文件名
-        safe_id = page_id.replace(":", "_").replace("/", "_")
+        safe_id = page_id.replace(":", "_").replace("/", "_").replace("\\", "_")
         out_path = snippets_dir / f"{safe_id}.json"
         out_path.write_text(
             json.dumps(page_snippets, ensure_ascii=False, indent=2),

@@ -15,10 +15,12 @@ python scripts/subagent/build_prompt.py generate-module-docs --project <项目�
 
 [`../rules/batch-scheduling.md`](../rules/batch-scheduling.md)。
 
+本阶段只处理 `generation-plan.json.pages[]` 中有 `affected_modules` / `source_modules` 的模块页面。`overview`、`getting-started`、`doc-map`、`concept:*`、`reference:*` 页面应按各自工作流生成，不进入 `generate-module-docs` subagent。
+
 每个页面任务在派遣前必须先确认 `generation-plan.json.pages[]` 中存在：
 - `page_id`
 - `output_path`
-- `affected_modules`
+- `affected_modules` 或 `source_modules`（非空）
 - `source_files`
 
 生成提示词时使用：

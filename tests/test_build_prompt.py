@@ -10,6 +10,8 @@ from scripts.subagent.build_prompt import (
     _build_extract_docs_vars,
     _build_generate_docs_vars,
     _build_quality_fix_vars,
+    _build_snippets_hint,
+    _source_link,
 )
 
 
@@ -98,6 +100,35 @@ def test_generate_module_docs_prompt_includes_page_and_output_path(tmp_path):
     assert variables["OUTPUT_ABS_PATH"].endswith(".deepwiki/wiki/deep-dive/auth.md")
 
 
+def test_generate_module_docs_prompt_uses_safe_snippet_filename(tmp_path):
+    """Prompt generation should find snippets written by extract_source_snippets."""
+    cache = tmp_path / ".deepwiki" / "cache"
+    snippets = cache / "snippets"
+    snippets.mkdir(parents=True)
+    safe_path = snippets / "deep-dive_pkg_auth.json"
+    safe_path.write_text('{"snippets": []}', encoding="utf-8")
+
+    hint = _build_snippets_hint(cache, "deep-dive:pkg/auth")
+
+    assert str(safe_path) in hint
+    assert "已预提取" in hint
+
+
+def test_source_link_uses_standard_file_uri_for_absolute_paths(tmp_path):
+    """file:// links should be valid URIs, including paths with spaces."""
+    project = tmp_path / "project with space"
+    source = project / "src" / "main.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("print('hello')\n", encoding="utf-8")
+
+    link = _source_link(project, "src/main.py", 1, 1)
+
+    assert link.startswith("file:///")
+    assert " " not in link
+    assert "%20" in link
+    assert "////" not in link.replace("file:///", "", 1)
+
+
 def test_generate_module_docs_prompt_requires_planned_page(tmp_path):
     """Unknown pages should fail before a subagent guesses an output path."""
     cache = tmp_path / ".deepwiki" / "cache"
@@ -109,6 +140,30 @@ def test_generate_module_docs_prompt_requires_planned_page(tmp_path):
 
     with pytest.raises(ValueError, match="page_id"):
         _build_generate_docs_vars(tmp_path, "deep-dive:missing")
+
+
+def test_generate_module_docs_prompt_rejects_non_module_page(tmp_path):
+    """Overview/concept pages need their own workflow, not module-docs prompts."""
+    cache = tmp_path / ".deepwiki" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "generation-plan.json").write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {
+                        "page_id": "overview",
+                        "output_path": "wiki/overview.md",
+                        "affected_modules": [],
+                        "source_files": [],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="no affected modules"):
+        _build_generate_docs_vars(tmp_path, "overview")
 
 
 def test_cli_rejects_extract_docs_prompt_without_module(tmp_path, capsys):

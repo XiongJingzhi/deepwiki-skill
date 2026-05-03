@@ -324,6 +324,12 @@ def main() -> int:
     all_errors, all_warnings, failed_modules, checked_modules = check_analysis_quality(
         modules_data, verbose=args.verbose, modules=check_modules
     )
+    if check_modules and not checked_modules:
+        print(
+            f"❌ 指定模块未找到: {', '.join(check_modules)}",
+            file=sys.stderr,
+        )
+        return 2
 
     print_report(all_errors, all_warnings, failed_modules, args.verbose, len(checked_modules))
 

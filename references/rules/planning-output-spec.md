@@ -86,14 +86,14 @@
 
 ---
 
-## `cache/snippets/<page_id>.json` 输出规范
+## `cache/snippets/<safe_page_id>.json` 输出规范
 
 > 由 `extract_source_snippets.py` 生成，为 `generate-module-docs` subagent 提供预提取的源码片段，避免读取整文件。
 
 ### 写入路径
 
 ```
-<项目目录>/.deepwiki/cache/snippets/<page_id>.json
+<项目目录>/.deepwiki/cache/snippets/<safe_page_id>.json
 ```
 
 ### 最小字段
@@ -111,7 +111,7 @@
 
 - 每个 snippet 包含 `ranges` 中定义的行号范围，加上下文各 5 行
 - 单个 snippet 内容上限 30000 字符，超出时截断并标注
-- `page_id` 中 `:` 替换为 `_` 作为文件名（如 `deep-dive_auth.json`）
+- `page_id` 中 `:`、`/`、`\` 替换为 `_` 作为文件名（如 `deep-dive_pkg_auth.json`）
 - 仅 `generation-plan.json` 中有 `source_files` 且 `ranges` 非空的页面才生成 snippets
 
 ### 降级策略

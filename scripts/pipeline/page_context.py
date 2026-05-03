@@ -122,6 +122,35 @@ def _find_module_key(module_analysis: dict, wiki_rel_path: str) -> Optional[str]
     return None
 
 
+def _find_module_key_from_generation_plan(
+    generation_plan: dict,
+    module_analysis: dict,
+    wiki_rel_path: str,
+) -> Optional[str]:
+    """Match wiki path through generation-plan output_path -> affected_modules."""
+    if not isinstance(generation_plan, dict):
+        return None
+    modules: Dict[str, Any] = module_analysis.get("modules", module_analysis)
+    if not isinstance(modules, dict):
+        return None
+
+    needle = _normalize_path(wiki_rel_path)
+    for page in generation_plan.get("pages", []):
+        if not isinstance(page, dict):
+            continue
+        output_path = _normalize_path(page.get("output_path", ""))
+        if output_path != needle:
+            continue
+        for key in page.get("affected_modules") or page.get("source_modules") or []:
+            if key in modules:
+                return key
+            alt_key = str(key).replace("/", "\\")
+            if alt_key in modules:
+                return alt_key
+        return None
+    return None
+
+
 def _extract_module_context(module_data: dict) -> Dict:
     """Pull relevant fields from a module-analysis entry."""
     from scripts.core.common import extract_file_source_ranges
@@ -199,12 +228,17 @@ def get_page_context(project_path: Path, wiki_rel_path: str) -> Dict:
 
     # 3. module-analysis.json
     module_analysis = _load_json(cache_dir / "module-analysis.json")
+    generation_plan = _load_json(cache_dir / "generation-plan.json")
     module_key = None
     module_ctx: Dict = {}
     if module_analysis is None:
         errors.append("module-analysis.json not found in cache/")
     else:
-        module_key = _find_module_key(module_analysis, wiki_rel_clean)
+        module_key = _find_module_key_from_generation_plan(
+            generation_plan or {}, module_analysis, wiki_rel_clean
+        )
+        if module_key is None:
+            module_key = _find_module_key(module_analysis, wiki_rel_clean)
         if module_key is None:
             errors.append(
                 f"Could not match \"{wiki_rel_clean}\" to any module key in "

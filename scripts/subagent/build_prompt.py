@@ -44,6 +44,18 @@ def _module_slug(module_path: str) -> str:
     return module_path.replace("/", "_").replace("\\", "_").strip("_") or "module"
 
 
+def _safe_page_id(page_id: str) -> str:
+    return page_id.replace(":", "_").replace("/", "_").replace("\\", "_")
+
+
+def _source_link(project_dir: Path, rel_path: str, start: int | None = None, end: int | None = None) -> str:
+    uri = (project_dir / rel_path).resolve().as_uri()
+    if start:
+        line_end = end or start
+        return f"{uri}#L{start}-L{line_end}"
+    return uri
+
+
 # ---------------------------------------------------------------------------
 # 各 agent 类型的变量构建器
 # ---------------------------------------------------------------------------
@@ -94,10 +106,8 @@ def _build_source_files_block(project_dir: Path, page: dict) -> str:
         return "（未找到源码文件清单，请从 module-analysis.json 推导）"
 
     lines = []
-    project_abs = str(project_dir).replace("\\", "/")
     for sf in source_files:
         rel_path = sf.get("path", "")
-        abs_path = f"{project_abs}/{rel_path}"
         ranges = sf.get("ranges", [])
         if ranges:
             for r in ranges:
@@ -105,9 +115,9 @@ def _build_source_files_block(project_dir: Path, page: dict) -> str:
                 end = r.get("end_line", start)
                 label = r.get("label", "")
                 desc = f" — {label}" if label else ""
-                lines.append(f"- [{rel_path}](file:///{abs_path}#L{start}-L{end}){desc}")
+                lines.append(f"- [{rel_path}]({_source_link(project_dir, rel_path, start, end)}){desc}")
         else:
-            lines.append(f"- [{rel_path}](file:///{abs_path})")
+            lines.append(f"- [{rel_path}]({_source_link(project_dir, rel_path)})")
     return "\n".join(lines)
 
 
@@ -151,7 +161,7 @@ def _build_module_analysis_block(module_data: dict) -> str:
 
 def _build_snippets_hint(cache_dir: Path, page_id: str) -> str:
     """检查 snippets 文件是否存在，返回提示信息。"""
-    snippet_path = cache_dir / "snippets" / f"{page_id}.json"
+    snippet_path = cache_dir / "snippets" / f"{_safe_page_id(page_id)}.json"
     if snippet_path.exists():
         return f"已预提取源码片段：`{snippet_path}`（优先读取此文件获取源码内容）"
     return "（无预提取 snippets，请直接读取源码文件）"
@@ -184,6 +194,8 @@ def _build_generate_docs_vars(project_dir: Path, page_id: str) -> Dict[str, str]
         wiki_rel_path = ""
 
     source_modules = page.get("source_modules", page.get("affected_modules", []))
+    if not source_modules:
+        raise ValueError(f"page_id has no affected modules for generate-module-docs: {page_id}")
     module_path = source_modules[0] if source_modules else ""
 
     # 从 analysis 中获取模块数据
@@ -301,7 +313,7 @@ def main(argv=None):
     if args.cache:
         cache_dir = project_dir / ".deepwiki" / "cache" / "prompts"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        safe_id = (args.page or args.module or args.agent_type).replace(":", "_").replace("/", "_").replace("\\", "_")
+        safe_id = _safe_page_id(args.page or args.module or args.agent_type)
         out_path = cache_dir / f"{args.agent_type}_{safe_id}.md"
         out_path.write_text(result, encoding="utf-8")
         print(str(out_path))

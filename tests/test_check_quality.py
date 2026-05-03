@@ -852,3 +852,40 @@ def test_check_analysis_quality_cli_unwraps_module_analysis_envelope(tmp_path, m
     )
 
     assert main() == 1
+
+
+def test_check_analysis_quality_cli_fails_for_unknown_module_filter(tmp_path, monkeypatch):
+    """A misspelled --module filter should not report a false pass."""
+    from scripts.core.common import CACHE_SCHEMA_VERSION
+    from scripts.quality.check_analysis_quality import main
+
+    cache = tmp_path / ".deepwiki" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "module-analysis.json").write_text(
+        json.dumps(
+            {
+                "cache_schema_version": CACHE_SCHEMA_VERSION,
+                "modules": {
+                    "auth": {
+                        "module_path": "src/auth",
+                        "module_summary": "Auth service.",
+                        "semantic_group": "认证",
+                        "selected_components": ["overview"],
+                        "module_role": "Handles login",
+                        "upstream_inputs": ["credentials"],
+                        "downstream_outputs": ["token"],
+                        "risk_points": ["password handling"],
+                        "extension_points": ["oauth"],
+                        "files": [{"path": "src/auth.py", "summary": "Auth"}],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["check_analysis_quality.py", str(tmp_path), "--module", "missing"],
+    )
+
+    assert main() == 2
