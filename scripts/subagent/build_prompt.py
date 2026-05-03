@@ -7,7 +7,7 @@ build_prompt.py - 从模板生成 subagent 系统提示词
     agent_type:
         extract-docs           [--module <module_path>]
         generate-module-docs   --page <page_id>
-        quality-fix
+        quality-fix             [--page <wiki_path>]
 
 输出:
     默认输出到 stdout。
@@ -40,13 +40,22 @@ def _load_text(path: Path) -> str:
     return ""
 
 
+def _module_slug(module_path: str) -> str:
+    return module_path.replace("/", "_").replace("\\", "_").strip("_") or "module"
+
+
 # ---------------------------------------------------------------------------
 # 各 agent 类型的变量构建器
 # ---------------------------------------------------------------------------
 
 def _build_extract_docs_vars(project_dir: Path, module_path: str | None) -> Dict[str, str]:
+    if not module_path:
+        raise ValueError("extract-docs requires a module path")
     cache_dir = project_dir / ".deepwiki" / "cache"
     skeleton = _load_json(cache_dir / "architecture-skeleton.json")
+    module_slug = _module_slug(module_path)
+    context_path = cache_dir / "modules" / module_slug / "context.json"
+    part_path = cache_dir / f"module-analysis.{module_slug}.json"
 
     # 模块分组列表
     groups = skeleton.get("module_groups") or skeleton.get("groups", [])
@@ -67,6 +76,10 @@ def _build_extract_docs_vars(project_dir: Path, module_path: str | None) -> Dict
                 break
 
     return {
+        "MODULE_PATH": module_path,
+        "MODULE_SLUG": module_slug,
+        "MODULE_CONTEXT_PATH": str(context_path),
+        "MODULE_ANALYSIS_PART_PATH": str(part_path),
         "SKELETON_PROJECT_NATURE": skeleton.get("project_nature", "未检测"),
         "SKELETON_ARCHITECTURE_STYLE": skeleton.get("architecture_style", "未检测"),
         "GROUPS_BLOCK": groups_block,
@@ -155,6 +168,20 @@ def _build_generate_docs_vars(project_dir: Path, page_id: str) -> Dict[str, str]
         if p.get("id") == page_id or p.get("page_id") == page_id:
             page = p
             break
+    if not page:
+        raise ValueError(f"page_id not found in generation-plan.json: {page_id}")
+    output_path = page.get("output_path", "")
+    if not output_path:
+        raise ValueError(f"page_id has no output_path in generation-plan.json: {page_id}")
+    if output_path.startswith("wiki/"):
+        output_abs_path = project_dir / ".deepwiki" / output_path
+        wiki_rel_path = output_path[len("wiki/"):]
+    elif output_path:
+        output_abs_path = project_dir / ".deepwiki" / "wiki" / output_path
+        wiki_rel_path = output_path
+    else:
+        output_abs_path = project_dir / ".deepwiki" / "wiki" / f"{page_id.replace(':', '_')}.md"
+        wiki_rel_path = ""
 
     source_modules = page.get("source_modules", page.get("affected_modules", []))
     module_path = source_modules[0] if source_modules else ""
@@ -180,6 +207,10 @@ def _build_generate_docs_vars(project_dir: Path, page_id: str) -> Dict[str, str]
     snippets_hint = _build_snippets_hint(cache_dir, page_id)
 
     return {
+        "PAGE_ID": page_id,
+        "OUTPUT_PATH": output_path,
+        "OUTPUT_ABS_PATH": str(output_abs_path),
+        "WIKI_REL_PATH": wiki_rel_path,
         "MODULE_NAME": module_data.get("semantic_group") or page.get("title", ""),
         "MODULE_PATH": module_path,
         "CODE_PURPOSE": module_data.get("code_purpose", ""),
@@ -191,9 +222,17 @@ def _build_generate_docs_vars(project_dir: Path, page_id: str) -> Dict[str, str]
     }
 
 
-def _build_quality_fix_vars(project_dir: Path) -> Dict[str, str]:
-    # quality-fix 模板当前无变量，保留扩展点
-    return {}
+def _build_quality_fix_vars(project_dir: Path, wiki_path: str | None = None) -> Dict[str, str]:
+    target = wiki_path or "由质量报告中的 Basic 文档决定"
+    return {
+        "TARGET_WIKI_PATH": target,
+        "PAGE_CONTEXT_COMMAND": (
+            f"python scripts/cli.py page-context {project_dir} {wiki_path}"
+            if wiki_path
+            else "按质量报告中的目标页面逐个运行 scripts/cli.py page-context <项目路径> <wiki_path>"
+        ),
+        "QUALITY_COMMAND": f"python scripts/postprocess.py quality {project_dir}/.deepwiki --verbose",
+    }
 
 
 BUILDERS = {
@@ -229,24 +268,28 @@ def render_template(agent_type: str, variables: Dict[str, str]) -> str:
 # CLI
 # ---------------------------------------------------------------------------
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="从模板生成 subagent 系统提示词")
     parser.add_argument("agent_type", choices=BUILDERS.keys(), help="subagent 类型")
     parser.add_argument("--project", required=True, type=Path, help="项目目录")
     parser.add_argument("--module", help="模块路径（extract-docs 使用）")
-    parser.add_argument("--page", help="页面 ID（generate-module-docs 使用）")
+    parser.add_argument("--page", help="页面 ID（generate-module-docs）或 wiki 路径（quality-fix）")
     parser.add_argument("--output", "-o", type=Path, help="输出文件路径")
     parser.add_argument("--cache", action="store_true", help="输出到 cache/prompts/ 目录")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     project_dir = args.project.resolve()
 
     # 构建变量
     if args.agent_type == "extract-docs":
+        if not args.module:
+            parser.error("extract-docs 需要 --module 参数")
         variables = BUILDERS[args.agent_type](project_dir, args.module)
     elif args.agent_type == "generate-module-docs":
         if not args.page:
             parser.error("generate-module-docs 需要 --page 参数")
+        variables = BUILDERS[args.agent_type](project_dir, args.page)
+    elif args.agent_type == "quality-fix":
         variables = BUILDERS[args.agent_type](project_dir, args.page)
     else:
         variables = BUILDERS[args.agent_type](project_dir)

@@ -15,8 +15,9 @@
 ## 输入
 
 你会收到以下信息：
-- 模块路径和名称
-- `cache/modules/{slug}/context.json`（含每个文件的签名、exports、code_purpose、analysis_depth）
+- 模块路径：`{{ MODULE_PATH }}`
+- 模块 slug：`{{ MODULE_SLUG }}`
+- 模块上下文文件：`{{ MODULE_CONTEXT_PATH }}`（含每个文件的签名、exports、code_purpose、analysis_depth）
 - 若存在 `architecture-skeleton.json`
 项目类型：{{ SKELETON_PROJECT_NATURE }}
 架构风格：{{ SKELETON_ARCHITECTURE_STYLE }}
@@ -31,6 +32,8 @@
 ```json
 {"<module_path>": { ... 分析数据 ... }}
 ```
+
+本次任务的写入路径：`{{ MODULE_ANALYSIS_PART_PATH }}`
 
 **禁止直接写入 `cache/module-analysis.json`**。主 Agent 会在批次结束后合并所有临时文件。
 
@@ -68,12 +71,12 @@ AI 补充纯语义字段（基于签名 JSON 推断，无需读源码）：
 - **quick 级文件**：`signatures` 为空时，仅凭 `exports` + `code_purpose` 填简版 summary，`public_interfaces` 留空数组，`key_insights` 填 1 条
 
 ## 语义分析流程
-1. 读取 `context.json`，确认 `files[].analysis_depth` 和 `files[].signatures`
+1. 读取 `{{ MODULE_CONTEXT_PATH }}`，确认 `files[].analysis_depth` 和 `files[].signatures`
 2. 直接使用 `code_purpose`，无需重新推断
 3. 从 `signatures[].doc`、`exports` 提炼：`key_insights`、`summary`、`module_role`、`risk_points`、`extension_points`
 4. 从 `signatures[].line/end_line` 映射 `public_interfaces` 和 `core_source_ranges`
 5. 参考 `../generation/module-page-core.md` 获取分析提示词模板
-6. 输出结构化分析结果
+6. 输出结构化分析结果到 `{{ MODULE_ANALYSIS_PART_PATH }}`
 
 ## 认知结构字段（必填，质量门控检查）
 

@@ -28,10 +28,13 @@
 
 ### 模块基本信息
 
+- 页面 ID：{{ PAGE_ID }}
 - 模块名：{{ MODULE_NAME }}
 - 模块路径：{{ MODULE_PATH }}
 - CodePurpose：{{ CODE_PURPOSE }}
 - 已选组件：{{ SELECTED_COMPONENTS }}
+- 目标输出路径：{{ OUTPUT_PATH }}
+- 目标绝对路径：{{ OUTPUT_ABS_PATH }}
 
 ### 源码文件清单（含行号范围）
 
@@ -59,7 +62,7 @@
 
 ## 输出
 
-生成一个 Markdown 文件，写入 wiki 对应路径（由 `generation-plan.json` 的 `output_path` 指定）。同一模块所有内容写入同一文件。
+生成一个 Markdown 文件，写入 `{{ OUTPUT_ABS_PATH }}`。同一模块所有内容写入同一文件。
 
 每个模块生成完毕后立即写入，不要等全部完成。
 
@@ -70,7 +73,7 @@
 3. 遵循上方内联 P0 规范生成文档（排版顺序、组件格式、源码追溯）
 4. 按需加载 `module-page-extended.md`（当 `selected_components` 包含非 P0 组件时）
 5. 确保所有源码追溯使用 `file:///<path>#L起-L止` 格式（行号范围不可省略）
-6. 写入对应 `output_path`
+6. 写入 `{{ OUTPUT_ABS_PATH }}`
 
 ## 模块优先级排序
 
@@ -86,5 +89,5 @@
 生成完成后运行质量检查确认达标：
 
 ```bash
-python scripts/postprocess.py quality <项目路径>
+python scripts/postprocess.py quality <项目路径>/.deepwiki
 ```

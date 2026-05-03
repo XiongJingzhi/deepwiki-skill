@@ -823,3 +823,32 @@ def test_check_quality_with_module_filter(tmp_path):
     assert "broken" not in all_errors
     # 只检查了指定模块
     assert checked == ["auth"]
+
+
+def test_check_analysis_quality_cli_unwraps_module_analysis_envelope(tmp_path, monkeypatch):
+    """The CLI should validate module-analysis.json modules, not top-level metadata."""
+    from scripts.core.common import CACHE_SCHEMA_VERSION
+    from scripts.quality.check_analysis_quality import main
+
+    cache = tmp_path / ".deepwiki" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "module-analysis.json").write_text(
+        json.dumps(
+            {
+                "cache_schema_version": CACHE_SCHEMA_VERSION,
+                "modules": {
+                    "auth": {
+                        "module_summary": "Missing required fields.",
+                        "files": [{"path": "src/auth.py", "summary": "Auth"}],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["check_analysis_quality.py", str(tmp_path), "--module", "auth"],
+    )
+
+    assert main() == 1

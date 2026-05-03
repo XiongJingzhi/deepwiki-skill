@@ -67,7 +67,14 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 - [`quality-fix`](references/subagents/quality-fix.md) — 质量修复并行
 - 共享调度框架：[`batch-scheduling.md`](references/rules/batch-scheduling.md)
 
-阶段 A~C、E 为全局确定性或聚合步骤，不建议拆分，应串行执行
+**可拆分阶段**：
+- `extract-docs`：`prepare_module_context` 完成后，按模块拆分；每个 subagent 只读自己的 `cache/modules/<slug>/context.json`，写入 `cache/module-analysis.<slug>.json`
+- `generate-module-docs`：`generate-menu` 和可选 `extract_source_snippets` 完成后，按 `generation-plan.json.pages[]` 拆分；每个 subagent 写入自己的 `output_path`
+- `quality-fix`：质量检查后，按 Basic 文档或失败页面拆分；同一文档只能分配给一个 subagent
+
+**必须串行阶段**：`init-wiki`、`analyze-project`、`extract-structure`、`generate-skeleton`、`prepare_module_context`、`validate-analysis`、`plan-doc-topology`、`generate-overview`、`generate-menu`、`finalize-wiki`。这些步骤需要全局一致输入、写聚合文件，或负责合并检查。
+
+**触发阈值**：任务数 ≤ 5 时主 Agent 串行；6–15 时建议 subagent 分批；> 15 时必须按 [`batch-scheduling.md`](references/rules/batch-scheduling.md) 分批并行。
 
 ### 快捷路径
 

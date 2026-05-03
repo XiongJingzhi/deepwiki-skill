@@ -446,7 +446,7 @@ def merge_module_analysis_parts(cache_dir: Path, part_files: list) -> dict:
     """合并各个 subagent 写入的独立临时文件为 module-analysis.json。
 
     每个 part 文件格式为 {"<module_path>": { ... analysis data ... }}。
-    合并策略：所有 part 的 modules 键合并到一个 dict 中。
+    合并策略：所有 part 的模块键合并到 module-analysis.json 的 modules 字段中。
 
     Args:
         cache_dir: .deepwiki/cache 目录
@@ -455,14 +455,20 @@ def merge_module_analysis_parts(cache_dir: Path, part_files: list) -> dict:
     Returns:
         合并后的完整 module-analysis 数据 dict
     """
-    merged: dict = {}
+    modules: dict = {}
     for part_path in part_files:
         if not part_path.exists():
             continue
         try:
             part = json.loads(part_path.read_text(encoding="utf-8"))
             if isinstance(part, dict):
-                merged.update(part)
+                if isinstance(part.get("modules"), dict):
+                    modules.update(part["modules"])
+                else:
+                    modules.update(part)
         except (json.JSONDecodeError, OSError):
             pass
-    return merged
+    return {
+        "cache_schema_version": CACHE_SCHEMA_VERSION,
+        "modules": modules,
+    }

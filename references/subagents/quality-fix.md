@@ -20,10 +20,12 @@
 
 ## 工作流程
 
+目标页面：`{{ TARGET_WIKI_PATH }}`
+
 ### 1. 诊断缺失项
 
 ```bash
-python scripts/postprocess.py quality <项目路径> --verbose
+{{ QUALITY_COMMAND }}
 ```
 
 从报告中提取每个模块的具体扣分项。
@@ -44,12 +46,15 @@ python scripts/postprocess.py quality <项目路径> --verbose
 ### 3. 重生成模式
 
 对于需要大量补充的模块，按完整文档生成流程重生成：
-1. 读取 `cache/module-analysis.json` 中对应模块条目
-2. 实际读取源码文件（从 `generation-plan.json` 的 `source_files` 获取文件清单和行号范围）
+1. 主 Agent 先运行以下命令获取单页上下文：
+   ```bash
+   {{ PAGE_CONTEXT_COMMAND }}
+   ```
+2. 读取 page-context 中的模块条目和源码范围，必要时再读取源码文件
 3. 按 `module-page-core.md` 和 `module-page-components.md` 的规范重生成文档
 
 ### 4. 验证
 
 ```bash
-python scripts/postprocess.py quality <项目路径>
+{{ QUALITY_COMMAND }}
 ```

@@ -15,6 +15,20 @@ python scripts/subagent/build_prompt.py generate-module-docs --project <项目�
 
 [`../rules/batch-scheduling.md`](../rules/batch-scheduling.md)。
 
+每个页面任务在派遣前必须先确认 `generation-plan.json.pages[]` 中存在：
+- `page_id`
+- `output_path`
+- `affected_modules`
+- `source_files`
+
+生成提示词时使用：
+
+```bash
+python scripts/subagent/build_prompt.py generate-module-docs --project <项目路径> --page <page_id> --cache
+```
+
+生成的 prompt 会注入目标 `output_path` 和绝对写入路径。不要把完整 `generation-plan.json` 原样塞给 subagent。
+
 ## 失败重试
 
 1. 失败模块标记为 `failed`，继续处理下一个

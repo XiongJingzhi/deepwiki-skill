@@ -309,7 +309,12 @@ def main() -> int:
         print("❌ module-analysis.json 根节点必须是对象", file=sys.stderr)
         return 2
 
-    total_modules = len(module_analysis)
+    modules_data = module_analysis.get("modules", module_analysis)
+    if not isinstance(modules_data, dict):
+        print("❌ module-analysis.json 的 modules 必须是对象", file=sys.stderr)
+        return 2
+
+    total_modules = len(modules_data)
     if total_modules == 0:
         print("⚠  module-analysis.json 为空，跳过质量检查")
         return 0
@@ -317,7 +322,7 @@ def main() -> int:
     # 若指定了 --module，过滤模块范围
     check_modules = args.modules if hasattr(args, 'modules') and args.modules else None
     all_errors, all_warnings, failed_modules, checked_modules = check_analysis_quality(
-        module_analysis, verbose=args.verbose, modules=check_modules
+        modules_data, verbose=args.verbose, modules=check_modules
     )
 
     print_report(all_errors, all_warnings, failed_modules, args.verbose, len(checked_modules))
@@ -325,8 +330,8 @@ def main() -> int:
     # 可选：输出 JSON 报告
     if args.json_out:
         report = {
-            "total_modules": total_modules,
-            "passed": total_modules - len(failed_modules),
+            "total_modules": len(checked_modules),
+            "passed": len(checked_modules) - len(failed_modules),
             "failed_count": len(failed_modules),
             "failed_modules": failed_modules,
             "errors": all_errors,

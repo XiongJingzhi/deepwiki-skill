@@ -8,9 +8,9 @@
 | 項 | 值 |
 |----|-----|
 | **脚本** | 无（调度策略文档，由 AI 执行） |
-| **输入** | `cache/structure.json`（模块列表+重要性评分） |
-| **输出** | `cache/module-analysis.json`（增量写入） |
-| **前置** | `detect-changes` |
+| **输入** | `cache/structure.json`（模块列表+重要性评分）、`cache/modules/<slug>/context.json` |
+| **输出** | `cache/module-analysis.<slug>.json`（subagent 临时文件），主 Agent 合并为 `cache/module-analysis.json` |
+| **前置** | `prepare_module_context`、`detect-changes`（增量时） |
 | **后置** | `validate-analysis` |
 
 ## 批次调度
@@ -30,15 +30,16 @@ extract-docs 语义分析每个模块**天然独立**——分析模块 A 不需
 
 ```
 任务：分析模块 {module_name}（路径：{module_path}）
-共享上下文：
-  - cache/structure.json（项目结构）
-  - cache/code-structure.json（调用图、模式、时序）
-待分析文件：{core_files_list}
+上下文文件：
+  - cache/modules/{module_slug}/context.json
+提示词：
+  - python scripts/subagent/build_prompt.py extract-docs --project <项目路径> --module {module_path} --cache
 输出要求：遵循 workflow/extract-docs.md
-  - 完成后以增量追加模式写入 cache/module-analysis.json
+  - 完成后写入 cache/module-analysis.{module_slug}.json
+  - 禁止直接写入 cache/module-analysis.json
   - 每个模块必须写入字段见 extract-docs.md 表格
 ```
 
 ## 进度追踪
 
-extract-docs 阶段使用 `cache/progress.json` 的 `phases.analysis` 字段，状态格式和转换规则见 [`../rules/batch-scheduling.md`](../rules/batch-scheduling.md#进度追踪)。
+extract-docs 阶段使用 `state/progress.json` 的 `phases.analysis` 字段，状态格式和转换规则见 [`../rules/batch-scheduling.md`](../rules/batch-scheduling.md#进度追踪)。

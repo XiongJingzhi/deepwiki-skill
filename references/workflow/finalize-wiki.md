@@ -39,6 +39,8 @@ python scripts/postprocess.py consistency $DEEPWIKI
 
 ```bash
 python scripts/subagent/build_prompt.py quality-fix --project <项目路径> --cache
+# 或定向到单个 Basic 文档
+python scripts/subagent/build_prompt.py quality-fix --project <项目路径> --page <wiki_path> --cache
 ```
 
 模板文件：[`../subagents/quality-fix.md`](../subagents/quality-fix.md)。

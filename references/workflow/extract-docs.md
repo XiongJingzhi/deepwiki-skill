@@ -21,12 +21,14 @@ python scripts/subagent/build_prompt.py extract-docs --project <项目路径> --
 
 ```python
 from scripts.core.common import merge_module_analysis_parts
-from scripts.core.common import CACHE_SCHEMA_VERSION
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+
 cache = Path("<项目路径>") / ".deepwiki" / "cache"
 parts = sorted(cache.glob("module-analysis.*.json"))
 if parts:
     merged = merge_module_analysis_parts(cache, parts)
-    merged["cache_schema_version"] = CACHE_SCHEMA_VERSION
     merged["generated_at"] = datetime.now(timezone.utc).isoformat()
     (cache / "module-analysis.json").write_text(
         json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"

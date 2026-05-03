@@ -1,8 +1,16 @@
 """Tests for subagent prompt generation."""
 
 import json
+from pathlib import Path
 
-from scripts.subagent.build_prompt import _build_extract_docs_vars
+import pytest
+
+from scripts.subagent import build_prompt
+from scripts.subagent.build_prompt import (
+    _build_extract_docs_vars,
+    _build_generate_docs_vars,
+    _build_quality_fix_vars,
+)
 
 
 def test_extract_docs_prompt_uses_module_groups_from_skeleton(tmp_path):
@@ -32,3 +40,92 @@ def test_extract_docs_prompt_uses_module_groups_from_skeleton(tmp_path):
     assert "runtime" in variables["GROUPS_BLOCK"]
     assert "src/app" in variables["GROUPS_BLOCK"]
     assert variables["CURRENT_MODULE_GROUP_NAME"] == "runtime"
+    assert variables["MODULE_PATH"] == "src/app"
+    assert variables["MODULE_CONTEXT_PATH"].endswith(
+        ".deepwiki/cache/modules/src_app/context.json"
+    )
+    assert variables["MODULE_ANALYSIS_PART_PATH"].endswith(
+        ".deepwiki/cache/module-analysis.src_app.json"
+    )
+
+
+def test_extract_docs_prompt_requires_module_path():
+    """extract-docs prompts are per-module and should not be built generically."""
+    with pytest.raises(ValueError, match="module path"):
+        _build_extract_docs_vars(Path("/tmp"), None)
+
+
+def test_generate_module_docs_prompt_includes_page_and_output_path(tmp_path):
+    """generate-module-docs prompts should tell subagents where to write."""
+    cache = tmp_path / ".deepwiki" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "generation-plan.json").write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {
+                        "page_id": "deep-dive:auth",
+                        "output_path": "wiki/deep-dive/auth.md",
+                        "affected_modules": ["src/auth"],
+                        "source_files": [{"path": "src/auth/service.py", "ranges": []}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (cache / "module-analysis.json").write_text(
+        json.dumps(
+            {
+                "modules": {
+                    "src/auth": {
+                        "semantic_group": "认证",
+                        "code_purpose": "Service",
+                        "selected_components": ["source_index"],
+                        "files": [{"path": "src/auth/service.py", "summary": "认证服务"}],
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    variables = _build_generate_docs_vars(tmp_path, "deep-dive:auth")
+
+    assert variables["PAGE_ID"] == "deep-dive:auth"
+    assert variables["OUTPUT_PATH"] == "wiki/deep-dive/auth.md"
+    assert variables["OUTPUT_ABS_PATH"].endswith(".deepwiki/wiki/deep-dive/auth.md")
+
+
+def test_generate_module_docs_prompt_requires_planned_page(tmp_path):
+    """Unknown pages should fail before a subagent guesses an output path."""
+    cache = tmp_path / ".deepwiki" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "generation-plan.json").write_text(
+        json.dumps({"pages": []}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="page_id"):
+        _build_generate_docs_vars(tmp_path, "deep-dive:missing")
+
+
+def test_cli_rejects_extract_docs_prompt_without_module(tmp_path, capsys):
+    """The CLI should fail early before producing an ambiguous extract-docs prompt."""
+    with pytest.raises(SystemExit) as exc:
+        build_prompt.main(["extract-docs", "--project", str(tmp_path)])
+
+    captured = capsys.readouterr()
+    assert exc.value.code == 2
+    assert "--module" in captured.err
+
+
+def test_quality_fix_prompt_can_target_one_page(tmp_path):
+    """quality-fix prompts should carry a single target page when provided."""
+    variables = _build_quality_fix_vars(tmp_path, "deep-dive/auth.md")
+
+    assert variables["TARGET_WIKI_PATH"] == "deep-dive/auth.md"
+    assert "page-context" in variables["PAGE_CONTEXT_COMMAND"]
+    assert "deep-dive/auth.md" in variables["PAGE_CONTEXT_COMMAND"]
+    assert variables["QUALITY_COMMAND"].endswith("/.deepwiki --verbose")
