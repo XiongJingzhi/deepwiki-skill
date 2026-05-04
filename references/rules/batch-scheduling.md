@@ -59,7 +59,7 @@
 | 阶段 | 精简方式 |
 |------|---------|
 | `extract-docs` | 直接读取 `cache/modules/<slug>/context.json`（已由 `prepare_module_context.py` 预提取）
-| `generate-module-docs` | 主 Agent 运行 `scripts/cli.py page-context <项目路径> <wiki_path>` 提取单模块精简上下文
+| `generate-module-docs` | 主 Agent 运行 `deepwiki page-context <项目路径> <wiki_path>` 提取单模块精简上下文
 
 `extract-docs` 的 subagent prompt 必须由 `scripts/subagent/build_prompt.py extract-docs --module <模块路径>` 生成；禁止主 Agent 人工拼接“读取这些源码文件并分析多个模块”的提示词。一个 extract-docs subagent 只负责一个模块，只写一个 `cache/module-analysis.<slug>.json`。
 

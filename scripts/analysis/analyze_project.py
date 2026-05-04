@@ -20,6 +20,7 @@ from scripts.analysis.extract_structure import detect_archetype
 def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, Any]:
     """完整分析项目结构。返回含文件元数据、重要性评分、核心文件识别的字典。"""
     root = Path(project_root)
+    root_resolved = root.resolve()
 
     # 加载 .gitignore 规则
     _gitignore_cache = GitignoreCache.get(root)
@@ -91,8 +92,8 @@ def analyze_project(project_root: str, save_to_cache: bool = True) -> Dict[str, 
 
     result = {
         'cache_schema_version': CACHE_SCHEMA_VERSION,
-        'project_root': str(root.resolve()),
-        'project_name': root.name,
+        'project_root': str(root_resolved),
+        'project_name': root_resolved.name,
         'languages': languages,
         'archetype': archetype,
         'entry_points': entry_points,

@@ -66,6 +66,45 @@ class TestLoadGitignore:
 
 
 class TestAnalyzeProject:
+    def test_project_name_uses_resolved_directory_for_dot_path(self, tmp_path, monkeypatch):
+        """Passing '.' should still record the real project directory name."""
+        (tmp_path / "main.py").write_text("print('hello')\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        result = analyze_project.analyze_project(".", save_to_cache=False)
+
+        assert result["project_name"] == tmp_path.name
+
+    def test_agent_skill_entrypoints_are_core_files(self, tmp_path):
+        """Agent skill packages should prioritize their invocation contract files."""
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: demo\ndescription: demo skill\n---\n# Demo\n",
+            encoding="utf-8",
+        )
+        agents = tmp_path / "agents"
+        agents.mkdir()
+        (agents / "openai.yaml").write_text(
+            "interface:\n"
+            '  display_name: "Demo"\n'
+            '  default_prompt: "Use $demo."\n',
+            encoding="utf-8",
+        )
+        scripts = tmp_path / "scripts"
+        scripts.mkdir()
+        (scripts / "cli.py").write_text(
+            "def main():\n    return 0\n",
+            encoding="utf-8",
+        )
+        (scripts / "server.py").write_text(
+            "def serve():\n    pass\n",
+            encoding="utf-8",
+        )
+
+        result = analyze_project.analyze_project(str(tmp_path), save_to_cache=False)
+        core_paths = {item["path"] for item in result["core_files"]}
+
+        assert {"SKILL.md", "agents/openai.yaml", "scripts/cli.py"} <= core_paths
+
     def test_full_fake_project_no_cache(self, tmp_path):
         """Full fake project analyzed with save_to_cache=False returns all expected keys."""
         src = tmp_path / "src"

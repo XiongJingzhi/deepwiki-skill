@@ -137,10 +137,17 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
     ext = file_path.suffix.lower()
     parts = Path(rel_path).parts
     name_stem = file_path.stem.lower()
+    is_agent_contract = archetype == "agent-project" and rel_path in {
+        "SKILL.md",
+        "agents/openai.yaml",
+        "scripts/cli.py",
+    }
 
     # ── 路径组 (weight=0.30) ─────────────────────────────────────────────────
     # 互斥：取匹配到的最高路径信号
-    if 'src' in parts or 'lib' in parts:
+    if is_agent_contract:
+        path_score = 1.0
+    elif 'src' in parts or 'lib' in parts:
         path_score = 1.0
     elif 'cmd' in parts or 'bin' in parts:
         path_score = 0.8
@@ -163,7 +170,9 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
     }
     path_parts_lower = {p.lower() for p in parts}
 
-    if name_stem in ('main', 'index', 'app', 'mod'):
+    if is_agent_contract:
+        identity_score = 1.0
+    elif name_stem in ('main', 'index', 'app', 'mod'):
         identity_score = 1.0
     elif name_stem in BUSINESS_KEYWORDS or any(kw in name_stem for kw in BUSINESS_KEYWORDS):
         identity_score = 0.8
@@ -176,7 +185,9 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
 
     # ── 语言组 (weight=0.30) ─────────────────────────────────────────────────
     # 互斥：扩展名优先级，取最高匹配
-    if ext in PRIMARY_LANG_EXTENSIONS or ext in JS_TS_EXTENSIONS or ext in FRONTEND_EXTENSIONS:
+    if is_agent_contract:
+        lang_score = 1.0
+    elif ext in PRIMARY_LANG_EXTENSIONS or ext in JS_TS_EXTENSIONS or ext in FRONTEND_EXTENSIONS:
         lang_score = 1.0
     elif ext in DB_EXTENSIONS:
         lang_score = 0.9
@@ -193,7 +204,9 @@ def calculate_file_importance(file_path: Path, root_path: Path, size: int,
 
     # ── 大小组 (weight=0.15) ─────────────────────────────────────────────────
     # 互斥：文件大小信号
-    if 1024 <= size <= 51200:    # 1KB - 50KB，最有价值的大小区间
+    if is_agent_contract:
+        size_score = 1.0
+    elif 1024 <= size <= 51200:    # 1KB - 50KB，最有价值的大小区间
         size_score = 1.0
     elif 100 <= size < 1024:     # 100B - 1KB，小文件次之
         size_score = 0.5

@@ -63,7 +63,7 @@
 | `python -m scripts.pipeline.detect_changes <项目路径>` | `detect-changes` | 检测文件变更，用于增量更新（含反向依赖传播） |
 | `python -m scripts.pipeline.prepare_module_context <项目路径>` | `prepare_module_context`（`extract-docs` 前置脚本） | 为每个模块生成含签名的 context.json，禁止 extract-docs 读取源码 |
 | `python -m scripts.quality.check_analysis_quality <项目路径>` | `check-analysis-quality` | 检查 `module-analysis.json` 是否满足最低质量标准（支持 `--verbose` 和 `--json`） |
-| `scripts/cli.py validate-analysis <项目路径>` | `validate-analysis` | 对外推荐入口：先执行分析质量门禁，通过后构建 `cache/evidence-index.json` |
+| `deepwiki validate-analysis <项目路径>` | `validate-analysis` | 对外推荐入口：先执行分析质量门禁，通过后构建 `cache/evidence-index.json` |
 | `python -m scripts.quality.build_evidence_index <项目路径>` | `build-evidence-index` | 从 `module-analysis.json` 构建 `cache/evidence-index.json`，供文档质量检查验证源码证据 |
 | `scripts/postprocess.py mermaid <.deepwiki路径>` | `finalize mermaid` | 修复 Mermaid 图表语法错误（支持 `--dry-run` 和 `--json`） |
 | `scripts/postprocess.py quality <.deepwiki路径>` | `finalize quality` | 检查文档质量（含源码链接有效性验证） |
@@ -90,8 +90,8 @@ python -m scripts.analysis.analyze_project $PROJECT_DIR
 # 提取代码结构（调用图、模式、导入关系）
 python -m scripts.analysis.extract_structure $PROJECT_DIR
 
-# generate-skeleton：纯 AI 步骤，直接读取 structure.json + code-structure.json 生成骨架
-# 无需运行脚本
+# generate-skeleton：脚本生成确定性骨架字段，然后由 AI 补齐 project_nature / key_data_flows
+python -m scripts.pipeline.generate_skeleton $PROJECT_DIR
 
 # 检测文件变更（增量更新时使用；全量生成可跳过或由 extract-docs 内部触发）
 python -m scripts.pipeline.detect_changes $PROJECT_DIR
@@ -100,10 +100,10 @@ python -m scripts.pipeline.detect_changes $PROJECT_DIR
 python -m scripts.pipeline.prepare_module_context $PROJECT_DIR
 
 # validate-analysis：对外推荐入口，先检查分析质量，再构建证据索引
-python scripts/cli.py validate-analysis $PROJECT_DIR
+deepwiki validate-analysis $PROJECT_DIR
 
 # plan-doc-topology：生成文档拓扑和本轮编译计划
-python scripts/cli.py plan-doc-topology $PROJECT_DIR
+deepwiki plan-doc-topology $PROJECT_DIR
 
 # check-analysis-quality：仅用于调试质量门控子步骤
 python -m scripts.quality.check_analysis_quality $PROJECT_DIR

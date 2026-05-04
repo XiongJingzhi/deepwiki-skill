@@ -1,7 +1,7 @@
 # validate-analysis
 
 ```bash
-python3 scripts/cli.py validate-analysis <项目路径>
+deepwiki validate-analysis <项目路径>
 ```
 
 前置：`extract-docs` | 后置：`plan-doc-topology`、`generate-overview`、`generate-module-docs`
@@ -28,7 +28,7 @@ python -m scripts.quality.build_evidence_index <项目路径>
 
 ## 缓存失效
 
-`scripts/cli.py validate-analysis` 会在进入门控时主动删除旧的 `cache/relationship-summary.json`。这样即使 `module-analysis.json` 只做了局部增量更新，下游 `synthesize-deps` 也会重新综合依赖摘要。
+`deepwiki validate-analysis` 会在进入门控时主动删除旧的 `cache/relationship-summary.json`。这样即使 `module-analysis.json` 只做了局部增量更新，下游 `synthesize-deps` 也会重新综合依赖摘要。
 
 ## 重试流程
 

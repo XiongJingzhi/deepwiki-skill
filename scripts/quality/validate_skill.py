@@ -8,12 +8,11 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-
-
-
+import yaml
 
 REQUIRED_FILES = [
     "SKILL.md",
+    "agents/openai.yaml",
     "README.md",
     "scripts/cli.py",
     "scripts/quality/check_dependencies.py",
@@ -95,6 +94,16 @@ def validate_skill(skill_dir: Path) -> Dict[str, Any]:
         if not meta.get("description"):
             errors.append("SKILL.md frontmatter must include description")
 
+    openai_path = root / "agents" / "openai.yaml"
+    if openai_path.exists():
+        data = yaml.safe_load(openai_path.read_text(encoding="utf-8")) or {}
+        interface = data.get("interface", {})
+        if not interface.get("display_name"):
+            errors.append("agents/openai.yaml must include interface.display_name")
+        default_prompt = interface.get("default_prompt", "")
+        if "$deepwiki" not in default_prompt:
+            errors.append("agents/openai.yaml default_prompt must mention $deepwiki")
+
     for rel_path in ENTRYPOINT_MARKDOWN_FILES:
         doc_path = root / rel_path
         if not doc_path.exists():
@@ -166,4 +175,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

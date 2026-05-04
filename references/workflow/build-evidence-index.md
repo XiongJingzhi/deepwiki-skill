@@ -20,7 +20,7 @@ python -m scripts.quality.build_evidence_index <项目路径>
 也可以通过统一入口运行：
 
 ```bash
-python3 scripts/cli.py build-evidence-index <项目路径>
+deepwiki build-evidence-index <项目路径>
 ```
 
 ## 输出语义

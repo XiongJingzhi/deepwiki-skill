@@ -52,6 +52,14 @@ DeepWiki 是一个 [skills.sh](https://skills.sh) 兼容的技能包，让 AI Ag
 🤖 "更新 wiki"
 ```
 
+本地调试时可在技能目录执行 `pip install -e .`，之后使用统一入口：
+
+```bash
+deepwiki --help
+deepwiki self-check
+deepwiki analyze <项目路径>
+```
+
 ---
 
 ## 📁 输出结构
@@ -120,7 +128,7 @@ deepwiki/
 
 | 脚本 | 说明 |
 |------|------|
-| `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/validate-analysis/plan-doc-topology/build-evidence-index/quality/self-check |
+| `deepwiki <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/validate-analysis/plan-doc-topology/build-evidence-index/quality/self-check |
 | `python -m scripts.quality.check_dependencies` | 检查 tree-sitter 与语言绑定等运行依赖 |
 | `python -m scripts.quality.validate_skill [技能目录]` | 检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
 | `python -m scripts.wiki.init_wiki <项目路径>` | 初始化 .deepwiki 目录 |
@@ -130,7 +138,7 @@ deepwiki/
 | `python -m scripts.pipeline.detect_changes <项目路径>` | 增量变更检测 |
 | `python -m scripts.pipeline.extract_doc_comments <文件路径>` | 从源码提取文档注释（tree-sitter） |
 | `python -m scripts.quality.check_analysis_quality <项目路径>` | 分析质量门控（`validate-analysis` 的子步骤） |
-| `scripts/cli.py validate-analysis <项目路径>` | 对外推荐入口：运行分析质量门控，通过后构建 `evidence-index.json` |
+| `deepwiki validate-analysis <项目路径>` | 对外推荐入口：运行分析质量门控，通过后构建 `evidence-index.json` |
 | `python -m scripts.quality.build_evidence_index <项目路径>` | 从模块分析缓存生成 `evidence-index.json` |
 | `scripts/postprocess.py quality <.deepwiki路径>` | 文档质量检查 |
 | `scripts/postprocess.py consistency <.deepwiki路径>` | 跨模块一致性检查 |

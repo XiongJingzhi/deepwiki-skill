@@ -21,9 +21,15 @@ dev = [
     "pytest>=7.0",
 ]
 
+[project.scripts]
+deepwiki = "scripts.cli:main"
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = []
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["scripts*"]

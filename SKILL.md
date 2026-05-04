@@ -16,9 +16,11 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 |---------|------|---------|
 | 生成/创建文档 | **全量生成** | 从主路径第 1 步开始串行执行，`init-wiki` 只是初始化 |
 | 重建 wiki | **增量更新** | 已有 `.deepwiki/` 时从 `analyze-project` / `detect-changes` 继续，不要重新 `init-wiki` |
-| 检查 wiki 质量 | **仅质量检查** | `scripts/postprocess.py quality <project_path>/.deepwiki` |
-| 更新/升级文档 | **定向重生成** | `scripts/cli.py page-context` → 按 `generate-module-docs` 规则重生成目标页 |
-| 预览文档 | **启动本地服务** | `scripts/cli.py serve <project_path>`（默认端口 8742） |
+| 检查 wiki 质量 | **仅质量检查** | `deepwiki quality <project_path>` |
+| 更新/升级文档 | **定向重生成** | `deepwiki page-context <project_path> <wiki_path>` → 按 `generate-module-docs` 规则重生成目标页 |
+| 预览文档 | **启动本地服务** | `deepwiki serve <project_path>`（默认端口 8742） |
+
+> **命令约定**：若已执行 `pip install -e .`，优先使用 `deepwiki <command>`；否则在技能目录运行 `python -m scripts.cli <command>`。`init-wiki`、`analyze-project` 等是工作流阶段名，不一定是 CLI 子命令。
 
 ## 工作流
 
@@ -31,6 +33,23 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 → prepare_module_context → extract-docs → validate-analysis → plan-doc-topology
 → generate-overview → generate-menu → generate-module-docs → finalize-wiki
 ```
+
+**阶段名到命令的映射：**
+
+| 阶段 | 精确命令 / 执行方式 |
+|------|--------------------|
+| `init-wiki` | `deepwiki init <project_path>` |
+| `analyze-project` | `deepwiki analyze <project_path>` |
+| `extract-structure` | `deepwiki extract-structure <project_path>` |
+| `generate-skeleton` | `python -m scripts.pipeline.generate_skeleton <project_path>` 后由 Agent 补齐骨架字段 |
+| `prepare_module_context` | `python -m scripts.pipeline.prepare_module_context <project_path>` |
+| `extract-docs` | AI 阶段，按 [`extract-docs.md`](references/workflow/extract-docs.md) 生成/补充模块分析 |
+| `validate-analysis` | `deepwiki validate-analysis <project_path>` |
+| `plan-doc-topology` | `deepwiki plan-doc-topology <project_path>` |
+| `generate-overview` | AI 阶段，按 [`generate-overview.md`](references/workflow/generate-overview.md) 写概述页 |
+| `generate-menu` | `python -m scripts.wiki.generate_menu <project_path>/.deepwiki/wiki <project_name>` |
+| `generate-module-docs` | AI 阶段，按 [`generate-module-docs.md`](references/workflow/generate-module-docs.md) 逐页生成 |
+| `finalize-wiki` | `generate_menu --reconcile` → `scripts/postprocess.py mermaid` → `scripts/postprocess.py quality` → `scripts/postprocess.py consistency` |
 
 ### 阶段 A — 准备
 
@@ -74,17 +93,17 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 
 **必须串行阶段**：`init-wiki`、`analyze-project`、`extract-structure`、`generate-skeleton`、`prepare_module_context`、`validate-analysis`、`plan-doc-topology`、`generate-overview`、`generate-menu`、`finalize-wiki`。这些步骤需要全局一致输入、写聚合文件，或负责合并检查。
 
-**触发阈值**：任务数 ≤ 5 时主 Agent 串行；6–15 时建议 subagent 分批；> 15 时必须按 [`batch-scheduling.md`](references/rules/batch-scheduling.md) 分批并行。
+**触发阈值**：任务数 ≤ 5 时主 Agent 串行；6–15 时建议 subagent 分批；> 15 且当前环境支持/用户允许 subagent 时，必须按 [`batch-scheduling.md`](references/rules/batch-scheduling.md) 分批并行；不支持时按同一批次顺序串行执行。
 
 ### 快捷路径
 
 | 场景 | 操作 |
 |------|------|
-| 仅质量检查 | 直接运行 `scripts/postprocess.py quality <project_path>/.deepwiki` |
-| 定向重生成 | `scripts/cli.py page-context <project_path> <wiki_path>` → 重生成目标页 → `scripts/postprocess.py quality <project_path>/.deepwiki` |
+| 仅质量检查 | 直接运行 `deepwiki quality <project_path>` |
+| 定向重生成 | `deepwiki page-context <project_path> <wiki_path>` → 重生成目标页 → `scripts/postprocess.py quality <project_path>/.deepwiki` |
 | 收尾四步 | `python -m scripts.wiki.generate_menu <wiki_dir> <project_name> --reconcile` → `scripts/postprocess.py mermaid <deepwiki_dir>` → `scripts/postprocess.py quality <deepwiki_dir>` → `scripts/postprocess.py consistency <deepwiki_dir>` |
-| 预览文档 | `scripts/cli.py serve <project_path>`，浏览器打开 `http://127.0.0.1:8742` |
-| 定向更新单页 | `scripts/cli.py page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `postprocess.py quality` 确认 |
+| 预览文档 | `deepwiki serve <project_path>`，浏览器打开 `http://127.0.0.1:8742` |
+| 定向更新单页 | `deepwiki page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `postprocess.py quality` 确认 |
 
 ## 工具索引
 
@@ -123,9 +142,9 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 
 | 命令 | 说明 |
 |------|------|
-| `scripts/cli.py serve` | 启动本地文档预览服务 |
-| `scripts/cli.py page-context` | 提取指定 wiki 页面的模块分析上下文 |
-| `scripts/cli.py self-check` | 检查 skill 包元数据、关键文件、CLI 命令 |
+| `deepwiki serve` | 启动本地文档预览服务 |
+| `deepwiki page-context` | 提取指定 wiki 页面的模块分析上下文 |
+| `deepwiki self-check` | 检查 skill 包元数据、关键文件、CLI 命令 |
 
 ## 运行环境
 
