@@ -20,10 +20,10 @@ from scripts.core.common import (
 
 
 def _load_precomputed_hashes(project_path: Path):
-    """从 analyze-project 阶段保存的 file-hashes.json 读取预计算 hash。
+    """读取 analyze-project 阶段保存的 file-hashes.json。
 
-    当 file-hashes.json 存在且版本匹配时，直接返回预计算的 {rel_path: hash} dict，
-    避免 detect_changes 再次全量遍历项目文件计算 hash。
+    该缓存只适合由同一轮流水线显式传递使用。detect_changes 默认重新扫描磁盘，
+    避免把旧 hash 当作当前状态而漏报源码变更。
     """
     hash_cache = state_path(project_path, "file-hashes.json")
     if hash_cache.exists():
@@ -297,7 +297,8 @@ def _classify_changed_file(path: str, kind: str, root: Path) -> Dict[str, str]:
 
 
 def detect_changes(project_root: str, excludes: Set[str] = None,
-                    dry_run: bool = False) -> Dict[str, Any]:
+                    dry_run: bool = False,
+                    use_precomputed_hashes: bool = False) -> Dict[str, Any]:
     """
     检测项目变更
     
@@ -320,8 +321,8 @@ def detect_changes(project_root: str, excludes: Set[str] = None,
     # 加载 config.yaml 排除规则（与 analyze_project.py 保持一致）
     config_excludes = load_config_excludes(root, gitignore_cache=_gitignore_cache)
 
-    # 获取当前文件校验和（优先使用 scanner 阶段预计算的 hash）
-    precomputed = _load_precomputed_hashes(root)
+    # 获取当前文件校验和。默认重新扫描磁盘，避免复用 stale file-hashes.json。
+    precomputed = _load_precomputed_hashes(root) if use_precomputed_hashes else None
     if precomputed is not None:
         current_checksums = precomputed
     else:

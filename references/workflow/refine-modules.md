@@ -8,7 +8,7 @@
 
 | 项目 | 值 |
 |------|-----|
-| 脚本 | `python scripts/analysis/module_discovery.py refine <project_path>` |
+| 脚本 | `python -m scripts.analysis.module_discovery refine <project_path>` |
 | 输入 | `cache/structure.json` (modules)、`cache/code-structure.json` (import_relations) |
 | 输出 | 标准输出（修正建议） |
 | 前置 | `analyze-project` 已生成候选模块；如需 import 密度建议，可在 `extract-structure` 后执行 |

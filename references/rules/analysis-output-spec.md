@@ -1,6 +1,6 @@
 # 分析结果输出规范（module-analysis.json）
 
-> 本文件定义 `extract-docs` 阶段向 `cache/module-analysis.json` 写入的完整规范：写入时机、必须字段、semantic_group 命名规则及骨架冲突处理。
+> 本文件定义 `extract-docs` 阶段的 module-analysis 输出规范：并行模式写 `cache/module-analysis.<module_slug>.json` part 文件，主 Agent 合并为 `cache/module-analysis.json`；串行模式可直接增量更新聚合文件。
 >
 > **关联 Schema**：[`../../schemas/module-analysis-schema.json`](../../schemas/module-analysis-schema.json)
 >
@@ -10,19 +10,20 @@
 
 ## 写入时机
 
-> **强制要求**：完成每个模块的语义分析后，必须立即将结构化结果写入 `cache/module-analysis.json`。不要等全部模块完成后再统一写入——中途中断将导致已分析数据全量丢失。
+`extract-docs` 默认使用并行 subagent 模式：
 
-每个模块分析完毕后**立即写入**，采用**增量追加模式**：
+1. 每个 subagent 只分析一个模块
+2. 分析完立即写入 `cache/module-analysis.<module_slug>.json`
+3. 所有批次完成后，主 Agent 合并 part 文件为 `cache/module-analysis.json`
 
-1. 若 `module-analysis.json` 已存在，读取其内容
-2. 更新（或新增）对应模块 key 的条目
-3. 写回文件
+串行主 Agent 模式才可以直接增量更新 `cache/module-analysis.json`。并行 subagent 不得直接写聚合文件。
 
 增量更新时（detect-changes 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。
 
 ### 写入路径
 
 ```
+<项目目录>/.deepwiki/cache/module-analysis.<module_slug>.json
 <项目目录>/.deepwiki/cache/module-analysis.json
 ```
 

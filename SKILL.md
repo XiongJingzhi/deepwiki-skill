@@ -1,6 +1,6 @@
 ---
 name: deepwiki
-description: 通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档。Use when user requests "生成 wiki"、"创建文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、"检查 wiki 质量"、"升级文档"、"预览文档"、"预览 wiki"、"启动文档服务". Also use when a project needs automated documentation generation from source code or viewing generated wiki in a browser.
+description: 通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档。Use when user requests "生成 wiki"、"创建项目源码文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、"检查 wiki 质量"、"升级源码文档"、"预览项目 wiki"、"启动文档服务". Also use when a project needs automated documentation generation from source code or viewing generated wiki in a browser.
 ---
 
 # DeepWiki
@@ -37,7 +37,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 1. **`init-wiki`**：创建 `.deepwiki/` 目录结构；仅首次生成使用。目录已存在时不要把失败当作生成失败，应继续增量流程或显式 `--force`
 2. **`analyze-project`**：项目结构分析，生成模块/入口点/技术栈。可选运行 `refine-modules`（模块边界失真时），**若运行必须在 `generate-skeleton` 之前**
 3. **`extract-structure`**：提取代码结构到 `cache/`
-4. **`generate-skeleton`**：运行 `scripts/pipeline/generate_skeleton.py <project_path>` 生成 `architecture-skeleton.json` 的确定性字段，然后由 Agent 补齐 `project_nature`、`key_data_flows`
+4. **`generate-skeleton`**：运行 `python -m scripts.pipeline.generate_skeleton <project_path>` 生成 `architecture-skeleton.json` 的确定性字段，然后由 Agent 补齐 `project_nature`、`key_data_flows`
 
 ### 阶段 B — 分析注入
 
@@ -49,7 +49,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 
 8. **`plan-doc-topology`**：生成文档拓扑与编译计划
 9. **`generate-overview`**：复用 `synthesize-deps` 依赖综合规则，生成概述页 + 项目上下文摘要
-10. **`generate-menu`**（必须）：运行 `scripts/wiki/generate_menu.py <project_path>/.deepwiki/wiki <project_name>` 生成 `wiki/menu.json` 与 `wiki/doc-map.md`，为模块文档提供导航和面包屑
+10. **`generate-menu`**（必须）：运行 `python -m scripts.wiki.generate_menu <project_path>/.deepwiki/wiki <project_name>` 生成 `wiki/menu.json` 与 `wiki/doc-map.md`，为模块文档提供导航和面包屑
 
 ### 阶段 D — 生成
 
@@ -82,7 +82,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 |------|------|
 | 仅质量检查 | 直接运行 `scripts/postprocess.py quality <project_path>/.deepwiki` |
 | 定向重生成 | `scripts/cli.py page-context <project_path> <wiki_path>` → 重生成目标页 → `scripts/postprocess.py quality <project_path>/.deepwiki` |
-| 收尾四步 | `scripts/wiki/generate_menu.py <wiki_dir> <project_name> --reconcile` → `scripts/postprocess.py mermaid <deepwiki_dir>` → `scripts/postprocess.py quality <deepwiki_dir>` → `scripts/postprocess.py consistency <deepwiki_dir>` |
+| 收尾四步 | `python -m scripts.wiki.generate_menu <wiki_dir> <project_name> --reconcile` → `scripts/postprocess.py mermaid <deepwiki_dir>` → `scripts/postprocess.py quality <deepwiki_dir>` → `scripts/postprocess.py consistency <deepwiki_dir>` |
 | 预览文档 | `scripts/cli.py serve <project_path>`，浏览器打开 `http://127.0.0.1:8742` |
 | 定向更新单页 | `scripts/cli.py page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `postprocess.py quality` 确认 |
 
@@ -98,12 +98,12 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 | `refine-modules` | [refine-modules.md](references/workflow/refine-modules.md)（可选） |
 | `generate-skeleton` | [generate-skeleton.md](references/workflow/generate-skeleton.md) |
 | `detect-changes` | [detect-changes.md](references/workflow/detect-changes.md) |
-| `prepare_module_context` | `scripts/pipeline/prepare_module_context.py`（`extract-docs` 前置） |
+| `prepare_module_context` | `python -m scripts.pipeline.prepare_module_context`（`extract-docs` 前置） |
 | `build_prompt` | `scripts/subagent/build_prompt.py`（从模板生成 subagent 系统提示词） |
 | `extract-docs` | [extract-docs.md](references/workflow/extract-docs.md) |
 | `validate-analysis` | [validate-analysis.md](references/workflow/validate-analysis.md)（含 `check-analysis-quality` + `build-evidence-index`） |
 | `plan-doc-topology` | [plan-doc-topology.md](references/workflow/plan-doc-topology.md) |
-| `extract_source_snippets` | `scripts/pipeline/extract_source_snippets.py`（`generate-module-docs` 前置，可选） |
+| `extract_source_snippets` | `python -m scripts.pipeline.extract_source_snippets`（`generate-module-docs` 前置，可选） |
 | `generate-overview` | [generate-overview.md](references/workflow/generate-overview.md) |
 | `generate-menu` | [generate-menu.md](references/workflow/generate-menu.md) |
 | `generate-module-docs` | [generate-module-docs.md](references/workflow/generate-module-docs.md) |

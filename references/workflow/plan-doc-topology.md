@@ -1,6 +1,6 @@
 # plan-doc-topology
 
-`python scripts/pipeline/plan_doc_topology.py <项目路径>`
+`python -m scripts.pipeline.plan_doc_topology <项目路径>`
 
 前置：`validate-analysis` | 后置：`generate-overview`、`generate-menu`（初始）、`generate-module-docs`
 

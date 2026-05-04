@@ -1,6 +1,6 @@
 # extract-structure
 
-`python scripts/analysis/extract_structure.py <项目路径>`
+`python -m scripts.analysis.extract_structure <项目路径>`
 
 前置：`analyze-project` | 后置：`generate-skeleton`、`detect-changes`
 

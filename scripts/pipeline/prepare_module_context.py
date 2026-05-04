@@ -330,9 +330,9 @@ def prepare_module_context(project_dir) -> dict:
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) < 2:
-        print("Usage: python prepare_module_context.py <project_dir>")
-        sys.exit(1)
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print("Usage: python -m scripts.pipeline.prepare_module_context <project_dir>")
+        sys.exit(0 if len(sys.argv) >= 2 else 1)
     results = prepare_module_context(Path(sys.argv[1]))
     print(f"已为 {len(results)} 个模块生成 context.json")
     for mod, path in results.items():

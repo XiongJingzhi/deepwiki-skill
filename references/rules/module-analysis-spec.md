@@ -11,17 +11,24 @@
 
 ## 写入时机
 
-> **强制要求**：完成每个模块的语义分析后，必须立即将结构化结果写入 `cache/module-analysis.json`。不要等全部模块完成后再统一写入——中途中断将导致已分析数据全量丢失。
+`extract-docs` 有两种写入模式：
 
-每个模块分析完毕后**立即写入**，采用**增量追加模式**：
+- **并行 subagent 模式（默认）**：每个 subagent 分析完一个模块后，立即写入独立 part 文件 `cache/module-analysis.<module_slug>.json`。主 Agent 在所有批次完成后调用 `merge_module_analysis_parts()` 合并为 `cache/module-analysis.json`。
+- **串行主 Agent 模式**：主 Agent 可直接增量更新 `cache/module-analysis.json`。
 
-1. 若 `module-analysis.json` 已存在，读取其内容
-2. 更新（或新增）对应模块 key 的条目
-3. 写回文件
+并行模式下 subagent **禁止直接写入** `cache/module-analysis.json`，以避免竞态写入和批次覆盖。
 
-增量更新时（detect-changes 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。
+增量更新时（detect-changes 已确定变更模块列表），只覆盖变更模块的条目，未变更模块的历史分析数据保留不动。`merge_module_analysis_parts()` 默认会从已有 `module-analysis.json` 加载旧模块，再用 part 覆盖同名模块。
 
 ### 写入路径
+
+并行 part 文件：
+
+```
+<项目目录>/.deepwiki/cache/module-analysis.<module_slug>.json
+```
+
+合并后的聚合文件：
 
 ```
 <项目目录>/.deepwiki/cache/module-analysis.json

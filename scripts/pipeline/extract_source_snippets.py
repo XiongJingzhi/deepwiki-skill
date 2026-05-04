@@ -4,7 +4,7 @@ extract_source_snippets.py
 避免 subagent 读取整文件而仅使用 ranges 范围。
 
 用法:
-    python scripts/pipeline/extract_source_snippets.py <project_dir>
+    python -m scripts.pipeline.extract_source_snippets <project_dir>
 
 输入:
     <project_dir>/.deepwiki/cache/generation-plan.json
@@ -21,6 +21,10 @@ from scripts.core.common import cache_path
 
 CONTEXT_LINES = 5  # ranges 两侧各保留的上下文行数
 MAX_SNIPPET_CHARS = 30000  # 单个 snippet 最大字符数（防止超大文件）
+
+
+def _safe_page_id(page_id: str) -> str:
+    return page_id.replace(":", "_").replace("/", "_").replace("\\", "_")
 
 
 def _read_lines(file_path: Path) -> List[str]:
@@ -125,21 +129,32 @@ def extract_all_snippets(project_dir: Path) -> Dict[str, str]:
     snippets_dir.mkdir(parents=True, exist_ok=True)
 
     result: Dict[str, str] = {}
+    planned_safe_ids = {
+        _safe_page_id(page.get("page_id", ""))
+        for page in pages
+        if page.get("page_id")
+    }
+    for old_file in snippets_dir.glob("*.json"):
+        if old_file.stem not in planned_safe_ids:
+            old_file.unlink()
 
     for page in pages:
         page_id = page.get("page_id", "")
         source_files = page.get("source_files", [])
+        safe_id = _safe_page_id(page_id)
+        out_path = snippets_dir / f"{safe_id}.json"
         if not page_id or not source_files:
+            if out_path.exists():
+                out_path.unlink()
             continue
 
         # 仅处理有 source_files 的页面（overview 等无源码页面跳过）
         page_snippets = extract_snippets_for_page(page_id, source_files, project_dir)
         if not page_snippets["snippets"]:
+            if out_path.exists():
+                out_path.unlink()
             continue
 
-        # 安全文件名
-        safe_id = page_id.replace(":", "_").replace("/", "_").replace("\\", "_")
-        out_path = snippets_dir / f"{safe_id}.json"
         out_path.write_text(
             json.dumps(page_snippets, ensure_ascii=False, indent=2),
             encoding="utf-8",
@@ -152,9 +167,12 @@ def extract_all_snippets(project_dir: Path) -> Dict[str, str]:
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) < 2:
-        print("Usage: python extract_source_snippets.py <project_dir>", file=sys.stderr)
-        sys.exit(1)
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(
+            "Usage: python -m scripts.pipeline.extract_source_snippets <project_dir>",
+            file=sys.stderr,
+        )
+        sys.exit(0 if len(sys.argv) >= 2 else 1)
 
     project = Path(sys.argv[1])
     results = extract_all_snippets(project)

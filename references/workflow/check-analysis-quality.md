@@ -7,7 +7,7 @@
 
 | 項 | 值 |
 |----|-----|
-| **脚本** | `python scripts/quality/check_analysis_quality.py <项目路径> [--verbose] [--json FILE]` |
+| **脚本** | `python -m scripts.quality.check_analysis_quality <项目路径> [--verbose] [--json FILE]` |
 | **输入** | `cache/module-analysis.json` |
 | **输出** | 质量报告（stdout），退出码（0/1/2） |
 | **前置** | `extract-docs` |
@@ -18,9 +18,9 @@
 从技能目录运行门控脚本：
 
 ```bash
-python scripts/quality/check_analysis_quality.py <项目目录绝对路径>
-python scripts/quality/check_analysis_quality.py <项目目录绝对路径> --verbose
-python scripts/quality/check_analysis_quality.py <项目目录绝对路径> --json gate-report.json
+python -m scripts.quality.check_analysis_quality <项目目录绝对路径>
+python -m scripts.quality.check_analysis_quality <项目目录绝对路径> --verbose
+python -m scripts.quality.check_analysis_quality <项目目录绝对路径> --json gate-report.json
 ```
 
 ---
@@ -84,22 +84,20 @@ python scripts/quality/check_analysis_quality.py <项目目录绝对路径> --js
 
 ## 不通过时的增量补充流程
 
-当门控返回退出码 1 时，**不需要全量重做extract-docs**，只需对失败模块补充缺失字段：
+当门控返回退出码 1 时，**不需要全量重做 extract-docs**，只需对失败模块补充缺失字段。补充仍必须走 `context.json` + `build_prompt.py` 的单模块流程，不得让 subagent 直接读取源码：
 
 1. 读取门控报告，获取失败模块列表和缺失字段
-2. 对每个失败模块，仅针对缺失字段重新分析：
-   - 缺 `public_interfaces` → 重读该模块的核心文件，仅提取导出接口
-   - 缺 `public_interfaces[].line/end_line` 或 `core_source_ranges` → 重读核心函数/类定义，补充 1-based 闭区间源码范围
-   - 缺 `key_insights` → 重读主文件，补充 2-3 条设计意图说明
-   - 缺 `semantic_group` → 根据模块名+文件角色，直接标注语义分组
-3. 将补充结果**增量更新**到 `module-analysis.json`（不覆盖已通过模块的数据）
-4. 重新运行门控脚本验证是否通过
+2. 确认 `cache/modules/<slug>/context.json` 存在；若缺失，先重新运行 `prepare_module_context`
+3. 对每个失败模块，用 `scripts/subagent/build_prompt.py extract-docs --project <项目路径> --module <模块路径> --cache` 重新生成单模块 prompt
+4. subagent 只写对应 `cache/module-analysis.<slug>.json`
+5. 主 Agent 调用 `merge_module_analysis_parts()` 增量合并 part（不覆盖已通过模块的数据）
+6. 重新运行门控脚本验证是否通过
 
 ### 关键原则
 
 > **只补缺失字段，不重做已完成的分析。**
 
-例如，若某模块缺少 `semantic_group` 但 `public_interfaces` 完整，则只需用 1-2 句话补充语义分组，而无需重新读取源码。
+例如，若某模块缺少 `semantic_group` 但 `public_interfaces` 完整，则只需基于该模块的 `context.json` 用 1-2 句话补充语义分组，而无需重新读取源码。
 
 ---
 

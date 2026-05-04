@@ -297,6 +297,9 @@ def plan_doc_topology(project_root: Path) -> Dict[str, Any]:
 if __name__ == "__main__":
     import sys
 
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print("Usage: python -m scripts.pipeline.plan_doc_topology <project_dir>")
+        sys.exit(0)
     project_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(os.getcwd())
     result = plan_doc_topology(project_path)
     print(

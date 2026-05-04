@@ -1,6 +1,6 @@
 # detect-changes
 
-`python scripts/pipeline/detect_changes.py <项目路径>`
+`python -m scripts.pipeline.detect_changes <项目路径>`
 
 前置：`extract-structure` | 后置：`extract-docs`
 

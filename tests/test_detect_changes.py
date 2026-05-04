@@ -226,6 +226,33 @@ class TestDetectChanges:
         assert result["has_changes"] is True
         assert "main.py" in result["modified"]
 
+    def test_stale_precomputed_hashes_do_not_hide_modified_file(self, fake_python_project):
+        """Old file-hashes.json must not be reused after files changed on disk."""
+        self._setup_deepwiki_cache(fake_python_project)
+        first = detect_changes.detect_changes(str(fake_python_project))
+
+        state_dir = fake_python_project / ".deepwiki" / "state"
+        (state_dir / "file-hashes.json").write_text(
+            json.dumps(
+                {
+                    "cache_schema_version": common.CACHE_SCHEMA_VERSION,
+                    "hashes": first["current_checksums"],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        main_py = fake_python_project / "main.py"
+        main_py.write_text(
+            "# modified after analyze\n" + main_py.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+
+        result = detect_changes.detect_changes(str(fake_python_project))
+
+        assert result["has_changes"] is True
+        assert "main.py" in result["modified"]
+
     def test_deleted_file_detected(self, fake_python_project):
         """Deleting a file after first run triggers 'deleted' detection."""
         self._setup_deepwiki_cache(fake_python_project)

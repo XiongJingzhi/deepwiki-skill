@@ -442,20 +442,30 @@ def extract_file_source_ranges(
     return ranges
 
 
-def merge_module_analysis_parts(cache_dir: Path, part_files: list) -> dict:
+def merge_module_analysis_parts(cache_dir: Path, part_files: list, full_replace: bool = False) -> dict:
     """合并各个 subagent 写入的独立临时文件为 module-analysis.json。
 
     每个 part 文件格式为 {"<module_path>": { ... analysis data ... }}。
-    合并策略：所有 part 的模块键合并到 module-analysis.json 的 modules 字段中。
+    合并策略：默认从已有 module-analysis.json 加载 modules，再用 part 覆盖。
+    全量重建时可传 full_replace=True，从空集合开始。
 
     Args:
         cache_dir: .deepwiki/cache 目录
         part_files: 临时文件路径列表（Path 对象）
+        full_replace: True 时忽略已有 module-analysis.json
 
     Returns:
         合并后的完整 module-analysis 数据 dict
     """
     modules: dict = {}
+    analysis_path = Path(cache_dir) / "module-analysis.json"
+    if not full_replace and analysis_path.exists():
+        try:
+            existing = json.loads(analysis_path.read_text(encoding="utf-8"))
+            if isinstance(existing, dict) and isinstance(existing.get("modules"), dict):
+                modules.update(existing["modules"])
+        except (json.JSONDecodeError, OSError):
+            pass
     for part_path in part_files:
         if not part_path.exists():
             continue

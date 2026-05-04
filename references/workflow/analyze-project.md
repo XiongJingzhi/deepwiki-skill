@@ -1,6 +1,6 @@
 # analyze-project
 
-`python scripts/analysis/analyze_project.py <项目路径>`
+`python -m scripts.analysis.analyze_project <项目路径>`
 
 前置：`init-wiki` | 后置：`extract-structure`
 

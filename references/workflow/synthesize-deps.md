@@ -28,10 +28,10 @@
 
 ## 缓存控制
 
-1. 若 `cache/relationship-summary.json` 存在，读取并使用，跳过重算
-2. 若不存在，执行完整流程后写入缓存
-3. 若 `module-analysis.json` 的 mtime 晚于 `relationship-summary.json`，视为缓存失效，重算并覆写
+1. `validate-analysis` 会在进入门控时删除旧的 `cache/relationship-summary.json`
+2. 若 `cache/relationship-summary.json` 不存在，执行完整流程后写入缓存
+3. 同一轮生成中若该文件已存在，可直接读取复用
 
 ### 缓存失效
 
-`relationship-summary.json` 通过 mtime 自动失效：若 `module-analysis.json` 的修改时间晚于 `relationship-summary.json`，视为缓存失效，重算并覆写。无需外部步骤主动删除此文件。
+`relationship-summary.json` 的权威失效点是 `validate-analysis`：只要 `module-analysis.json` 进入新的门控轮次，旧依赖摘要就会被删除并在下游重新生成。

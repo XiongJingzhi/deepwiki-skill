@@ -14,7 +14,7 @@
 ## 执行命令
 
 ```bash
-python3 scripts/quality/build_evidence_index.py <项目路径>
+python -m scripts.quality.build_evidence_index <项目路径>
 ```
 
 也可以通过统一入口运行：

@@ -12,7 +12,7 @@
 | `meta.json` | 生成器版本、时间戳、每个模块的元数据 |
 | `state/checksums.json` | 文件哈希值，用于增量变更检测（含 `cache_schema_version` 版本控制） |
 | `cache/structure.json` | 解析后的项目结构（模块、入口点、技术栈，含 `cache_schema_version` 版本控制） |
-| `state/file-hashes.json` | 文件哈希值缓存，供 `detect-changes` 复用（避免二次全量扫描） |
+| `state/file-hashes.json` | `analyze-project` 的文件哈希快照；`detect-changes` 默认重新扫描磁盘，只有同一轮流水线显式确认新鲜时才可复用 |
 | `cache/parse-results.json` | tree-sitter AST 摘要缓存（定义列表、复杂度统计、重要行、文档注释），供后续步骤复用避免重复解析 |
 | `cache/code-structure.json` | 代码结构提取结果（调用图、代码模式、关键时序、导入关系） |
 | `cache/architecture-skeleton.json` | `generate-skeleton` 脚本 + AI 生成的全局架构骨架，供 `extract-docs`～`generate-module-docs` 注入全局上下文（含模块分组、架构分层、关键数据流）；`_input_summary` 字段为脚本写入的精简模块摘要，供 AI 补充时使用，无需加载全量 `code-structure.json` |
@@ -38,7 +38,7 @@
 | 缓存文件 | 生产阶段 | 消费阶段 | 是否允许 AI 写入 | 是否允许增量复用 |
 |---------|---------|---------|------------------|------------------|
 | `cache/structure.json` | `analyze-project` | `extract-structure`、`generate-skeleton`、`detect-changes`、`plan-doc-topology` | 否 | 是 |
-| `state/file-hashes.json` | `analyze-project` | `detect-changes` | 否 | 是 |
+| `state/file-hashes.json` | `analyze-project` | 同一轮流水线的优化输入 | 否 | 条件复用 |
 | `cache/parse-results.json` | `extract-structure` | `analyze-project`、后续 AST 相关步骤 | 否 | 是 |
 | `cache/code-structure.json` | `extract-structure` | `generate-skeleton`、`extract-docs`、`generate-overview`、`plan-doc-topology`、质量检查 | 否 | 是 |
 | `cache/architecture-skeleton.json` | `generate-skeleton` | `extract-docs`、`generate-overview`、`generate-module-docs`、`generate-menu` | 是 | 有条件，建议结合变更重新生成 |
@@ -57,18 +57,18 @@
 
 | 脚本 | 工作流工具名 | 用途 |
 |------|------------|------|
-| `scripts/wiki/init_wiki.py <项目路径>` | `init-wiki` | 初始化 .deepwiki 目录 |
-| `scripts/analysis/analyze_project.py <项目路径>` | `analyze-project` | 分析项目结构和技术栈 |
-| `scripts/analysis/extract_structure.py <项目路径>` | `extract-structure` | 提取调用图、代码模式、关键时序和导入关系 |
-| `scripts/pipeline/detect_changes.py <项目路径>` | `detect-changes` | 检测文件变更，用于增量更新（含反向依赖传播） |
-| `scripts/pipeline/prepare_module_context.py <项目路径>` | `prepare_module_context`（`extract-docs` 前置脚本） | 为每个模块生成含签名的 context.json，禁止 extract-docs 读取源码 |
-| `scripts/quality/check_analysis_quality.py <项目路径>` | `check-analysis-quality` | 检查 `module-analysis.json` 是否满足最低质量标准（支持 `--verbose` 和 `--json`） |
+| `python -m scripts.wiki.init_wiki <项目路径>` | `init-wiki` | 初始化 .deepwiki 目录 |
+| `python -m scripts.analysis.analyze_project <项目路径>` | `analyze-project` | 分析项目结构和技术栈 |
+| `python -m scripts.analysis.extract_structure <项目路径>` | `extract-structure` | 提取调用图、代码模式、关键时序和导入关系 |
+| `python -m scripts.pipeline.detect_changes <项目路径>` | `detect-changes` | 检测文件变更，用于增量更新（含反向依赖传播） |
+| `python -m scripts.pipeline.prepare_module_context <项目路径>` | `prepare_module_context`（`extract-docs` 前置脚本） | 为每个模块生成含签名的 context.json，禁止 extract-docs 读取源码 |
+| `python -m scripts.quality.check_analysis_quality <项目路径>` | `check-analysis-quality` | 检查 `module-analysis.json` 是否满足最低质量标准（支持 `--verbose` 和 `--json`） |
 | `scripts/cli.py validate-analysis <项目路径>` | `validate-analysis` | 对外推荐入口：先执行分析质量门禁，通过后构建 `cache/evidence-index.json` |
-| `scripts/quality/build_evidence_index.py <项目路径>` | `build-evidence-index` | 从 `module-analysis.json` 构建 `cache/evidence-index.json`，供文档质量检查验证源码证据 |
+| `python -m scripts.quality.build_evidence_index <项目路径>` | `build-evidence-index` | 从 `module-analysis.json` 构建 `cache/evidence-index.json`，供文档质量检查验证源码证据 |
 | `scripts/postprocess.py mermaid <.deepwiki路径>` | `finalize mermaid` | 修复 Mermaid 图表语法错误（支持 `--dry-run` 和 `--json`） |
 | `scripts/postprocess.py quality <.deepwiki路径>` | `finalize quality` | 检查文档质量（含源码链接有效性验证） |
 | `scripts/postprocess.py consistency <.deepwiki路径>` | `finalize consistency` | 跨模块一致性检查（接口覆盖率、依赖方向） |
-| `scripts/wiki/generate_menu.py <wiki目录路径> [项目名称]` | `generate-menu` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
+| `python -m scripts.wiki.generate_menu <wiki目录路径> [项目名称]` | `generate-menu` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
 
 ### 使用示例
 
@@ -79,25 +79,25 @@
 cd $SKILL_DIR
 
 # 初始化新 wiki
-python scripts/wiki/init_wiki.py $PROJECT_DIR
+python -m scripts.wiki.init_wiki $PROJECT_DIR
 
 # 强制重新初始化（覆盖已有 .deepwiki/ 目录的配置和缓存）
-python scripts/wiki/init_wiki.py $PROJECT_DIR --force
+python -m scripts.wiki.init_wiki $PROJECT_DIR --force
 
 # 分析项目结构
-python scripts/analysis/analyze_project.py $PROJECT_DIR
+python -m scripts.analysis.analyze_project $PROJECT_DIR
 
 # 提取代码结构（调用图、模式、导入关系）
-python scripts/analysis/extract_structure.py $PROJECT_DIR
+python -m scripts.analysis.extract_structure $PROJECT_DIR
 
 # generate-skeleton：纯 AI 步骤，直接读取 structure.json + code-structure.json 生成骨架
 # 无需运行脚本
 
 # 检测文件变更（增量更新时使用；全量生成可跳过或由 extract-docs 内部触发）
-python scripts/pipeline/detect_changes.py $PROJECT_DIR
+python -m scripts.pipeline.detect_changes $PROJECT_DIR
 
 # extract-docs 前置：生成含签名的模块 context.json（必须在 extract-docs 之前运行）
-python scripts/pipeline/prepare_module_context.py $PROJECT_DIR
+python -m scripts.pipeline.prepare_module_context $PROJECT_DIR
 
 # validate-analysis：对外推荐入口，先检查分析质量，再构建证据索引
 python scripts/cli.py validate-analysis $PROJECT_DIR
@@ -106,12 +106,12 @@ python scripts/cli.py validate-analysis $PROJECT_DIR
 python scripts/cli.py plan-doc-topology $PROJECT_DIR
 
 # check-analysis-quality：仅用于调试质量门控子步骤
-python scripts/quality/check_analysis_quality.py $PROJECT_DIR
-python scripts/quality/check_analysis_quality.py $PROJECT_DIR --verbose
-python scripts/quality/check_analysis_quality.py $PROJECT_DIR --json gate-report.json
+python -m scripts.quality.check_analysis_quality $PROJECT_DIR
+python -m scripts.quality.check_analysis_quality $PROJECT_DIR --verbose
+python -m scripts.quality.check_analysis_quality $PROJECT_DIR --json gate-report.json
 
 # build-evidence-index：仅用于调试证据索引子步骤
-python scripts/quality/build_evidence_index.py $PROJECT_DIR
+python -m scripts.quality.build_evidence_index $PROJECT_DIR
 
 # 文档质量检查（基本 / 详细报告 / 导出 JSON）
 python scripts/postprocess.py quality $PROJECT_DIR/.deepwiki
@@ -119,10 +119,10 @@ python scripts/postprocess.py quality $PROJECT_DIR/.deepwiki --verbose
 python scripts/postprocess.py quality $PROJECT_DIR/.deepwiki --json report.json
 
 # 生成导航菜单
-python scripts/wiki/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称"
+python -m scripts.wiki.generate_menu $PROJECT_DIR/.deepwiki/wiki "项目名称"
 
 # generate-menu --reconcile：generate-module-docs 全部完成后校验并修正菜单
-python scripts/wiki/generate_menu.py $PROJECT_DIR/.deepwiki/wiki "项目名称" --reconcile --verbose
+python -m scripts.wiki.generate_menu $PROJECT_DIR/.deepwiki/wiki "项目名称" --reconcile --verbose
 
 # 修复 Mermaid 图表语法
 python scripts/postprocess.py mermaid $PROJECT_DIR/.deepwiki

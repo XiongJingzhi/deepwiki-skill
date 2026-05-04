@@ -18,7 +18,22 @@
       "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki/cache/structure.json'\\)\\); print\\('schema_version:', d.get\\('cache_schema_version'\\)\\); print\\('project:', d.get\\('project_name'\\)\\)\")",
       "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki/cache/checksums.json'\\)\\); print\\('schema_version:', d.get\\('cache_schema_version'\\)\\)\")",
       "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki/cache/progress.json'\\)\\); print\\('schema_version:', d.get\\('cache_schema_version'\\)\\)\")",
-      "Bash(python3 -m pytest tests/ --tb=no -q)"
+      "Bash(python3 -m pytest tests/ --tb=no -q)",
+      "Read(//Users/xiongfeng/.claude/skills/**)",
+      "Read(//Users/xiongfeng/.claude/**)",
+      "Bash(PYTHONPATH=. python scripts/wiki/init_wiki.py .)",
+      "Bash(PYTHONPATH=. python scripts/analysis/analyze_project.py .)",
+      "Bash(PYTHONPATH=. python scripts/analysis/extract_structure.py .)",
+      "Bash(PYTHONPATH=. python scripts/pipeline/generate_skeleton.py .)",
+      "Bash(PYTHONPATH=. python scripts/pipeline/prepare_module_context.py .)",
+      "Bash(PYTHONPATH=. python3 scripts/cli.py validate-analysis .)",
+      "Bash(PYTHONPATH=. python scripts/pipeline/plan_doc_topology.py .)",
+      "Bash(PYTHONPATH=. python scripts/wiki/generate_menu.py .deepwiki/wiki deepwiki-skill)",
+      "Bash(PYTHONPATH=. python scripts/wiki/generate_menu.py .deepwiki/wiki deepwiki-skill --reconcile)",
+      "Bash(PYTHONPATH=. python scripts/postprocess.py mermaid .deepwiki)",
+      "Bash(PYTHONPATH=. python scripts/postprocess.py quality .deepwiki)",
+      "Bash(PYTHONPATH=. python scripts/postprocess.py consistency .deepwiki)",
+      "Bash(PYTHONPATH=. python scripts/cli.py serve .)"
     ],
     "additionalDirectories": [
       "/Users/xiongfeng/SourceCode/deepwiki-skill/.deepwiki"

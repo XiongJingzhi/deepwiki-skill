@@ -36,6 +36,9 @@ def test_extract_docs_prompt_uses_module_groups_from_skeleton(tmp_path):
         ),
         encoding="utf-8",
     )
+    context_path = cache / "modules" / "src_app" / "context.json"
+    context_path.parent.mkdir(parents=True)
+    context_path.write_text("{}", encoding="utf-8")
 
     variables = _build_extract_docs_vars(tmp_path, "src/app")
 
@@ -55,6 +58,12 @@ def test_extract_docs_prompt_requires_module_path():
     """extract-docs prompts are per-module and should not be built generically."""
     with pytest.raises(ValueError, match="module path"):
         _build_extract_docs_vars(Path("/tmp"), None)
+
+
+def test_extract_docs_prompt_requires_prepared_context(tmp_path):
+    """extract-docs should fail before dispatch if module context is missing."""
+    with pytest.raises(ValueError, match="context\\.json"):
+        _build_extract_docs_vars(tmp_path, "src/app")
 
 
 def test_generate_module_docs_prompt_includes_page_and_output_path(tmp_path):

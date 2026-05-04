@@ -11,6 +11,8 @@ python scripts/subagent/build_prompt.py extract-docs --project <项目路径> --
 模板文件：[`../subagents/extract-docs.md`](../subagents/extract-docs.md)。
 输出位置：`.deepwiki/cache/prompts/extract-docs_<module_slug>.md`。
 
+⛔ **禁止手写 extract-docs subagent 提示词**。必须使用上面的 `build_prompt.py` 为每个模块生成 prompt。不得把多个模块合并到一个 extract-docs subagent，也不得在 prompt 中要求 subagent 读取源码文件。
+
 ## 并发调用 subagent 规则
 
 共享调度框架：[`../rules/batch-scheduling.md`](../rules/batch-scheduling.md)。
@@ -42,3 +44,5 @@ if parts:
 ## 降级（context.json 不存在）
 
 ⛔ 停止执行，输出：`⛔ [extract-docs] context.json 缺失，请先运行 prepare_module_context.py <项目路径>`
+
+如果自动分析管线未能正确识别模块结构，主 Agent 应先修正 `cache/structure.json` 或重新运行 `prepare_module_context.py`，再重新生成每个模块的 extract-docs prompt。不要通过“让 subagent 直接读源码”绕过 `context.json`，这会破坏并发写入安全和分析质量门控。

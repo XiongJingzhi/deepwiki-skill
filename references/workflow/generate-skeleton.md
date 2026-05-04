@@ -1,6 +1,6 @@
 # generate-skeleton
 
-`python scripts/pipeline/generate_skeleton.py <项目路径>`
+`python -m scripts.pipeline.generate_skeleton <项目路径>`
 
 前置：`extract-structure` | 后置：`extract-docs`
 

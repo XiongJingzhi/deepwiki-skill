@@ -1,6 +1,6 @@
 # generate-menu
 
-`python scripts/wiki/generate_menu.py <wiki目录> [项目名] [--reconcile]`
+`python -m scripts.wiki.generate_menu <wiki目录> [项目名] [--reconcile]`
 
 前置：`generate-overview` | 后置：`generate-module-docs`
 
@@ -56,5 +56,5 @@
 ## 收尾校验：--reconcile
 
 ```bash
-python scripts/wiki/generate_menu.py <项目目录>/.deepwiki/wiki [项目名称] --reconcile --verbose
+python -m scripts.wiki.generate_menu <项目目录>/.deepwiki/wiki [项目名称] --reconcile --verbose
 ```

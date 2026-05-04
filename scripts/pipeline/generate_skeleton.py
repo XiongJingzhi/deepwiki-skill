@@ -232,9 +232,9 @@ def generate_skeleton_structure(project_dir) -> dict:
 
 def main():
     import sys
-    if len(sys.argv) < 2:
-        print("Usage: python generate_skeleton.py <project_dir>")
-        sys.exit(1)
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print("Usage: python -m scripts.pipeline.generate_skeleton <project_dir>")
+        sys.exit(0 if len(sys.argv) >= 2 else 1)
     result = generate_skeleton_structure(Path(sys.argv[1]))
     out_path = Path(sys.argv[1]) / ".deepwiki" / "cache" / "architecture-skeleton.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)

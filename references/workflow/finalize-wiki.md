@@ -13,7 +13,7 @@ WIKI=$DEEPWIKI/wiki
 PROJECT_NAME=<项目名称>
 
 # 步骤 1：菜单校验
-python scripts/wiki/generate_menu.py $WIKI $PROJECT_NAME --reconcile
+python -m scripts.wiki.generate_menu $WIKI $PROJECT_NAME --reconcile
 
 # 步骤 2：Mermaid 语法修复（必须在 quality 前）
 python scripts/postprocess.py mermaid $DEEPWIKI

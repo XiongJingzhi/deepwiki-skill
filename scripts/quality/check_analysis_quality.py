@@ -351,7 +351,7 @@ def main() -> int:
     # 打印补充建议
     if failed_modules:
         print("\n💡 补充建议：")
-        print("   对以上模块重新执行第 5 步深度阅读，仅补充缺失字段，不需要全量重做。")
+        print("   对以上模块重新生成 extract-docs 单模块 prompt，基于 context.json 补充缺失字段。")
         print(f"   失败模块列表：{', '.join(failed_modules)}")
         return 1
 

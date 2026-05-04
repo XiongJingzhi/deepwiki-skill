@@ -22,8 +22,8 @@ python3 scripts/cli.py validate-analysis <项目路径>
 ## 调试子步骤
 
 ```bash
-python3 scripts/quality/check_analysis_quality.py <项目路径>
-python3 scripts/quality/build_evidence_index.py <项目路径>
+python -m scripts.quality.check_analysis_quality <项目路径>
+python -m scripts.quality.build_evidence_index <项目路径>
 ```
 
 ## 缓存失效

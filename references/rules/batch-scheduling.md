@@ -61,6 +61,8 @@
 | `extract-docs` | 直接读取 `cache/modules/<slug>/context.json`（已由 `prepare_module_context.py` 预提取）
 | `generate-module-docs` | 主 Agent 运行 `scripts/cli.py page-context <项目路径> <wiki_path>` 提取单模块精简上下文
 
+`extract-docs` 的 subagent prompt 必须由 `scripts/subagent/build_prompt.py extract-docs --module <模块路径>` 生成；禁止主 Agent 人工拼接“读取这些源码文件并分析多个模块”的提示词。一个 extract-docs subagent 只负责一个模块，只写一个 `cache/module-analysis.<slug>.json`。
+
 **禁止将以下文件原样送入 subagent prompt**：
 - `cache/module-analysis.json`（全量）— 用 `page-context` 脚本提取单模块条目
 - `cache/evidence-index.json`（全量）— 用 `page-context` 脚本提取相关证据
@@ -71,8 +73,10 @@
 **默认策略：中间文件合并**
 
 1. 每个 subagent 写入独立临时文件 `cache/module-analysis.<module_slug>.json`
-2. 批次内所有 subagent 完成后，主 Agent 调用 `merge_module_analysis_parts()` 合并为 `module-analysis.json`
+2. 所有批次完成后，主 Agent 调用 `merge_module_analysis_parts()` 合并为 `module-analysis.json`
 3. 合并完成后删除临时文件
+
+若确需每批结束后提前合并，必须使用会读取已有 `module-analysis.json` 作为 base 的合并函数，避免后一批覆盖前一批结果。
 
 优势：无竞态风险，无需文件锁，跨平台兼容。
 

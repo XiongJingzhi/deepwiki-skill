@@ -68,6 +68,11 @@ def _build_extract_docs_vars(project_dir: Path, module_path: str | None) -> Dict
     module_slug = _module_slug(module_path)
     context_path = cache_dir / "modules" / module_slug / "context.json"
     part_path = cache_dir / f"module-analysis.{module_slug}.json"
+    if not context_path.exists():
+        raise ValueError(
+            "extract-docs context.json missing; run "
+            f"prepare_module_context.py before dispatch: {context_path}"
+        )
 
     # 模块分组列表
     groups = skeleton.get("module_groups") or skeleton.get("groups", [])

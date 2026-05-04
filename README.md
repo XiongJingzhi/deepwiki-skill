@@ -121,21 +121,21 @@ deepwiki/
 | 脚本 | 说明 |
 |------|------|
 | `scripts/cli.py <命令> <路径>` | 本地统一入口，封装 init/analyze/extract-structure/detect-changes/validate-analysis/plan-doc-topology/build-evidence-index/quality/self-check |
-| `scripts/quality/check_dependencies.py` | 检查 tree-sitter 与语言绑定等运行依赖 |
-| `scripts/quality/validate_skill.py [技能目录]` | 检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
-| `scripts/wiki/init_wiki.py <项目路径>` | 初始化 .deepwiki 目录 |
-| `scripts/analysis/analyze_project.py <项目路径>` | 分析结构和技术栈 |
-| `scripts/analysis/extract_structure.py <项目路径>` | 提取调用图、模式、导入关系 |
-| `scripts/pipeline/plan_doc_topology.py <项目路径>` | 生成 `doc-topology.json` 与 `generation-plan.json` |
-| `scripts/pipeline/detect_changes.py <项目路径>` | 增量变更检测 |
-| `scripts/pipeline/extract_doc_comments.py <文件路径>` | 从源码提取文档注释（tree-sitter） |
-| `scripts/quality/check_analysis_quality.py <项目路径>` | 分析质量门控（`validate-analysis` 的子步骤） |
+| `python -m scripts.quality.check_dependencies` | 检查 tree-sitter 与语言绑定等运行依赖 |
+| `python -m scripts.quality.validate_skill [技能目录]` | 检查 skill 包元数据、关键文件、CLI 命令和已跟踪生成物 |
+| `python -m scripts.wiki.init_wiki <项目路径>` | 初始化 .deepwiki 目录 |
+| `python -m scripts.analysis.analyze_project <项目路径>` | 分析结构和技术栈 |
+| `python -m scripts.analysis.extract_structure <项目路径>` | 提取调用图、模式、导入关系 |
+| `python -m scripts.pipeline.plan_doc_topology <项目路径>` | 生成 `doc-topology.json` 与 `generation-plan.json` |
+| `python -m scripts.pipeline.detect_changes <项目路径>` | 增量变更检测 |
+| `python -m scripts.pipeline.extract_doc_comments <文件路径>` | 从源码提取文档注释（tree-sitter） |
+| `python -m scripts.quality.check_analysis_quality <项目路径>` | 分析质量门控（`validate-analysis` 的子步骤） |
 | `scripts/cli.py validate-analysis <项目路径>` | 对外推荐入口：运行分析质量门控，通过后构建 `evidence-index.json` |
-| `scripts/quality/build_evidence_index.py <项目路径>` | 从模块分析缓存生成 `evidence-index.json` |
+| `python -m scripts.quality.build_evidence_index <项目路径>` | 从模块分析缓存生成 `evidence-index.json` |
 | `scripts/postprocess.py quality <.deepwiki路径>` | 文档质量检查 |
 | `scripts/postprocess.py consistency <.deepwiki路径>` | 跨模块一致性检查 |
 | `scripts/postprocess.py mermaid <.deepwiki路径>` | 修复 Mermaid 语法错误 |
-| `scripts/wiki/generate_menu.py <wiki目录> [项目名]` | 生成 menu.json（支持 `--reconcile`） |
+| `python -m scripts.wiki.generate_menu <wiki目录> [项目名]` | 生成 menu.json（支持 `--reconcile`） |
 
 ---
 
