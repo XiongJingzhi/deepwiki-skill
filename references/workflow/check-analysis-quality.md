@@ -89,7 +89,8 @@ python -m scripts.quality.check_analysis_quality <项目目录绝对路径> --js
 1. 读取门控报告，获取失败模块列表和缺失字段
 2. 确认 `cache/modules/<slug>/context.json` 存在；若缺失，先重新运行 `prepare_module_context`
 3. 对每个失败模块，用 `scripts/subagent/build_prompt.py extract-docs --project <项目路径> --module <模块路径> --cache` 重新生成单模块 prompt
-4. subagent 只写对应 `cache/module-analysis.<slug>.json`
+4. 主 Agent 读取 `.deepwiki/cache/prompts/extract-docs_<module_slug>.md` 完整内容后派遣 subagent，不得手写或改写 prompt
+5. subagent 只写对应 `cache/module-analysis.<slug>.json`
 5. 主 Agent 调用 `merge_module_analysis_parts()` 增量合并 part（不覆盖已通过模块的数据）
 6. 重新运行门控脚本验证是否通过
 

@@ -24,6 +24,7 @@ def main():
     p_mermaid = subparsers.add_parser("mermaid", help="修复 Mermaid 图表语法")
     p_mermaid.add_argument("wiki_dir", help=".deepwiki 目录路径")
     p_mermaid.add_argument("--dry-run", action="store_true", help="仅报告不修改")
+    p_mermaid.add_argument("--validate", action="store_true", help="运行 mmdc 校验并输出错误报告")
     p_mermaid.add_argument("--json", metavar="FILE", help="输出修复报告为 JSON")
     p_mermaid.add_argument("-v", "--verbose", action="store_true")
 
@@ -52,6 +53,8 @@ def main():
         cmd = [sys.executable, script, args.wiki_dir]
         if args.dry_run:
             cmd.append("--dry-run")
+        if args.validate:
+            cmd.append("--validate")
         if args.json:
             cmd.extend(["--json", args.json])
         if args.verbose:

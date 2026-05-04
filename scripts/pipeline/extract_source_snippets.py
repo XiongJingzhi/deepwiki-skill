@@ -24,7 +24,12 @@ MAX_SNIPPET_CHARS = 30000  # 单个 snippet 最大字符数（防止超大文件
 
 
 def _safe_page_id(page_id: str) -> str:
-    return page_id.replace(":", "_").replace("/", "_").replace("\\", "_")
+    return (
+        page_id.replace(":", "_")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace(".", "_")
+    )
 
 
 def _read_lines(file_path: Path) -> List[str]:

@@ -58,10 +58,22 @@
 
 | 阶段 | 精简方式 |
 |------|---------|
-| `extract-docs` | 直接读取 `cache/modules/<slug>/context.json`（已由 `prepare_module_context.py` 预提取）
-| `generate-module-docs` | 主 Agent 运行 `deepwiki page-context <项目路径> <wiki_path>` 提取单模块精简上下文
+| `extract-docs` | `build_prompt.py extract-docs --cache` 将 `cache/modules/<slug>/context.json` 路径注入 prompt 文件 |
+| `generate-module-docs` | `build_prompt.py generate-module-docs --cache` 将单页 `source_files`、输出路径和模块分析注入 prompt 文件 |
+| `quality-fix` | `build_prompt.py quality-fix --cache` 将目标页和 `page-context` 命令注入 prompt 文件 |
 
-`extract-docs` 的 subagent prompt 必须由 `scripts/subagent/build_prompt.py extract-docs --module <模块路径>` 生成；禁止主 Agent 人工拼接“读取这些源码文件并分析多个模块”的提示词。一个 extract-docs subagent 只负责一个模块，只写一个 `cache/module-analysis.<slug>.json`。
+## Subagent Prompt 文件锁
+
+所有 subagent 阶段（`extract-docs`、`generate-module-docs`、`quality-fix`）都必须走 prompt 文件调度：
+
+1. 主 Agent 先执行对应的 `scripts/subagent/build_prompt.py ... --cache`
+2. 确认 `.deepwiki/cache/prompts/manifest.json` 记录了对应 prompt
+3. 读取 `.deepwiki/cache/prompts/<type>_<safe_id>.md` 的 FULL content
+4. spawn subagent 时只传入该 FULL content，不追加额外解释
+
+DO NOT rewrite、summarize、merge、reinterpret 或 regenerate subagent prompt。若 prompt 文件不存在、manifest 缺失对应项，或主 Agent 跳过读文件步骤，本阶段视为失败，必须先重新生成 prompt 文件。
+
+`extract-docs` 的 subagent prompt 必须由 `scripts/subagent/build_prompt.py extract-docs --module <模块路径> --cache` 生成；禁止主 Agent 人工拼接“读取这些源码文件并分析多个模块”的提示词。一个 extract-docs subagent 只负责一个模块，只写一个 `cache/module-analysis.<slug>.json`。
 
 **禁止将以下文件原样送入 subagent prompt**：
 - `cache/module-analysis.json`（全量）— 用 `page-context` 脚本提取单模块条目

@@ -110,7 +110,9 @@ def main():
                 "files_affected": [r for r in results if r.get("total_fixes", 0) > 0],
             }, f, indent=2, ensure_ascii=False)
 
-    return 0 if total_fixes == 0 else 1
+    if args.dry_run and total_fixes > 0:
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

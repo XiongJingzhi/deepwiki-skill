@@ -32,7 +32,7 @@ def _run_finalize(monkeypatch, argv, returncode=0):
 def test_finalize_dispatches_mermaid_with_options(monkeypatch, tmp_path):
     code, calls = _run_finalize(
         monkeypatch,
-        ["mermaid", str(tmp_path), "--dry-run", "--json", "report.json", "-v"],
+        ["mermaid", str(tmp_path), "--dry-run", "--validate", "--json", "report.json", "-v"],
     )
 
     assert code == 0
@@ -40,7 +40,7 @@ def test_finalize_dispatches_mermaid_with_options(monkeypatch, tmp_path):
     cmd = calls[0]
     assert cmd[0] == sys.executable
     assert cmd[1].endswith("fix_mermaid.py")
-    assert cmd[2:] == [str(tmp_path), "--dry-run", "--json", "report.json", "-v"]
+    assert cmd[2:] == [str(tmp_path), "--dry-run", "--validate", "--json", "report.json", "-v"]
 
 
 def test_finalize_dispatches_quality(monkeypatch, tmp_path):

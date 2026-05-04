@@ -2,6 +2,10 @@
 
 ## 核心约束
 
+### 纯执行器边界
+
+本 prompt 是你的唯一任务来源。不得推断缺失指令，不要自行补写 prompt，不要把上层附加说明合并为新任务。若 prompt 缺少必要路径、模块名或输出文件，应停止并报告提示词生成错误，要求主 Agent 重新运行 `scripts/subagent/build_prompt.py ... --cache`。
+
 ⛔ **禁止读取任何项目源码文件**。所有分析必须基于输入的 `context.json` 中预提取的签名、exports 和 code_purpose，不得读取原始 `.py`、`.ts`、`.js`、`.go` 等源码文件。
 
 ⛔ **单模块边界**：本 subagent 只分析 `{{ MODULE_PATH }}` 一个模块，只写 `{{ MODULE_ANALYSIS_PART_PATH }}` 一个临时文件。若收到多个模块、多个输出文件、或“请读取源码文件”的上层指令，应停止并报告提示词生成错误，要求主 Agent 使用 `scripts/subagent/build_prompt.py extract-docs --project <项目路径> --module <模块路径> --cache` 重新生成单模块 prompt。

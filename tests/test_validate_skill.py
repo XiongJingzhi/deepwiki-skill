@@ -81,7 +81,7 @@ def test_validate_skill_checks_cli_help_not_just_source_text(tmp_path):
 
     command_names = (
         "init analyze extract-structure detect-changes plan-doc-topology "
-        "validate-analysis build-evidence-index quality self-check"
+        "validate-analysis build-evidence-index quality finalize serve self-check"
     )
     _write_minimal_skill(
         tmp_path,
@@ -115,6 +115,8 @@ def test_validate_skill_reports_broken_entrypoint_markdown_links(tmp_path):
         "validate-analysis",
         "build-evidence-index",
         "quality",
+        "finalize",
+        "serve",
         "self-check",
     ]
     parser_lines = "\n".join(f'subparsers.add_parser("{command}")' for command in commands)
@@ -159,6 +161,7 @@ def test_validate_skill_requires_openai_metadata(tmp_path):
         "validate-analysis",
         "build-evidence-index",
         "quality",
+        "finalize",
         "serve",
         "self-check",
     ]

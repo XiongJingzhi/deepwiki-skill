@@ -12,12 +12,13 @@ build_prompt.py - 从模板生成 subagent 系统提示词
 输出:
     默认输出到 stdout。
     加 --output <path> 写入文件。
-    加 --cache 写入 cache/prompts/<type>_<id>.md。
+    加 --cache 写入 cache/prompts/<type>_<safe_id>.md，并更新 manifest.json。
 """
 import argparse
 import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
 
@@ -45,7 +46,48 @@ def _module_slug(module_path: str) -> str:
 
 
 def _safe_page_id(page_id: str) -> str:
-    return page_id.replace(":", "_").replace("/", "_").replace("\\", "_")
+    return (
+        page_id.replace(":", "_")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace(".", "_")
+    )
+
+
+def _update_prompt_manifest(
+    project_dir: Path,
+    agent_type: str,
+    prompt_id: str,
+    safe_id: str,
+    prompt_path: Path,
+) -> None:
+    """Record cached prompt files as explicit subagent dispatch artifacts."""
+    prompts_dir = project_dir / ".deepwiki" / "cache" / "prompts"
+    manifest_path = prompts_dir / "manifest.json"
+    if manifest_path.exists():
+        manifest = _load_json(manifest_path)
+    else:
+        manifest = {}
+
+    manifest.setdefault("version", 1)
+    manifest.setdefault("generated_at", "")
+    manifest.setdefault("prompts", {})
+    manifest["generated_at"] = datetime.now(timezone.utc).isoformat()
+
+    by_type = manifest["prompts"].setdefault(agent_type, {})
+    by_type[prompt_id] = {
+        "agent_type": agent_type,
+        "id": prompt_id,
+        "safe_id": safe_id,
+        "prompt_path": str(prompt_path.relative_to(project_dir)),
+        "source": "scripts/subagent/build_prompt.py",
+        "generated_at": manifest["generated_at"],
+    }
+
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _source_link(project_dir: Path, rel_path: str, start: int | None = None, end: int | None = None) -> str:
@@ -318,9 +360,11 @@ def main(argv=None):
     if args.cache:
         cache_dir = project_dir / ".deepwiki" / "cache" / "prompts"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        safe_id = _safe_page_id(args.page or args.module or args.agent_type)
+        prompt_id = args.page or args.module or args.agent_type
+        safe_id = _safe_page_id(prompt_id)
         out_path = cache_dir / f"{args.agent_type}_{safe_id}.md"
         out_path.write_text(result, encoding="utf-8")
+        _update_prompt_manifest(project_dir, args.agent_type, prompt_id, safe_id, out_path)
         print(str(out_path))
     elif args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

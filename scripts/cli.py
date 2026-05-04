@@ -2,6 +2,7 @@
 """统一封装 DeepWiki skill 的本地工具入口。"""
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -30,6 +31,63 @@ from scripts.pipeline.page_context import get_page_context, print_context
 def _deepwiki_path(path: str) -> Path:
     target = Path(path)
     return target if target.name == ".deepwiki" else target / ".deepwiki"
+
+
+def finalize_wiki(project_path: Path, project_name: Optional[str] = None) -> int:
+    """Run finalize checks and return non-zero if any step fails."""
+    deepwiki_dir = _deepwiki_path(str(project_path)).resolve()
+    project_root = deepwiki_dir.parent if deepwiki_dir.name == ".deepwiki" else project_path.resolve()
+    wiki_dir = deepwiki_dir / "wiki"
+    name = project_name or project_root.name
+    scripts_dir = Path(__file__).resolve().parent
+
+    steps = [
+        (
+            "menu",
+            [
+                sys.executable,
+                "-m",
+                "scripts.wiki.generate_menu",
+                str(wiki_dir),
+                name,
+                "--reconcile",
+            ],
+        ),
+        (
+            "mermaid-fix",
+            [sys.executable, str(scripts_dir / "postprocess.py"), "mermaid", str(deepwiki_dir)],
+        ),
+        (
+            "mermaid-validate",
+            [
+                sys.executable,
+                str(scripts_dir / "postprocess.py"),
+                "mermaid",
+                str(deepwiki_dir),
+                "--validate",
+            ],
+        ),
+        (
+            "quality",
+            [sys.executable, str(scripts_dir / "postprocess.py"), "quality", str(deepwiki_dir)],
+        ),
+        (
+            "consistency",
+            [sys.executable, str(scripts_dir / "postprocess.py"), "consistency", str(deepwiki_dir)],
+        ),
+    ]
+
+    total_steps = len(steps)
+    for index, (name, cmd) in enumerate(steps, start=1):
+        print(f"Finalize step {index}/{total_steps}: {name}")
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print("Finalize failed:")
+            print(f"  - {name}: exit {result.returncode}")
+            return result.returncode
+
+    print("Finalize completed successfully.")
+    return 0
 
 
 def validate_analysis(project_path: Path, verbose: bool = False) -> int:
@@ -98,6 +156,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_quality = subparsers.add_parser("quality", help="Check generated wiki quality")
     p_quality.add_argument("path")
 
+    p_finalize = subparsers.add_parser("finalize", help="Run final wiki checks")
+    p_finalize.add_argument("project_path", help="Path to project or .deepwiki directory")
+    p_finalize.add_argument("--project-name", help="Project name for menu generation")
+
     p_self_check = subparsers.add_parser("self-check", help="Validate skill package")
     p_self_check.add_argument("skill_dir", nargs="?", default=str(Path(__file__).parent.parent))
 
@@ -164,6 +226,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         report = check_wiki_quality(str(_deepwiki_path(args.path)))
         return print_report(report)
+
+    if args.command == "finalize":
+        return finalize_wiki(Path(args.project_path), project_name=args.project_name)
 
     if args.command == "self-check":
         result = validate_skill(Path(args.skill_dir))

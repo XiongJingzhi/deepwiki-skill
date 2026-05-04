@@ -33,7 +33,8 @@ extract-docs 语义分析每个模块**天然独立**——分析模块 A 不需
 上下文文件：
   - cache/modules/{module_slug}/context.json
 提示词：
-  - python scripts/subagent/build_prompt.py extract-docs --project <项目路径> --module {module_path} --cache
+  - 先运行 python scripts/subagent/build_prompt.py extract-docs --project <项目路径> --module {module_path} --cache
+  - 再读取 .deepwiki/cache/prompts/extract-docs_{module_slug}.md 的完整内容作为 subagent prompt
 输出要求：遵循 workflow/extract-docs.md
   - 完成后写入 cache/module-analysis.{module_slug}.json
   - 禁止直接写入 cache/module-analysis.json

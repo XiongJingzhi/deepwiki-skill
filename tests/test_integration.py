@@ -175,6 +175,73 @@ class TestPipelineIntegration:
 
         assert cli.main(["quality", str(fake_python_project / ".deepwiki")]) == 2
 
+    def test_cli_finalize_fails_when_consistency_step_fails(
+        self, fake_python_project, monkeypatch, capsys
+    ):
+        """Finalize must not report success when step 4 exits non-zero."""
+        from scripts import cli
+
+        (fake_python_project / ".deepwiki" / "wiki").mkdir(parents=True)
+        returncodes = iter([0, 0, 0, 0, 1])
+        calls = []
+
+        class Result:
+            def __init__(self, returncode):
+                self.returncode = returncode
+
+        def fake_run(cmd):
+            calls.append(cmd)
+            return Result(next(returncodes))
+
+        monkeypatch.setattr(cli.subprocess, "run", fake_run)
+
+        code = cli.main(["finalize", str(fake_python_project)])
+
+        captured = capsys.readouterr()
+        assert code == 1
+        assert len(calls) == 5
+        assert any("consistency" in " ".join(map(str, call)) for call in calls)
+        assert "Finalize failed" in captured.out
+        assert "consistency" in captured.out
+
+    def test_cli_finalize_stops_when_mermaid_validation_fails(
+        self, fake_python_project, monkeypatch, capsys
+    ):
+        """Finalize must not continue to quality when Mermaid validation fails."""
+        from scripts import cli
+
+        (fake_python_project / ".deepwiki" / "wiki").mkdir(parents=True)
+        returncodes = iter([0, 0, 1])
+        calls = []
+
+        class Result:
+            def __init__(self, returncode):
+                self.returncode = returncode
+
+        def fake_run(cmd):
+            calls.append(cmd)
+            return Result(next(returncodes))
+
+        monkeypatch.setattr(cli.subprocess, "run", fake_run)
+
+        code = cli.main(["finalize", str(fake_python_project)])
+
+        captured = capsys.readouterr()
+        assert code == 1
+        assert len(calls) == 3
+        assert "--validate" in calls[-1]
+        assert not any("quality" in " ".join(map(str, call)) for call in calls)
+        assert "mermaid-validate" in captured.out
+
+    def test_finalize_workflow_docs_forbid_nonzero_completion(self):
+        """Workflow docs should not teach agents to ignore finalize failures."""
+        workflow = Path("references/workflow/finalize-wiki.md").read_text(encoding="utf-8")
+
+        assert "非阻塞" not in workflow
+        assert "任意步骤返回非零退出码时" in workflow
+        assert "Mermaid" in workflow
+        assert "不得把文档宣称为“已完整完成”" in workflow
+
     def test_dependency_self_check_module(self):
         """Dependency self-check exposes a programmatic status."""
         import scripts.quality.check_dependencies as check_dependencies

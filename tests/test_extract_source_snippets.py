@@ -37,6 +37,34 @@ def test_extract_all_snippets_removes_orphan_snippet_files(tmp_path):
     assert (snippets / "deep-dive_new.json").exists()
 
 
+def test_extract_all_snippets_uses_prompt_safe_id_for_dotted_page_ids(tmp_path):
+    """Snippet and prompt builders should agree on safe page IDs."""
+    cache = tmp_path / ".deepwiki" / "cache"
+    cache.mkdir(parents=True)
+    source = tmp_path / "src" / "auth.py"
+    source.parent.mkdir()
+    source.write_text("def login():\n    return True\n", encoding="utf-8")
+    (cache / "generation-plan.json").write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {
+                        "page_id": "deep-dive:auth.v2",
+                        "source_files": [
+                            {"path": "src/auth.py", "ranges": [{"start_line": 1, "end_line": 2}]}
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    extract_all_snippets(tmp_path)
+
+    assert (cache / "snippets" / "deep-dive_auth_v2.json").exists()
+
+
 def test_extract_all_snippets_removes_stale_page_file_when_ranges_empty(tmp_path):
     """If a current page no longer yields snippets, its old snippet file is removed."""
     cache = tmp_path / ".deepwiki" / "cache"

@@ -9,7 +9,18 @@ python scripts/subagent/build_prompt.py generate-module-docs --project <项目�
 ```
 
 模板文件：[`../subagents/generate-module-docs.md`](../subagents/generate-module-docs.md)。
-输出位置：`.deepwiki/cache/prompts/generate-module-docs_<page_id>.md`。
+输出位置：`.deepwiki/cache/prompts/generate-module-docs_<safe_page_id>.md`。
+
+## Prompt 文件即唯一输入
+
+派遣每个 subagent 前，主 Agent 必须：
+
+1. 执行上方 `build_prompt.py generate-module-docs ... --cache`
+2. 确认 `.deepwiki/cache/prompts/manifest.json` 中存在该页面的 `generate-module-docs` 记录
+3. 必须读取生成的 prompt 文件完整内容：`.deepwiki/cache/prompts/generate-module-docs_<safe_page_id>.md`
+4. 使用该完整内容作为 subagent prompt，不添加额外说明
+
+禁止手写、摘要、改写或重新解释 subagent prompt。不要用 `generation-plan.json`、`page-context` 输出或本 workflow 文档自行拼接提示词。跳过此步骤视为本阶段失败。
 
 ## 并发调用 subagent 规则
 

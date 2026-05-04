@@ -185,6 +185,104 @@ def test_cli_rejects_extract_docs_prompt_without_module(tmp_path, capsys):
     assert "--module" in captured.err
 
 
+def test_cache_prompt_records_manifest_entry(tmp_path, capsys):
+    """Cached prompts should become explicit dispatch artifacts."""
+    cache = tmp_path / ".deepwiki" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "generation-plan.json").write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {
+                        "page_id": "deep-dive:auth",
+                        "output_path": "wiki/deep-dive/auth.md",
+                        "affected_modules": ["src/auth"],
+                        "source_files": [{"path": "src/auth/service.py", "ranges": []}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (cache / "module-analysis.json").write_text(
+        json.dumps(
+            {
+                "modules": {
+                    "src/auth": {
+                        "semantic_group": "认证",
+                        "code_purpose": "Service",
+                        "selected_components": ["source_index"],
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    build_prompt.main(
+        [
+            "generate-module-docs",
+            "--project",
+            str(tmp_path),
+            "--page",
+            "deep-dive:auth",
+            "--cache",
+        ]
+    )
+    prompt_path = Path(capsys.readouterr().out.strip())
+    manifest = json.loads((cache / "prompts" / "manifest.json").read_text(encoding="utf-8"))
+
+    entry = manifest["prompts"]["generate-module-docs"]["deep-dive:auth"]
+    assert prompt_path == tmp_path / entry["prompt_path"]
+    assert entry["agent_type"] == "generate-module-docs"
+    assert entry["id"] == "deep-dive:auth"
+    assert entry["safe_id"] == "deep-dive_auth"
+    assert entry["source"] == "scripts/subagent/build_prompt.py"
+
+
+def test_cache_prompt_manifest_records_extract_docs_and_quality_fix(tmp_path, capsys):
+    """All subagent prompt types should be visible to the dispatcher."""
+    context_path = tmp_path / ".deepwiki" / "cache" / "modules" / "src_app" / "context.json"
+    context_path.parent.mkdir(parents=True)
+    context_path.write_text("{}", encoding="utf-8")
+
+    build_prompt.main(
+        [
+            "extract-docs",
+            "--project",
+            str(tmp_path),
+            "--module",
+            "src/app",
+            "--cache",
+        ]
+    )
+    build_prompt.main(
+        [
+            "quality-fix",
+            "--project",
+            str(tmp_path),
+            "--page",
+            "deep-dive/auth.md",
+            "--cache",
+        ]
+    )
+    capsys.readouterr()
+
+    manifest = json.loads(
+        (tmp_path / ".deepwiki" / "cache" / "prompts" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    extract_entry = manifest["prompts"]["extract-docs"]["src/app"]
+    quality_entry = manifest["prompts"]["quality-fix"]["deep-dive/auth.md"]
+    assert extract_entry["safe_id"] == "src_app"
+    assert extract_entry["prompt_path"].endswith("extract-docs_src_app.md")
+    assert quality_entry["safe_id"] == "deep-dive_auth_md"
+    assert quality_entry["prompt_path"].endswith("quality-fix_deep-dive_auth_md.md")
+
+
 def test_quality_fix_prompt_can_target_one_page(tmp_path):
     """quality-fix prompts should carry a single target page when provided."""
     variables = _build_quality_fix_vars(tmp_path, "deep-dive/auth.md")

@@ -1,6 +1,7 @@
 """Tests for scripts/fix_mermaid.py"""
 
 import json
+import sys
 import pytest
 from scripts.wiki import fix_mermaid
 
@@ -411,3 +412,21 @@ class TestFixAllMermaid:
     def test_nonexistent_directory(self, tmp_path):
         results = fix_mermaid.fix_all_mermaid(str(tmp_path / "nonexistent"))
         assert len(results) == 0
+
+
+def test_cli_returns_success_after_applying_regex_fixes(tmp_path, monkeypatch):
+    """Applying deterministic Mermaid fixes is success, not an unresolved failure."""
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "index.md").write_text(
+        "```mermaid\nflowchart LR\nA[数据处理] --> B\n```\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["fix_mermaid.py", str(tmp_path)],
+    )
+
+    assert fix_mermaid.main() == 0

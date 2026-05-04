@@ -13,6 +13,17 @@ python scripts/subagent/build_prompt.py extract-docs --project <项目路径> --
 
 ⛔ **禁止手写 extract-docs subagent 提示词**。必须使用上面的 `build_prompt.py` 为每个模块生成 prompt。不得把多个模块合并到一个 extract-docs subagent，也不得在 prompt 中要求 subagent 读取源码文件。
 
+## Prompt 文件即唯一输入
+
+派遣每个 subagent 前，主 Agent 必须：
+
+1. 执行上方 `build_prompt.py extract-docs ... --cache`
+2. 确认 `.deepwiki/cache/prompts/manifest.json` 中存在该模块的 `extract-docs` 记录
+3. 必须读取生成的 prompt 文件完整内容：`.deepwiki/cache/prompts/extract-docs_<module_slug>.md`
+4. 使用该完整内容作为 subagent prompt，不添加额外说明
+
+禁止手写、摘要、改写或重新解释 subagent prompt。跳过此步骤视为本阶段失败。
+
 ## 并发调用 subagent 规则
 
 共享调度框架：[`../rules/batch-scheduling.md`](../rules/batch-scheduling.md)。

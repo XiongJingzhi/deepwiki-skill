@@ -49,7 +49,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 | `generate-overview` | AI 阶段，按 [`generate-overview.md`](references/workflow/generate-overview.md) 写概述页 |
 | `generate-menu` | `python -m scripts.wiki.generate_menu <project_path>/.deepwiki/wiki <project_name>` |
 | `generate-module-docs` | AI 阶段，按 [`generate-module-docs.md`](references/workflow/generate-module-docs.md) 逐页生成 |
-| `finalize-wiki` | `generate_menu --reconcile` → `scripts/postprocess.py mermaid` → `scripts/postprocess.py quality` → `scripts/postprocess.py consistency` |
+| `finalize-wiki` | `deepwiki finalize <project_path>` |
 
 ### 阶段 A — 准备
 
@@ -76,7 +76,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 
 ### 阶段 E — 收尾
 
-12. **`finalize-wiki`**：封装收尾四步（顺序不可颠倒）— 菜单校验 → Mermaid 修复 → 质量检查 → 一致性检查
+12. **`finalize-wiki`**：运行 `deepwiki finalize <project_path>`，封装收尾门控（顺序不可颠倒）— 菜单校验 → Mermaid 正则修复 → Mermaid 校验 → 质量检查 → 一致性检查。任意步骤返回非零退出码时，本阶段失败；Agent 必须停止并报告失败，不得宣称文档已完整完成。若 Mermaid 校验失败，必须定向重生成对应页面或应用 AI 修复后重跑 `deepwiki finalize`。
 
 ### 多 Agent 拆分提示
 
@@ -91,6 +91,8 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 - `generate-module-docs`：`generate-menu` 和可选 `extract_source_snippets` 完成后，按 `generation-plan.json.pages[]` 拆分；每个 subagent 写入自己的 `output_path`
 - `quality-fix`：质量检查后，按 Basic 文档或失败页面拆分；同一文档只能分配给一个 subagent
 
+**Subagent prompt 文件锁**：所有 subagent 派遣必须先运行 `scripts/subagent/build_prompt.py ... --cache`，再读取 `.deepwiki/cache/prompts/<type>_<safe_id>.md` 的完整内容作为唯一 subagent prompt。不得手写、摘要、改写或重新解释 prompt；跳过 prompt 文件步骤视为该阶段失败。
+
 **必须串行阶段**：`init-wiki`、`analyze-project`、`extract-structure`、`generate-skeleton`、`prepare_module_context`、`validate-analysis`、`plan-doc-topology`、`generate-overview`、`generate-menu`、`finalize-wiki`。这些步骤需要全局一致输入、写聚合文件，或负责合并检查。
 
 **触发阈值**：任务数 ≤ 5 时主 Agent 串行；6–15 时建议 subagent 分批；> 15 且当前环境支持/用户允许 subagent 时，必须按 [`batch-scheduling.md`](references/rules/batch-scheduling.md) 分批并行；不支持时按同一批次顺序串行执行。
@@ -101,7 +103,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 |------|------|
 | 仅质量检查 | 直接运行 `deepwiki quality <project_path>` |
 | 定向重生成 | `deepwiki page-context <project_path> <wiki_path>` → 重生成目标页 → `scripts/postprocess.py quality <project_path>/.deepwiki` |
-| 收尾四步 | `python -m scripts.wiki.generate_menu <wiki_dir> <project_name> --reconcile` → `scripts/postprocess.py mermaid <deepwiki_dir>` → `scripts/postprocess.py quality <deepwiki_dir>` → `scripts/postprocess.py consistency <deepwiki_dir>` |
+| 收尾检查 | `deepwiki finalize <project_path>`；任意子步骤失败即整体失败 |
 | 预览文档 | `deepwiki serve <project_path>`，浏览器打开 `http://127.0.0.1:8742` |
 | 定向更新单页 | `deepwiki page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `postprocess.py quality` 确认 |
 
