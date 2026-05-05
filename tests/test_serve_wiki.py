@@ -1,6 +1,7 @@
 """Tests for serve_wiki (scripts/serve/)"""
 
 import json
+import socket
 import sys
 import time
 import urllib.parse
@@ -15,6 +16,7 @@ import pytest
 import scripts.serve.handler as _handler
 from scripts.serve import resolve_wiki_dir
 from scripts.serve.handler import WikiHandler
+from scripts.serve.server import create_server_with_port_fallback, serve_wiki
 
 
 @pytest.fixture
@@ -77,6 +79,48 @@ def _start_server(project_path, port=0):
 
 def _fetch(url):
     return urllib.request.urlopen(url)
+
+
+def test_create_server_uses_next_port_when_requested_port_is_busy(wiki_project):
+    """Preview server should auto-increment when the requested port is occupied."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as occupied:
+        occupied.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        occupied.bind(("127.0.0.1", 0))
+        occupied.listen(1)
+        busy_port = occupied.getsockname()[1]
+
+        server, actual_port = create_server_with_port_fallback(
+            "127.0.0.1",
+            busy_port,
+            WikiHandler,
+            max_attempts=3,
+        )
+
+    try:
+        assert actual_port == busy_port + 1
+        assert server.server_address[1] == busy_port + 1
+    finally:
+        server.server_close()
+
+
+def test_serve_wiki_prints_actual_incremented_port(wiki_project, monkeypatch, capsys):
+    """serve_wiki should advertise the fallback port it actually bound."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as occupied:
+        occupied.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        occupied.bind(("127.0.0.1", 0))
+        occupied.listen(1)
+        busy_port = occupied.getsockname()[1]
+
+        def stop_immediately(self):
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(HTTPServer, "serve_forever", stop_immediately)
+
+        serve_wiki(str(wiki_project), port=busy_port, host="127.0.0.1")
+
+    captured = capsys.readouterr()
+    assert f"Port {busy_port} is in use; using {busy_port + 1} instead." in captured.out
+    assert f"http://127.0.0.1:{busy_port + 1}" in captured.out
 
 
 class TestResolveWikiDir:

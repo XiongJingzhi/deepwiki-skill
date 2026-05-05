@@ -1,6 +1,7 @@
 """DeepWiki 本地预览服务器入口。"""
 
 import argparse
+import errno
 import sys
 from http.server import HTTPServer
 from pathlib import Path
@@ -18,14 +19,43 @@ def resolve_wiki_dir(project_path: str) -> Path:
     return wiki
 
 
+def create_server_with_port_fallback(
+    host: str,
+    port: int,
+    handler_class,
+    max_attempts: int = 100,
+) -> tuple[HTTPServer, int]:
+    """Create an HTTP server, auto-incrementing the port when it is occupied."""
+    if port == 0:
+        server = HTTPServer((host, port), handler_class)
+        return server, server.server_address[1]
+
+    last_error = None
+    for candidate in range(port, port + max_attempts + 1):
+        try:
+            server = HTTPServer((host, candidate), handler_class)
+            return server, candidate
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            last_error = exc
+
+    raise OSError(
+        errno.EADDRINUSE,
+        f"No available port from {port} to {port + max_attempts}",
+    ) from last_error
+
+
 def serve_wiki(project_path: str, port: int = 8742, host: str = "127.0.0.1"):
     """启动本地 wiki 预览服务器。"""
     _handler.project_root = Path(project_path).resolve()
     _handler.wiki_dir = resolve_wiki_dir(project_path)
     menu = _handler._load_menu(_handler.wiki_dir)
 
-    server = HTTPServer((host, port), _handler.WikiHandler)
-    url = f"http://{host}:{port}"
+    server, actual_port = create_server_with_port_fallback(host, port, _handler.WikiHandler)
+    url = f"http://{host}:{actual_port}"
+    if actual_port != port:
+        print(f"Port {port} is in use; using {actual_port} instead.")
     print(f"DeepWiki server running at {url}")
     print(f"  Project: {menu.get('title', _handler.wiki_dir.parent.parent.name)}")
     print(f"  Wiki:    {_handler.wiki_dir}")

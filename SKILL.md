@@ -18,7 +18,7 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | 重建 wiki | **增量更新** | 已有 `.deepwiki/` 时从 `analyze-project` / `detect-changes` 继续，不要重新 `init-wiki` |
 | 检查 wiki 质量 | **仅质量检查** | `deepwiki quality <project_path>` |
 | 更新/升级文档 | **定向重生成** | `deepwiki page-context <project_path> <wiki_path>` → 按 `generate-module-docs` 规则重生成目标页 |
-| 预览文档 | **启动本地服务** | `deepwiki serve <project_path>`（默认端口 8742） |
+| 预览文档 | **启动本地服务** | `deepwiki serve <project_path>`（默认端口 8742；端口占用时自动递增） |
 
 > **命令约定**：若已执行 `pip install -e .`，优先使用 `deepwiki <command>`；否则在技能目录运行 `python -m scripts.cli <command>`。`init-wiki`、`analyze-project` 等是工作流阶段名，不一定是 CLI 子命令。
 
@@ -104,7 +104,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 | 仅质量检查 | 直接运行 `deepwiki quality <project_path>` |
 | 定向重生成 | `deepwiki page-context <project_path> <wiki_path>` → 重生成目标页 → `scripts/postprocess.py quality <project_path>/.deepwiki` |
 | 收尾检查 | `deepwiki finalize <project_path>`；任意子步骤失败即整体失败 |
-| 预览文档 | `deepwiki serve <project_path>`，浏览器打开 `http://127.0.0.1:8742` |
+| 预览文档 | `deepwiki serve <project_path>`，浏览器打开命令输出的 URL；若 8742 被占用会自动使用 8743、8744... |
 | 定向更新单页 | `deepwiki page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `postprocess.py quality` 确认 |
 
 ## 工具索引
