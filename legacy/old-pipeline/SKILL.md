@@ -1,0 +1,206 @@
+---
+name: deepwiki
+description: 通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档。Use when user requests "生成 wiki"、"创建项目源码文档"、"创建项目文档"、"更新 wiki"、"重建 wiki"、"检查 wiki 质量"、"升级源码文档"、"预览项目 wiki"、"启动文档服务". Also use when a project needs automated documentation generation from source code or viewing generated wiki in a browser.
+---
+
+# DeepWiki
+
+通过深度分析源代码、架构和模块依赖，自动生成结构化项目文档到 `.deepwiki/` 目录。
+
+> **文档语言**：读取 `.deepwiki/config.yaml` 中 `generation.language`（`zh` / `en` / `both`），所有生成文档使用该语言撰写。默认 `zh`。
+> **参考资料**：详细规则见 [`references/`](references/) 目录；工具列表见下方索引表。
+
+## 运行模式
+
+| 用户意图 | 模式 | 入口工具 |
+|---------|------|---------|
+| 生成/创建文档 | **全量生成** | 从主路径第 1 步开始串行执行，`init-wiki` 只是初始化 |
+| 串行生成文档 / 不派遣 subagent | **全量串行生成** | 从主路径第 1 步开始执行；所有可拆分阶段也由主 Agent 顺序完成 |
+| 重建 wiki | **增量更新** | 已有 `.deepwiki/` 时从 `analyze-project` / `detect-changes` 继续，不要重新 `init-wiki` |
+| 检查 wiki 质量 | **仅质量检查** | `deepwiki quality <project_path>` |
+| 更新/升级文档 | **定向重生成** | `deepwiki page-context <project_path> <wiki_path>` → 按 `generate-module-docs` 规则重生成目标页 |
+| 预览文档 | **启动本地服务** | `deepwiki serve <project_path>`（默认端口 8742；端口占用时自动递增） |
+
+> **串行硬开关**：当用户输入“串行生成文档”、"serial generate docs"、"no subagent"、"不派遣 subagent" 或同义表达时，整个 DeepWiki 流程进入全量串行生成模式。即使模块数或页面数超过并行阈值，也不得调用、派遣、spawn subagent；`extract-docs`、`generate-module-docs`、`quality-fix` 均由主 Agent 按任务列表逐项顺序执行，并在 `state/progress.json` 中记录 `mode: "serial"`。
+
+> **命令约定**：若已执行 `pip install -e .`，优先使用 `deepwiki <command>`；否则在技能目录运行 `python -m scripts.cli <command>`。`init-wiki`、`analyze-project` 等是工作流阶段名，不一定是 CLI 子命令。
+
+## 工作流
+
+> **执行原则**：`init-wiki`、`analyze-project`、`extract-structure`、`generate-skeleton`、`prepare_module_context`、`detect-changes`、`validate-analysis`、`plan-doc-topology`、`generate-menu`、`finalize-wiki` 有脚本支撑；`extract-docs`、`generate-overview`、`generate-module-docs` 是 Agent 按参考规则生成内容的 AI 阶段，不能当作单个 shell 命令直接运行。
+
+**主路径（全量/增量）：**
+
+```
+init-wiki → analyze-project → extract-structure → generate-skeleton
+→ prepare_module_context → extract-docs → validate-analysis → plan-doc-topology
+→ generate-overview → generate-menu → generate-module-docs → finalize-wiki
+```
+
+**阶段名到命令的映射：**
+
+| 阶段 | 精确命令 / 执行方式 |
+|------|--------------------|
+| `init-wiki` | `deepwiki init <project_path>` |
+| `analyze-project` | `deepwiki analyze <project_path>` |
+| `extract-structure` | `deepwiki extract-structure <project_path>` |
+| `generate-skeleton` | `python -m scripts.pipeline.generate_skeleton <project_path>` 后由 Agent 补齐骨架字段 |
+| `prepare_module_context` | `python -m scripts.pipeline.prepare_module_context <project_path>` |
+| `extract-docs` | AI 阶段，按 [`extract-docs.md`](references/workflow/extract-docs.md) 生成/补充模块分析 |
+| `validate-analysis` | `deepwiki validate-analysis <project_path>` |
+| `plan-doc-topology` | `deepwiki plan-doc-topology <project_path>` |
+| `generate-overview` | AI 阶段，按 [`generate-overview.md`](references/workflow/generate-overview.md) 写概述页 |
+| `generate-menu` | `python -m scripts.wiki.generate_menu <project_path>/.deepwiki/wiki <project_name>` |
+| `generate-module-docs` | AI 阶段，按 [`generate-module-docs.md`](references/workflow/generate-module-docs.md) 逐页生成 |
+| `finalize-wiki` | `deepwiki finalize <project_path>` |
+
+### 阶段 A — 准备
+
+1. **`init-wiki`**：创建 `.deepwiki/` 目录结构；仅首次生成使用。目录已存在时不要把失败当作生成失败，应继续增量流程或显式 `--force`
+2. **`analyze-project`**：项目结构分析，生成模块/入口点/技术栈。可选运行 `refine-modules`（模块边界失真时），**若运行必须在 `generate-skeleton` 之前**
+3. **`extract-structure`**：提取代码结构到 `cache/`
+4. **`generate-skeleton`**：运行 `python -m scripts.pipeline.generate_skeleton <project_path>` 生成 `architecture-skeleton.json` 的确定性字段，然后由 Agent 补齐 `project_nature`、`key_data_flows`
+
+### 阶段 B — 分析注入
+
+5. **`prepare_module_context`**（脚本，`extract-docs` 前置）：生成含签名/exports 的 `context.json`；`extract-docs` 禁止读取任何源码文件
+6. **`extract-docs`**：AI 模块语义分析。增量模式下读取 `detect-changes` 结果；全量首次生成时自动处理
+7. **`validate-analysis`**：封装 `check-analysis-quality` + `build-evidence-index`，通过后生成 `evidence-index.json`；exit=1 时 Agent 需对失败模块增量补充分析后重跑（见 [`validate-analysis.md`](references/workflow/validate-analysis.md) 重试流程）
+
+### 阶段 C — 规划
+
+8. **`plan-doc-topology`**：生成文档拓扑与编译计划
+9. **`generate-overview`**：复用 `synthesize-deps` 依赖综合规则，生成概述页 + 项目上下文摘要
+10. **`generate-menu`**（必须）：运行 `python -m scripts.wiki.generate_menu <project_path>/.deepwiki/wiki <project_name>` 生成 `wiki/menu.json` 与 `wiki/doc-map.md`，为模块文档提供导航和面包屑
+
+### 阶段 D — 生成
+
+11. **`generate-module-docs`**：按页面计划逐页生成模块文档
+
+### 阶段 E — 收尾
+
+12. **`finalize-wiki`**：运行 `deepwiki finalize <project_path>`，封装收尾门控（顺序不可颠倒）— 菜单校验 → Mermaid 正则修复 → Mermaid 校验 → 质量检查 → 一致性检查。任意步骤返回非零退出码时，本阶段失败；Agent 必须停止并报告失败，不得宣称文档已完整完成。若 Mermaid 校验失败，必须定向重生成对应页面或应用 AI 修复后重跑 `deepwiki finalize`。
+
+### 多 Agent 拆分提示
+
+并行阶段 subagent 提示词见 [`references/subagents/`](references/subagents/)，包含：
+- [`extract-docs`](references/subagents/extract-docs.md) — 模块分析并行
+- [`generate-module-docs`](references/subagents/generate-module-docs.md) — 文档生成并行
+- [`quality-fix`](references/subagents/quality-fix.md) — 质量修复并行
+- 共享调度框架：[`batch-scheduling.md`](references/rules/batch-scheduling.md)
+
+**可拆分阶段**：
+- `extract-docs`：`prepare_module_context` 完成后，按模块拆分；每个 subagent 只读自己的 `cache/modules/<slug>/context.json`，写入 `cache/module-analysis.<slug>.json`
+- `generate-module-docs`：`generate-menu` 和可选 `extract_source_snippets` 完成后，按 `generation-plan.json.pages[]` 拆分；每个 subagent 写入自己的 `output_path`
+- `quality-fix`：质量检查后，按 Basic 文档或失败页面拆分；同一文档只能分配给一个 subagent
+
+**Subagent prompt 文件锁**：所有 subagent 派遣必须先运行 `scripts/subagent/build_prompt.py ... --cache`，再读取 `.deepwiki/cache/prompts/<type>_<safe_id>.md` 的完整内容作为唯一 subagent prompt。不得手写、摘要、改写或重新解释 prompt；跳过 prompt 文件步骤视为该阶段失败。
+
+**必须串行阶段**：`init-wiki`、`analyze-project`、`extract-structure`、`generate-skeleton`、`prepare_module_context`、`validate-analysis`、`plan-doc-topology`、`generate-overview`、`generate-menu`、`finalize-wiki`。这些步骤需要全局一致输入、写聚合文件，或负责合并检查。
+
+**触发阈值**：任务数 ≤ 5 时主 Agent 串行；6–15 时建议 subagent 分批；> 15 且当前环境支持/用户允许 subagent 时，必须按 [`batch-scheduling.md`](references/rules/batch-scheduling.md) 分批并行；不支持时按同一批次顺序串行执行。
+
+**用户指定串行优先**：用户请求“串行生成文档”或明确禁止 subagent 时，上述阈值全部失效，主 Agent 必须独自顺序完成所有阶段，不得调用 `spawn_agent` 或任何 subagent 派遣流程。
+
+### 快捷路径
+
+| 场景 | 操作 |
+|------|------|
+| 仅质量检查 | 直接运行 `deepwiki quality <project_path>` |
+| 定向重生成 | `deepwiki page-context <project_path> <wiki_path>` → 重生成目标页 → `python -m scripts.wiki.postprocess quality <project_path>/.deepwiki` |
+| 收尾检查 | `deepwiki finalize <project_path>`；任意子步骤失败即整体失败 |
+| 预览文档 | `deepwiki serve <project_path>`，浏览器打开命令输出的 URL；若 8742 被占用会自动使用 8743、8744... |
+| 定向更新单页 | `deepwiki page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `python -m scripts.wiki.postprocess quality` 确认 |
+
+## 工具索引
+
+### Pipeline 脚本
+
+| 工具 | 说明 |
+|------|------|
+| `init-wiki` | [init-wiki.md](references/workflow/init-wiki.md) |
+| `analyze-project` | [analyze-project.md](references/workflow/analyze-project.md) |
+| `extract-structure` | [extract-structure.md](references/workflow/extract-structure.md) |
+| `refine-modules` | [refine-modules.md](references/workflow/refine-modules.md)（可选） |
+| `generate-skeleton` | [generate-skeleton.md](references/workflow/generate-skeleton.md) |
+| `detect-changes` | [detect-changes.md](references/workflow/detect-changes.md) |
+| `prepare_module_context` | `python -m scripts.pipeline.prepare_module_context`（`extract-docs` 前置） |
+| `build_prompt` | `scripts/subagent/build_prompt.py`（从模板生成 subagent 系统提示词） |
+| `extract-docs` | [extract-docs.md](references/workflow/extract-docs.md) |
+| `validate-analysis` | [validate-analysis.md](references/workflow/validate-analysis.md)（含 `check-analysis-quality` + `build-evidence-index`） |
+| `plan-doc-topology` | [plan-doc-topology.md](references/workflow/plan-doc-topology.md) |
+| `extract_source_snippets` | `python -m scripts.pipeline.extract_source_snippets`（`generate-module-docs` 前置，可选） |
+| `generate-overview` | [generate-overview.md](references/workflow/generate-overview.md) |
+| `generate-menu` | [generate-menu.md](references/workflow/generate-menu.md) |
+| `generate-module-docs` | [generate-module-docs.md](references/workflow/generate-module-docs.md) |
+| `finalize-wiki` | [finalize-wiki.md](references/workflow/finalize-wiki.md)（封装收尾四步） |
+| `finalize` | `python -m scripts.wiki.postprocess <command>`（mermaid / quality / consistency） |
+
+### AI 工作流与规范
+
+| 文档 | 链接 |
+|------|------|
+| `synthesize-deps` | [synthesize-deps.md](references/workflow/synthesize-deps.md)（`generate-overview` 内部规则） |
+| `codepurpose-detection` | [codepurpose-detection.md](references/rules/codepurpose-detection.md) |
+| `module-analysis-spec` | [module-analysis-spec.md](references/rules/module-analysis-spec.md) |
+| `planning-output-spec` | [planning-output-spec.md](references/rules/planning-output-spec.md) |
+
+### 辅助脚本
+
+| 命令 | 说明 |
+|------|------|
+| `deepwiki serve` | 启动本地文档预览服务 |
+| `deepwiki page-context` | 提取指定 wiki 页面的模块分析上下文 |
+| `deepwiki self-check` | 检查 skill 包元数据、关键文件、CLI 命令 |
+
+## 运行环境
+
+| 依赖 | 版本要求 | 用途 | 缺失时行为 |
+|------|---------|------|----------|
+| Python | >= 3.9 | 所有脚本运行时 | 必须 |
+| Python 包 | `pyyaml>=6.0`, `jsonschema>=4.0` | 配置读取、schema 校验 | 必须；安装: `pip install -e .` |
+| Python 包 | `tree-sitter>=0.23.0` 及语言绑定 | `extract_structure.py` 代码解析 | 必须；安装: `pip install -e .` |
+| Node.js | >= 16 | mmdc CLI 运行时 | 可选；Mermaid 校验自动跳过 |
+| `@mermaid-js/mermaid-cli` | 最新版 | `python -m scripts.wiki.postprocess mermaid --validate` | 可选；`check_mmdc_available()` 检测后降级 |
+
+> **安装 Python 依赖：** `pip install -e .`（安装 `pyproject.toml` 中声明的全部依赖）
+> **安装 mmdc（可选）：** `npm install -g @mermaid-js/mermaid-cli`
+> 安装后 Mermaid AI 修复可进入阶段 2（mmdc 校验 → AI 定向修复）；未安装时仅执行正则修复。
+
+## 不适用场景
+
+- 项目文件极少（< 5 个文件）时，手写文档更快
+- 已有完善文档体系且不需要自动化更新时
+- 仅需要单个函数/文件说明时（直接请 AI 解释即可）
+
+## 输出结构
+
+```
+.deepwiki/
+├── config.yaml
+├── meta.json
+├── state/                     # 流程状态
+│   ├── checksums.json
+│   ├── file-hashes.json
+│   └── progress.json
+├── cache/                     # AI 认知上下文
+│   ├── structure.json
+│   ├── parse-results.json
+│   ├── code-structure.json
+│   ├── architecture-skeleton.json
+│   ├── module-analysis.json
+│   ├── doc-topology.json
+│   ├── generation-plan.json
+│   ├── evidence-index.json
+│   └── snippets/             # 预提取源码片段（可选）
+└── wiki/
+    ├── overview.md
+    ├── getting-started.md
+    ├── doc-map.md
+    ├── menu.json
+    ├── concepts/         # 理解项目
+    ├── deep-dive/        # 深入理解
+    └── reference/        # 参考资料
+```
+
+> 所有输出文件的完整用途说明见 [`references/system-reference.md`](references/system-reference.md)。
