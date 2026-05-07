@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from scripts.pipeline.prepare_inventory import prepare_inventory
+from scripts.pipeline.page_context import build_page_context
 from scripts.pipeline.validate_page_plan import validate_page_plan
 from scripts.wiki.init_wiki import init_wiki
 
@@ -28,6 +29,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Validate .deepwiki/cache/page-plan.json",
     )
     p_validate_plan.add_argument("project_path")
+    p_page_context = subparsers.add_parser(
+        "page-context",
+        help="Build context for one planned page",
+    )
+    p_page_context.add_argument("project_path")
+    p_page_context.add_argument("page_id")
+    p_page_context.add_argument("--max-excerpt-chars", type=int, default=12000)
     subparsers.add_parser("self-check", help="Validate the clean skill package")
 
     args = parser.parse_args(argv)
@@ -51,6 +59,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         for error in result["errors"]:
             print(f"  - {error}")
         return 1
+    if args.command == "page-context":
+        context = build_page_context(
+            Path(args.project_path),
+            args.page_id,
+            max_excerpt_chars=args.max_excerpt_chars,
+            save_to_cache=True,
+        )
+        safe_id = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in context["page_id"]).strip("_") or "page"
+        print(Path(args.project_path) / ".deepwiki" / "cache" / "page-context" / f"{safe_id}.json")
+        return 0
     if args.command == "self-check":
         print("DeepWiki skill self-check passed.")
         return 0
