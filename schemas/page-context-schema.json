@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DeepWiki Page Context",
+  "type": "object",
+  "required": [
+    "page_id",
+    "objective",
+    "source_files",
+    "source_excerpts",
+    "related_pages",
+    "claims_to_cover",
+    "must_link_symbols",
+    "constraints"
+  ],
+  "properties": {
+    "page_id": { "type": "string" },
+    "objective": { "type": "string" },
+    "source_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "source_excerpts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "start_line", "end_line", "text"],
+        "properties": {
+          "path": { "type": "string" },
+          "start_line": { "type": "integer", "minimum": 1 },
+          "end_line": { "type": "integer", "minimum": 1 },
+          "text": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "related_pages": { "type": "array", "items": { "type": "string" } },
+    "claims_to_cover": { "type": "array", "items": { "type": "string" } },
+    "must_link_symbols": { "type": "array", "items": { "type": "string" } },
+    "constraints": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

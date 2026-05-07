@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DeepWiki Page Plan",
+  "type": "object",
+  "required": [
+    "cache_schema_version",
+    "generated_at",
+    "sections",
+    "pages",
+    "generation_order",
+    "menu_seed"
+  ],
+  "properties": {
+    "cache_schema_version": { "type": "integer" },
+    "generated_at": { "type": "string" },
+    "sections": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Section" }
+    },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Page" }
+    },
+    "generation_order": { "type": "array", "items": { "type": "string" } },
+    "menu_seed": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/MenuSection" }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Section": {
+      "type": "object",
+      "required": ["id", "title", "page_ids"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "page_ids": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "Page": {
+      "type": "object",
+      "required": [
+        "page_id",
+        "title",
+        "output_path",
+        "page_type",
+        "purpose",
+        "source_targets",
+        "depends_on",
+        "status"
+      ],
+      "properties": {
+        "page_id": { "type": "string" },
+        "title": { "type": "string" },
+        "output_path": { "type": "string" },
+        "page_type": {
+          "type": "string",
+          "enum": ["overview", "getting-started", "concept", "deep-dive", "reference", "doc-map", "custom"]
+        },
+        "purpose": { "type": "string" },
+        "source_targets": { "type": "array", "items": { "type": "string" } },
+        "depends_on": { "type": "array", "items": { "type": "string" } },
+        "status": {
+          "type": "string",
+          "enum": ["planned", "in_progress", "completed", "failed", "skipped"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "MenuSection": {
+      "type": "object",
+      "required": ["title", "page_ids"],
+      "properties": {
+        "title": { "type": "string" },
+        "page_ids": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

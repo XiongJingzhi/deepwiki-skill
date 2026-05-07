@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DeepWiki Project Inventory",
+  "type": "object",
+  "required": [
+    "cache_schema_version",
+    "generated_at",
+    "project_name",
+    "root_path",
+    "languages",
+    "frameworks",
+    "package_managers",
+    "entry_candidates",
+    "important_configs",
+    "docs_found",
+    "ignore_rules",
+    "tree_summary",
+    "stats",
+    "files"
+  ],
+  "properties": {
+    "cache_schema_version": { "type": "integer" },
+    "generated_at": { "type": "string" },
+    "project_name": { "type": "string" },
+    "root_path": { "type": "string" },
+    "languages": { "type": "array", "items": { "type": "string" } },
+    "frameworks": { "type": "array", "items": { "type": "string" } },
+    "package_managers": { "type": "array", "items": { "type": "string" } },
+    "entry_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/PathReason" }
+    },
+    "important_configs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "docs_found": { "type": "array", "items": { "type": "string" } },
+    "ignore_rules": {
+      "type": "object",
+      "required": ["default_ignored_dirs", "default_ignored_files", "gitignore_used"],
+      "properties": {
+        "default_ignored_dirs": { "type": "array", "items": { "type": "string" } },
+        "default_ignored_files": { "type": "array", "items": { "type": "string" } },
+        "gitignore_used": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "tree_summary": {
+      "type": "object",
+      "required": ["max_depth", "top_level_dirs", "top_level_files"],
+      "properties": {
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "top_level_dirs": { "type": "array", "items": { "type": "string" } },
+        "top_level_files": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "stats": {
+      "type": "object",
+      "required": [
+        "total_files",
+        "code_files",
+        "test_files",
+        "config_files",
+        "doc_files",
+        "generated_files"
+      ],
+      "properties": {
+        "total_files": { "type": "integer", "minimum": 0 },
+        "code_files": { "type": "integer", "minimum": 0 },
+        "test_files": { "type": "integer", "minimum": 0 },
+        "config_files": { "type": "integer", "minimum": 0 },
+        "doc_files": { "type": "integer", "minimum": 0 },
+        "generated_files": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/FileEntry" }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "PathReason": {
+      "type": "object",
+      "required": ["path", "reason"],
+      "properties": {
+        "path": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "FileEntry": {
+      "type": "object",
+      "required": [
+        "path",
+        "name",
+        "extension",
+        "size",
+        "hash",
+        "category",
+        "language",
+        "is_test",
+        "is_config",
+        "is_doc",
+        "is_generated"
+      ],
+      "properties": {
+        "path": { "type": "string" },
+        "name": { "type": "string" },
+        "extension": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 },
+        "hash": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["code", "test", "config", "doc", "asset", "data", "other"]
+        },
+        "language": { "type": ["string", "null"] },
+        "is_test": { "type": "boolean" },
+        "is_config": { "type": "boolean" },
+        "is_doc": { "type": "boolean" },
+        "is_generated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

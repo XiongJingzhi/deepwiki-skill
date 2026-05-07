@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DeepWiki Semantic Analysis",
+  "type": "object",
+  "required": [
+    "cache_schema_version",
+    "generated_at",
+    "project_purpose",
+    "architecture_model",
+    "runtime_flows",
+    "concepts",
+    "modules",
+    "cross_cutting_concerns",
+    "risks",
+    "extension_points",
+    "source_evidence",
+    "confidence",
+    "open_questions"
+  ],
+  "properties": {
+    "cache_schema_version": { "type": "integer" },
+    "generated_at": { "type": "string" },
+    "project_purpose": { "type": "string" },
+    "architecture_model": {
+      "type": "object",
+      "required": ["summary"],
+      "properties": {
+        "summary": { "type": "string" },
+        "details": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    "runtime_flows": { "type": "array", "items": { "$ref": "#/definitions/NamedSummary" } },
+    "concepts": { "type": "array", "items": { "$ref": "#/definitions/NamedSummary" } },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "summary", "source_targets"],
+        "properties": {
+          "name": { "type": "string" },
+          "summary": { "type": "string" },
+          "source_targets": { "type": "array", "items": { "type": "string" } },
+          "evidence": { "type": "array", "items": { "$ref": "#/definitions/Evidence" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "cross_cutting_concerns": { "type": "array", "items": { "$ref": "#/definitions/NamedSummary" } },
+    "risks": { "type": "array", "items": { "$ref": "#/definitions/NamedSummary" } },
+    "extension_points": { "type": "array", "items": { "$ref": "#/definitions/NamedSummary" } },
+    "source_evidence": { "type": "array", "items": { "$ref": "#/definitions/Evidence" } },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "open_questions": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "NamedSummary": {
+      "type": "object",
+      "required": ["name", "summary"],
+      "properties": {
+        "name": { "type": "string" },
+        "summary": { "type": "string" },
+        "evidence": { "type": "array", "items": { "$ref": "#/definitions/Evidence" } }
+      },
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["path", "reason"],
+      "properties": {
+        "path": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
