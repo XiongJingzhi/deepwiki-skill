@@ -10,6 +10,7 @@ from typing import List, Optional
 from scripts.pipeline.prepare_inventory import prepare_inventory
 from scripts.pipeline.page_context import build_page_context
 from scripts.pipeline.validate_page_plan import validate_page_plan
+from scripts.serve.server import serve_wiki
 from scripts.wiki.finalize import finalize_wiki
 from scripts.wiki.generate_menu import generate_menu
 from scripts.wiki.init_wiki import init_wiki
@@ -43,6 +44,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_generate_menu.add_argument("--project-name")
     p_finalize = subparsers.add_parser("finalize", help="Run final wiki checks")
     p_finalize.add_argument("project_path")
+    p_serve = subparsers.add_parser("serve", help="Serve generated wiki")
+    p_serve.add_argument("project_path")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8742)
     subparsers.add_parser("self-check", help="Validate the clean skill package")
 
     args = parser.parse_args(argv)
@@ -82,6 +87,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     if args.command == "finalize":
         return finalize_wiki(Path(args.project_path))
+    if args.command == "serve":
+        serve_wiki(Path(args.project_path), host=args.host, port=args.port)
+        return 0
     if args.command == "self-check":
         print("DeepWiki skill self-check passed.")
         return 0
