@@ -10,6 +10,7 @@ from typing import List, Optional
 from scripts.pipeline.prepare_inventory import prepare_inventory
 from scripts.pipeline.page_context import build_page_context
 from scripts.pipeline.validate_page_plan import validate_page_plan
+from scripts.quality.validate_skill import validate_skill
 from scripts.serve.server import serve_wiki
 from scripts.wiki.finalize import finalize_wiki
 from scripts.wiki.generate_menu import generate_menu
@@ -91,8 +92,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         serve_wiki(Path(args.project_path), host=args.host, port=args.port)
         return 0
     if args.command == "self-check":
-        print("DeepWiki skill self-check passed.")
-        return 0
+        result = validate_skill(Path("."))
+        if result["ok"]:
+            print("DeepWiki skill self-check passed.")
+            return 0
+        print("DeepWiki skill self-check failed:")
+        for error in result["errors"]:
+            print(f"  - {error}")
+        return 1
     return 1
 
 
