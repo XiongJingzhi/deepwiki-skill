@@ -36,10 +36,12 @@ init-wiki → prepare-inventory → agentic-analysis → plan-pages
 - `.deepwiki/cache/project-inventory.json` 是唯一强制准备产物。
 - `agentic-analysis`、`plan-pages`、`generate-pages` 阶段由 Agent 按需直接阅读源码。
 - 文档生成以 `.deepwiki/cache/page-plan.json` 中的页面为拆分单位。
-- 不依赖旧缓存文件，例如 `structure.json`、`module-analysis.json`、`generation-plan.json`。
 - 写页面时遵循 `references/rules/quality-standards.md`。
 - 页面组件选择参考 `references/rules/components-registry.yaml`。
-- `finalize-wiki` 失败时必须停止，并报告失败检查项。
+- Mermaid 校验依赖 `mmdc`（需要 Node.js 环境）。如果 `mmdc` 不可用，`deepwiki mermaid --validate` 和 `deepwiki finalize` 会报错停止。安装方式：`npm install -g @mermaid-js/mermaid-cli` 或确保 `npx` 可用。
+- **Mermaid 修复循环**：如果 `.deepwiki/state/mermaid-errors.json` 存在，Agent 必须读取该文件，逐个修复出错的 Mermaid 代码块，然后重新运行 `deepwiki mermaid <project_path> --validate`，重复此过程直到校验通过且 `mermaid-errors.json` 被清除。
+- `finalize-wiki` 失败时分析问题，修复后重新运行 `finalize-wiki`，直到成功为止。
+
 
 ## 参考资料
 

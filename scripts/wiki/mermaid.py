@@ -1,4 +1,4 @@
-"""Mermaid extraction, regex repair, and optional mmdc validation."""
+"""Mermaid extraction, regex repair, and mmdc validation."""
 
 from __future__ import annotations
 
@@ -158,23 +158,36 @@ def _process_content(content: str, file_stem: str) -> Tuple[str, int, int]:
     return new_content, len(blocks), total_fixes
 
 
+def _find_mmdc() -> str | None:
+    """Return the mmdc command to use, or None if not available."""
+    if shutil.which("mmdc"):
+        return "mmdc"
+    if shutil.which("npx"):
+        return "npx"
+    return None
+
+
+def _run_mmdc(input_path: str | Path, output_path: str | Path, cmd: str) -> subprocess.CompletedProcess:
+    if cmd == "npx":
+        args = ["npx", "@mermaid-js/mermaid-cli", "--input", str(input_path), "--output", str(output_path)]
+    else:
+        args = ["mmdc", "--input", str(input_path), "--output", str(output_path)]
+    return subprocess.run(args, capture_output=True, text=True, timeout=30)
+
+
 def check_mmdc_available() -> bool:
-    return shutil.which("mmdc") is not None
+    return _find_mmdc() is not None
 
 
 def _validate_block(text: str) -> Optional[str]:
-    if not check_mmdc_available():
-        return None
+    cmd = _find_mmdc()
+    if cmd is None:
+        return "mmdc not found: install with `npm install -g @mermaid-js/mermaid-cli` or ensure npx is available"
     with tempfile.TemporaryDirectory() as tmpdir:
         input_path = Path(tmpdir) / "diagram.mmd"
         output_path = Path(tmpdir) / "out.svg"
         input_path.write_text(text, encoding="utf-8")
-        result = subprocess.run(
-            ["mmdc", "--input", str(input_path), "--output", str(output_path)],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
+        result = _run_mmdc(input_path, output_path, cmd)
     if result.returncode == 0:
         return None
     return (result.stderr or result.stdout or f"mmdc exit code {result.returncode}").strip()
@@ -186,9 +199,13 @@ def process_mermaid(project_path: str | Path, dry_run: bool = False, validate: b
         "files_checked": 0,
         "blocks": 0,
         "fixes": 0,
-        "validation_skipped": validate and not check_mmdc_available(),
         "validation_errors": [],
     }
+    if validate and not check_mmdc_available():
+        raise RuntimeError(
+            "mmdc is required for mermaid validation but not found. "
+            "Install with: npm install -g @mermaid-js/mermaid-cli  (or ensure npx is available)"
+        )
     for md_file in wiki_dir.rglob("*.md"):
         report["files_checked"] += 1
         content = md_file.read_text(encoding="utf-8", errors="replace")
@@ -198,7 +215,7 @@ def process_mermaid(project_path: str | Path, dry_run: bool = False, validate: b
         if fixes and not dry_run:
             md_file.write_text(fixed_content, encoding="utf-8")
             content = fixed_content
-        if validate and not report["validation_skipped"]:
+        if validate:
             for block in extract_mermaid_blocks(content, md_file.stem):
                 error = _validate_block(block["text"])
                 if error:
@@ -213,6 +230,11 @@ def process_mermaid(project_path: str | Path, dry_run: bool = False, validate: b
             json.dumps(report["validation_errors"], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+    else:
+        # Clean up stale error file if all blocks pass
+        errors_file = wiki_dir.parent / "state" / "mermaid-errors.json"
+        if errors_file.exists():
+            errors_file.unlink()
     return report
 
 

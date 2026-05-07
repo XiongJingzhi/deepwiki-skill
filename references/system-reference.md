@@ -23,10 +23,6 @@
 
 `page-context/<page_id>.json` 在写每个页面前生成，包含源码文件、源码摘录、相关页面、待覆盖结论、必须链接的符号和约束。
 
-## 遗留策略
-
-主流程不使用旧 pipeline 缓存文件。如确需旧行为，重新实现最小干净工具，不从遗留代码中 import。
-
 ## 输出规则
 
 见 `references/rules/quality-standards.md`。
