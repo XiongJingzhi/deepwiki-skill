@@ -1,6 +1,6 @@
 # 文档质量标准
 
-> **与 `check-analysis-quality` 的区别：** 本文档定义的是**最终文档**（Markdown）的质量评分体系（百分制，basic/standard/professional），由 `postprocess.py quality` 执行。`check-analysis-quality`（见 [`../workflow/check-analysis-quality.md`](../workflow/check-analysis-quality.md)）是**中间产物**（`module-analysis.json`）的字段完整性门控（二值 pass/fail），由 `validate-analysis` 步骤执行。两者服务于不同阶段，不可混淆。
+> **与 `check-analysis-quality` 的区别：** 本文档定义的是**最终文档**（Markdown）的质量评分体系（百分制，basic/standard/professional），由 `python -m scripts.wiki.postprocess quality` 执行。`check-analysis-quality`（见 [`../workflow/check-analysis-quality.md`](../workflow/check-analysis-quality.md)）是**中间产物**（`module-analysis.json`）的字段完整性门控（二值 pass/fail），由 `validate-analysis` 步骤执行。两者服务于不同阶段，不可混淆。
 >
 > **Config/Test/Util 豁免说明：** `check-analysis-quality` 对 Config/Test/Util 模块的 `key_insights` 检查有豁免规则。本文档的硬门槛不涉及此豁免——这类模块的最终文档仍需满足源码追溯等基本要求。
 

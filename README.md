@@ -80,7 +80,6 @@ deepwiki/
 ├── SKILL.md              # 主指令（确定性脚本 + Agent 生成阶段）
 ├── scripts/              # Python 工具脚本
 │   ├── cli.py                             # 本地统一入口
-│   ├── postprocess.py                     # CLI: mermaid/quality/consistency
 │   ├── __init__.py
 │   ├── analysis/            # 项目分析脚本
 │   │   ├── analyze_project.py
@@ -107,8 +106,15 @@ deepwiki/
 │   ├── wiki/                # Wiki 生成脚本
 │   │   ├── init_wiki.py
 │   │   ├── generate_menu.py
+│   │   ├── postprocess.py                 # CLI: mermaid/quality/consistency
 │   │   ├── fix_mermaid.py
-│   │   └── serve_wiki.py
+│   │   └── mermaid/
+│   ├── serve/               # 本地预览服务
+│   │   ├── server.py
+│   │   ├── handler.py
+│   │   └── html_template.py
+│   ├── subagent/            # Subagent prompt 构建
+│   │   └── build_prompt.py
 │   └── core/                # 核心工具模块
 │       ├── common.py
 │       ├── parsers.py
@@ -141,9 +147,9 @@ deepwiki/
 | `deepwiki validate-analysis <项目路径>` | 对外推荐入口：运行分析质量门控，通过后构建 `evidence-index.json` |
 | `python -m scripts.quality.build_evidence_index <项目路径>` | 从模块分析缓存生成 `evidence-index.json` |
 | `deepwiki finalize <项目路径>` | 对外推荐收尾入口：菜单校验、Mermaid 修复与校验、质量检查、一致性检查；任意一步失败即整体失败 |
-| `scripts/postprocess.py quality <.deepwiki路径>` | 文档质量检查 |
-| `scripts/postprocess.py consistency <.deepwiki路径>` | 跨模块一致性检查 |
-| `scripts/postprocess.py mermaid <.deepwiki路径>` | 修复 Mermaid 语法错误；可加 `--validate` 运行 mmdc 校验 |
+| `python -m scripts.wiki.postprocess quality <.deepwiki路径>` | 文档质量检查 |
+| `python -m scripts.wiki.postprocess consistency <.deepwiki路径>` | 跨模块一致性检查 |
+| `python -m scripts.wiki.postprocess mermaid <.deepwiki路径>` | 修复 Mermaid 语法错误；可加 `--validate` 运行 mmdc 校验 |
 | `python -m scripts.wiki.generate_menu <wiki目录> [项目名]` | 生成 menu.json（支持 `--reconcile`） |
 
 ---

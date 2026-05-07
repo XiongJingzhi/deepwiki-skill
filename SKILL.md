@@ -102,10 +102,10 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 | 场景 | 操作 |
 |------|------|
 | 仅质量检查 | 直接运行 `deepwiki quality <project_path>` |
-| 定向重生成 | `deepwiki page-context <project_path> <wiki_path>` → 重生成目标页 → `scripts/postprocess.py quality <project_path>/.deepwiki` |
+| 定向重生成 | `deepwiki page-context <project_path> <wiki_path>` → 重生成目标页 → `python -m scripts.wiki.postprocess quality <project_path>/.deepwiki` |
 | 收尾检查 | `deepwiki finalize <project_path>`；任意子步骤失败即整体失败 |
 | 预览文档 | `deepwiki serve <project_path>`，浏览器打开命令输出的 URL；若 8742 被占用会自动使用 8743、8744... |
-| 定向更新单页 | `deepwiki page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `postprocess.py quality` 确认 |
+| 定向更新单页 | `deepwiki page-context <project_path> <wiki_path>` 获取上下文 → 按 `generate-module-docs` 规则重生成 → `python -m scripts.wiki.postprocess quality` 确认 |
 
 ## 工具索引
 
@@ -129,7 +129,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 | `generate-menu` | [generate-menu.md](references/workflow/generate-menu.md) |
 | `generate-module-docs` | [generate-module-docs.md](references/workflow/generate-module-docs.md) |
 | `finalize-wiki` | [finalize-wiki.md](references/workflow/finalize-wiki.md)（封装收尾四步） |
-| `finalize` | `scripts/postprocess.py <command>`（mermaid / quality / consistency） |
+| `finalize` | `python -m scripts.wiki.postprocess <command>`（mermaid / quality / consistency） |
 
 ### AI 工作流与规范
 
@@ -156,7 +156,7 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 | Python 包 | `pyyaml>=6.0`, `jsonschema>=4.0` | 配置读取、schema 校验 | 必须；安装: `pip install -e .` |
 | Python 包 | `tree-sitter>=0.23.0` 及语言绑定 | `extract_structure.py` 代码解析 | 必须；安装: `pip install -e .` |
 | Node.js | >= 16 | mmdc CLI 运行时 | 可选；Mermaid 校验自动跳过 |
-| `@mermaid-js/mermaid-cli` | 最新版 | `postprocess.py mermaid --validate` | 可选；`check_mmdc_available()` 检测后降级 |
+| `@mermaid-js/mermaid-cli` | 最新版 | `python -m scripts.wiki.postprocess mermaid --validate` | 可选；`check_mmdc_available()` 检测后降级 |
 
 > **安装 Python 依赖：** `pip install -e .`（安装 `pyproject.toml` 中声明的全部依赖）
 > **安装 mmdc（可选）：** `npm install -g @mermaid-js/mermaid-cli`

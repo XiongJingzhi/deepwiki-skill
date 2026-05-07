@@ -28,16 +28,16 @@ PROJECT_NAME=<项目名称>
 python -m scripts.wiki.generate_menu $WIKI $PROJECT_NAME --reconcile
 
 # 步骤 2：Mermaid 语法修复（必须在 quality 前）
-python scripts/postprocess.py mermaid $DEEPWIKI
+python -m scripts.wiki.postprocess mermaid $DEEPWIKI
 
 # 步骤 3：Mermaid 语法校验（mmdc 不可用时会跳过校验）
-python scripts/postprocess.py mermaid $DEEPWIKI --validate
+python -m scripts.wiki.postprocess mermaid $DEEPWIKI --validate
 
 # 步骤 4：文档质量检查
-python scripts/postprocess.py quality $DEEPWIKI
+python -m scripts.wiki.postprocess quality $DEEPWIKI
 
 # 步骤 5：跨模块一致性检查
-python scripts/postprocess.py consistency $DEEPWIKI
+python -m scripts.wiki.postprocess consistency $DEEPWIKI
 ```
 
 ## 失败处理

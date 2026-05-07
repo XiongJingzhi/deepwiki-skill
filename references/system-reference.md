@@ -66,9 +66,9 @@
 | `deepwiki validate-analysis <项目路径>` | `validate-analysis` | 对外推荐入口：先执行分析质量门禁，通过后构建 `cache/evidence-index.json` |
 | `python -m scripts.quality.build_evidence_index <项目路径>` | `build-evidence-index` | 从 `module-analysis.json` 构建 `cache/evidence-index.json`，供文档质量检查验证源码证据 |
 | `deepwiki finalize <项目路径>` | `finalize-wiki` | 对外推荐收尾入口；串行执行菜单校验、Mermaid 修复与校验、质量检查、一致性检查，任意一步失败即整体失败 |
-| `scripts/postprocess.py mermaid <.deepwiki路径>` | `finalize mermaid` | 修复 Mermaid 图表语法错误（支持 `--dry-run`、`--validate` 和 `--json`） |
-| `scripts/postprocess.py quality <.deepwiki路径>` | `finalize quality` | 检查文档质量（含源码链接有效性验证） |
-| `scripts/postprocess.py consistency <.deepwiki路径>` | `finalize consistency` | 跨模块一致性检查（接口覆盖率、依赖方向） |
+| `python -m scripts.wiki.postprocess mermaid <.deepwiki路径>` | `finalize mermaid` | 修复 Mermaid 图表语法错误（支持 `--dry-run`、`--validate` 和 `--json`） |
+| `python -m scripts.wiki.postprocess quality <.deepwiki路径>` | `finalize quality` | 检查文档质量（含源码链接有效性验证） |
+| `python -m scripts.wiki.postprocess consistency <.deepwiki路径>` | `finalize consistency` | 跨模块一致性检查（接口覆盖率、依赖方向） |
 | `python -m scripts.wiki.generate_menu <wiki目录路径> [项目名称]` | `generate-menu` | 生成层级化导航菜单 menu.json（支持 `--reconcile` 校验模式） |
 
 ### 使用示例
@@ -115,9 +115,9 @@ python -m scripts.quality.check_analysis_quality $PROJECT_DIR --json gate-report
 python -m scripts.quality.build_evidence_index $PROJECT_DIR
 
 # 文档质量检查（基本 / 详细报告 / 导出 JSON）
-python scripts/postprocess.py quality $PROJECT_DIR/.deepwiki
-python scripts/postprocess.py quality $PROJECT_DIR/.deepwiki --verbose
-python scripts/postprocess.py quality $PROJECT_DIR/.deepwiki --json report.json
+python -m scripts.wiki.postprocess quality $PROJECT_DIR/.deepwiki
+python -m scripts.wiki.postprocess quality $PROJECT_DIR/.deepwiki --verbose
+python -m scripts.wiki.postprocess quality $PROJECT_DIR/.deepwiki --json report.json
 
 # 生成导航菜单
 python -m scripts.wiki.generate_menu $PROJECT_DIR/.deepwiki/wiki "项目名称"
@@ -126,9 +126,9 @@ python -m scripts.wiki.generate_menu $PROJECT_DIR/.deepwiki/wiki "项目名称"
 python -m scripts.wiki.generate_menu $PROJECT_DIR/.deepwiki/wiki "项目名称" --reconcile --verbose
 
 # 修复 Mermaid 图表语法
-python scripts/postprocess.py mermaid $PROJECT_DIR/.deepwiki
-python scripts/postprocess.py mermaid $PROJECT_DIR/.deepwiki --dry-run
-python scripts/postprocess.py mermaid $PROJECT_DIR/.deepwiki --json report.json
+python -m scripts.wiki.postprocess mermaid $PROJECT_DIR/.deepwiki
+python -m scripts.wiki.postprocess mermaid $PROJECT_DIR/.deepwiki --dry-run
+python -m scripts.wiki.postprocess mermaid $PROJECT_DIR/.deepwiki --json report.json
 ```
 
 ### generate_menu.py --reconcile 模式说明

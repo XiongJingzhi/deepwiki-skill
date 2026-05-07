@@ -4,7 +4,7 @@
 
 ## 质量等级
 
-`postprocess.py quality` 基于行数、章节数、图表和示例综合评分，得出 `basic / standard / professional` 三级。
+`python -m scripts.wiki.postprocess quality` 基于行数、章节数、图表和示例综合评分，得出 `basic / standard / professional` 三级。
 
 ### 评分公式
 
@@ -56,7 +56,7 @@
 
 - `wiki/` 下文件路径最多 **2 层子目录**（如 `wiki/deep-dive/graph.md` = 2层 ✅，`wiki/deep-dive/graph/nodes.md` = 3层 ✅ 但已达上限）。
 - `menu.json` 最多 **3 层嵌套**（`menu[]` → `items[]` → `items[]`），第 3 层 `items` 不得再嵌套 `items`。
-- `postprocess.py quality` 检测到路径超过 2 层子目录或 menu.json 超过 3 层嵌套时，输出结构警告。
+- `python -m scripts.wiki.postprocess quality` 检测到路径超过 2 层子目录或 menu.json 超过 3 层嵌套时，输出结构警告。
 
 ### 动态期望值
 

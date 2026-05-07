@@ -2,15 +2,14 @@
 """DeepWiki 文档后处理工具
 
 合并 Mermaid 语法修复、文档质量检查、跨模块一致性检查。
-支持子命令模式：python postprocess.py <command> [options]
+支持子命令模式：python -m scripts.wiki.postprocess <command> [options]
 
 用法:
-    python scripts/postprocess.py mermaid <.deepwiki路径>
-    python scripts/postprocess.py quality <.deepwiki路径>
-    python scripts/postprocess.py consistency <.deepwiki路径>
+    python -m scripts.wiki.postprocess mermaid <.deepwiki路径>
+    python -m scripts.wiki.postprocess quality <.deepwiki路径>
+    python -m scripts.wiki.postprocess consistency <.deepwiki路径>
 """
 
-import os
 import sys
 import subprocess
 import argparse
@@ -45,12 +44,8 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    # Locate scripts directory (same directory as this file)
-    scripts_dir = os.path.dirname(os.path.abspath(__file__))
-
     if args.command == "mermaid":
-        script = os.path.join(scripts_dir, "wiki", "fix_mermaid.py")
-        cmd = [sys.executable, script, args.wiki_dir]
+        cmd = [sys.executable, "-m", "scripts.wiki.fix_mermaid", args.wiki_dir]
         if args.dry_run:
             cmd.append("--dry-run")
         if args.validate:
@@ -61,16 +56,14 @@ def main():
             cmd.append("-v")
 
     elif args.command == "quality":
-        script = os.path.join(scripts_dir, "quality", "check_doc_quality.py")
-        cmd = [sys.executable, script, args.wiki_dir]
+        cmd = [sys.executable, "-m", "scripts.quality.check_doc_quality", args.wiki_dir]
         if args.verbose:
             cmd.append("--verbose")
         if args.json:
             cmd.extend(["--json", args.json])
 
     elif args.command == "consistency":
-        script = os.path.join(scripts_dir, "quality", "check_cross_module_consistency.py")
-        cmd = [sys.executable, script, args.wiki_dir]
+        cmd = [sys.executable, "-m", "scripts.quality.check_cross_module_consistency", args.wiki_dir]
         if args.json:
             cmd.extend(["--json", args.json])
 

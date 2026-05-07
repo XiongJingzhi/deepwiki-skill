@@ -6,9 +6,9 @@
 零 AI 成本，纯脚本实现。
 
 用法：
-  python scripts/check_analysis_quality.py <项目目录绝对路径>
-  python scripts/check_analysis_quality.py <项目目录绝对路径> --verbose
-  python scripts/check_analysis_quality.py <项目目录绝对路径> --json report.json
+  python -m scripts.quality.check_analysis_quality <项目目录绝对路径>
+  python -m scripts.quality.check_analysis_quality <项目目录绝对路径> --verbose
+  python -m scripts.quality.check_analysis_quality <项目目录绝对路径> --json report.json
 
 退出码：
   0 — 全部通过

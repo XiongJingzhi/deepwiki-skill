@@ -6,9 +6,9 @@
   3. apply_fix()          → 接收 agent 回传的修复结果，写回 Markdown 文件
 
 工作流：
-    python scripts/postprocess.py mermaid $DEEPWIKI --validate
+    python -m scripts.wiki.postprocess mermaid $DEEPWIKI --validate
     # agent 读取 state/mermaid-errors.json，对每个 block 调用 AI 修复，然后：
-    python scripts/postprocess.py mermaid $DEEPWIKI --apply-fix <block_id> --content <fixed_text>
+    python -m scripts.wiki.postprocess mermaid $DEEPWIKI --apply-fix <block_id> --content <fixed_text>
 """
 
 import json

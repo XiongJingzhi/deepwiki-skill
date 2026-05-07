@@ -9,7 +9,7 @@ Mermaid 语法修复脚本（兼容入口）
   - repairer.py    : AI 修复 Prompt + 错误报告管理
   - orchestrator.py: 整体流程编排
 
-本文件保留原有 CLI 接口，兼容现有 postprocess.py 调用链。
+本文件保留 Mermaid CLI 接口，供 scripts.wiki.postprocess 调用。
 
 用法:
     python scripts/wiki/fix_mermaid.py <项目目录>/.deepwiki

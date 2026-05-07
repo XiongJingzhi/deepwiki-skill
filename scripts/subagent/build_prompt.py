@@ -290,7 +290,9 @@ def _build_quality_fix_vars(project_dir: Path, wiki_path: str | None = None) -> 
             if wiki_path
             else "按质量报告中的目标页面逐个运行 deepwiki page-context <项目路径> <wiki_path>"
         ),
-        "QUALITY_COMMAND": f"python scripts/postprocess.py quality {project_dir}/.deepwiki --verbose",
+        "QUALITY_COMMAND": (
+            f"python -m scripts.wiki.postprocess quality {project_dir}/.deepwiki --verbose"
+        ),
     }
 
 

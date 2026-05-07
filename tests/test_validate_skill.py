@@ -10,6 +10,7 @@ def _write_minimal_skill(root: Path, cli_text: str) -> None:
     """Create just enough files for validate_skill to focus on CLI behavior."""
     (root / "agents").mkdir()
     (root / "scripts").mkdir()
+    (root / "scripts" / "quality").mkdir()
     (root / "references" / "rules").mkdir(parents=True)
     (root / "references" / "workflow").mkdir(parents=True)
 
@@ -25,8 +26,8 @@ def _write_minimal_skill(root: Path, cli_text: str) -> None:
     )
     for rel_path in [
         "README.md",
-        "scripts/check_dependencies.py",
-        "scripts/validate_skill.py",
+        "scripts/quality/check_dependencies.py",
+        "scripts/quality/validate_skill.py",
         "references/system-reference.md",
         "references/rules/codepurpose-detection.md",
         "references/workflow/validate-analysis.md",
@@ -56,16 +57,16 @@ def test_cli_self_check_command_runs():
     assert cli.main(["self-check", str(Path(__file__).parent.parent)]) == 0
 
 
-def test_legacy_script_wrappers_run_from_skill_root():
-    """Old documented script paths should still work when run directly."""
+def test_quality_modules_run_from_skill_root():
+    """Documented quality modules should run from the skill root."""
     root = Path(__file__).parent.parent
 
-    for script, args in [
-        ("scripts/check_dependencies.py", []),
-        ("scripts/validate_skill.py", [str(root)]),
+    for module, args in [
+        ("scripts.quality.check_dependencies", []),
+        ("scripts.quality.validate_skill", [str(root)]),
     ]:
         result = subprocess.run(
-            [sys.executable, script, *args],
+            [sys.executable, "-m", module, *args],
             cwd=root,
             check=False,
             capture_output=True,

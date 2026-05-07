@@ -93,5 +93,5 @@
 生成完成后运行质量检查确认达标：
 
 ```bash
-python scripts/postprocess.py quality <项目路径>/.deepwiki
+python -m scripts.wiki.postprocess quality <项目路径>/.deepwiki
 ```

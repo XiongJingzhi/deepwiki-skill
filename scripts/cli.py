@@ -39,8 +39,6 @@ def finalize_wiki(project_path: Path, project_name: Optional[str] = None) -> int
     project_root = deepwiki_dir.parent if deepwiki_dir.name == ".deepwiki" else project_path.resolve()
     wiki_dir = deepwiki_dir / "wiki"
     name = project_name or project_root.name
-    scripts_dir = Path(__file__).resolve().parent
-
     steps = [
         (
             "menu",
@@ -55,13 +53,14 @@ def finalize_wiki(project_path: Path, project_name: Optional[str] = None) -> int
         ),
         (
             "mermaid-fix",
-            [sys.executable, str(scripts_dir / "postprocess.py"), "mermaid", str(deepwiki_dir)],
+            [sys.executable, "-m", "scripts.wiki.postprocess", "mermaid", str(deepwiki_dir)],
         ),
         (
             "mermaid-validate",
             [
                 sys.executable,
-                str(scripts_dir / "postprocess.py"),
+                "-m",
+                "scripts.wiki.postprocess",
                 "mermaid",
                 str(deepwiki_dir),
                 "--validate",
@@ -69,11 +68,11 @@ def finalize_wiki(project_path: Path, project_name: Optional[str] = None) -> int
         ),
         (
             "quality",
-            [sys.executable, str(scripts_dir / "postprocess.py"), "quality", str(deepwiki_dir)],
+            [sys.executable, "-m", "scripts.wiki.postprocess", "quality", str(deepwiki_dir)],
         ),
         (
             "consistency",
-            [sys.executable, str(scripts_dir / "postprocess.py"), "consistency", str(deepwiki_dir)],
+            [sys.executable, "-m", "scripts.wiki.postprocess", "consistency", str(deepwiki_dir)],
         ),
     ]
 
