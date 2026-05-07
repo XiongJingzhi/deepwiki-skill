@@ -1,9 +1,9 @@
 # generate-menu
 
-Command:
+命令：
 
 ```bash
 deepwiki generate-menu <project_path>
 ```
 
-Reads `page-plan.json`, prefers `menu_seed`, and writes `wiki/menu.json` plus `wiki/doc-map.md`.
+读取 `page-plan.json`，优先使用 `menu_seed`，生成 `wiki/menu.json` 和 `wiki/doc-map.md`。

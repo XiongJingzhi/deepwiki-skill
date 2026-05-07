@@ -1,41 +1,41 @@
-# Output Quality Standards
+# 输出文档质量规范
 
-Use these rules when writing pages in `generate-pages`.
+在 `generate-pages` 阶段写页面时遵循本规范。
 
-## Required Shape
+## 必需结构
 
-Every generated Markdown page must:
+每个生成的 Markdown 页面必须：
 
-- Start with one H1.
-- Put `<details open><summary>Relevant source files</summary>` or `<summary>相关源文件</summary>` immediately after the H1.
-- List relevant source files as a tree, not a table.
-- Use `file:///path#Lx-Ly` source links with line ranges.
-- Include at least one H2 section.
-- Explain WHY and HOW, not only WHAT.
-- Link to related wiki pages when relevant.
+- 以一个 H1 标题开头。
+- 在 H1 后立即放置 `<details open><summary>Relevant source files</summary>` 或 `<summary>相关源文件</summary>`。
+- 相关源码文件使用树形列表，不使用表格。
+- 源码链接使用 `file:///path#Lx-Ly`，必须带行号范围。
+- 至少包含一个 H2 章节。
+- 解释 WHY 和 HOW，不只写 WHAT。
+- 适当链接相关 Wiki 页面。
 
-## Source Block Template
+## 源码块模板
 
 ```markdown
 <details open>
-<summary>Relevant source files</summary>
+<summary>相关源文件</summary>
 
 - src/
-  - [app.py](file:///src/app.py#L1-L40) `L1-L40` - runtime entry and dispatch
+  - [app.py](file:///src/app.py#L1-L40) `L1-L40` - 运行入口和调度逻辑
 
 </details>
 ```
 
-## Mermaid Rules
+## Mermaid 规则
 
-- Add a short paragraph before every Mermaid block explaining what the diagram shows.
-- Prefer `flowchart TD` for workflows and architecture, `sequenceDiagram` for interactions, `classDiagram` for types, and `stateDiagram-v2` for state transitions.
-- Use quoted labels for spaces, punctuation, and non-ASCII text.
-- Run `deepwiki mermaid <project_path> --validate` before final delivery when `mmdc` is installed.
+- 每个 Mermaid 图前必须有一段简短文字，说明图展示什么关系或流程。
+- 工作流和架构优先使用 `flowchart TD`；交互流程使用 `sequenceDiagram`；类型关系使用 `classDiagram`；状态变化使用 `stateDiagram-v2`。
+- 含空格、标点或非 ASCII 文本的标签必须加引号。
+- 交付前在安装 `mmdc` 的环境中运行 `deepwiki mermaid <project_path> --validate`。
 
-## Final Checks
+## 收尾检查
 
-Run:
+运行：
 
 ```bash
 deepwiki mermaid <project_path> --validate
@@ -43,4 +43,4 @@ deepwiki quality <project_path>
 deepwiki finalize <project_path>
 ```
 
-`finalize` already runs menu generation, Mermaid repair/validation, quality checks, and link checks.
+`finalize` 已包含菜单生成、Mermaid 修复/校验、质量检查和链接检查。
