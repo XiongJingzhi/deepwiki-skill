@@ -14,6 +14,10 @@ Use a full new contract for the first agentic version.
 
 Old cache files and pipeline stages will no longer define the main workflow. Preview, finalization, quality checks, and other end-user utilities can remain, but the core generation path moves to new artifacts and simpler phases.
 
+The implementation should start from a clean project root. The current DeepWiki implementation is moved under `legacy/old-pipeline/` as an archived reference. New work is built in fresh root-level `SKILL.md`, `scripts/`, `schemas/`, `references/`, and `tests/` directories instead of gradually editing the old pipeline in place.
+
+This avoids carrying old workflow assumptions through file names, tests, helper APIs, and cache contracts.
+
 ## Main Workflow
 
 The new main path is:
@@ -210,9 +214,9 @@ Delete or mark legacy tests for:
 
 ## Migration Notes
 
-The first implementation should update the main skill instructions, workflow references, schemas, CLI, and tests around the new contract.
+The first implementation should archive the current implementation under `legacy/old-pipeline/`, then recreate only the new root-level files needed for the agentic workflow.
 
-Legacy scripts can be removed or quarantined if they no longer support user-visible workflows. Any retained legacy commands should be clearly labeled as legacy and excluded from the main path.
+Legacy scripts can remain in `legacy/old-pipeline/` for reference, but they should not be imported by the new implementation or listed as part of the main workflow. If a legacy behavior is still needed, reimplement the minimal version in the new root rather than depending on the archived pipeline.
 
 The final design principle is:
 
