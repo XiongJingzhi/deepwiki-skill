@@ -11,6 +11,7 @@
 - `cache/page-context/<page_id>.json`: per-page source excerpts and writing constraints.
 - `state/progress.json`: optional generation progress.
 - `wiki/`: generated Markdown, `menu.json`, and `doc-map.md`.
+- `state/mermaid-errors.json`: optional mmdc validation failure report.
 
 ## Cache Contract
 
@@ -25,3 +26,7 @@
 ## Legacy Policy
 
 Do not use old pipeline cache files in the main path. If old behavior is needed, reimplement the minimal clean helper instead of importing legacy code.
+
+## Output Rules
+
+See `references/rules/quality-standards.md`.

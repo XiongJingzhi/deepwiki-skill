@@ -9,7 +9,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+from scripts.quality.doc_quality import check_doc_quality
 from scripts.wiki.generate_menu import generate_menu
+from scripts.wiki.mermaid import process_mermaid
 
 
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
@@ -30,6 +32,14 @@ def _is_external_link(target: str) -> bool:
 def _link_target_exists(project_path: Path, page_path: Path, target: str) -> bool:
     if _is_external_link(target) or target.startswith("#"):
         return True
+    parsed = urlparse(target)
+    if parsed.scheme == "file":
+        clean_path = parsed.path.split("#", 1)[0]
+        candidate = Path(clean_path)
+        if candidate.exists():
+            return True
+        rel_candidate = clean_path.lstrip("/")
+        return (project_path / rel_candidate).exists()
     clean_target = target.split("#", 1)[0]
     if not clean_target:
         return True
@@ -79,6 +89,16 @@ def finalize_wiki(project_path: str | Path) -> int:
         generate_menu(root)
     except (OSError, json.JSONDecodeError, KeyError) as exc:
         errors.append(f"menu generation failed: {exc}")
+
+    mermaid_report = process_mermaid(root, dry_run=False, validate=True)
+    for item in mermaid_report.get("validation_errors", []):
+        errors.append(f"mermaid validation failed in {item['file']} {item['block_id']}: {item['error']}")
+
+    quality_report = check_doc_quality(root)
+    if not quality_report["ok"]:
+        for doc in quality_report["docs"]:
+            for issue in doc["issues"]:
+                errors.append(f"quality issue in {Path(doc['file_path']).name}: {issue}")
 
     if errors:
         print("Finalize failed:")

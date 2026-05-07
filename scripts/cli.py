@@ -10,11 +10,13 @@ from typing import List, Optional
 from scripts.pipeline.prepare_inventory import prepare_inventory
 from scripts.pipeline.page_context import build_page_context
 from scripts.pipeline.validate_page_plan import validate_page_plan
+from scripts.quality.doc_quality import check_doc_quality
 from scripts.quality.validate_skill import validate_skill
 from scripts.serve.server import serve_wiki
 from scripts.wiki.finalize import finalize_wiki
 from scripts.wiki.generate_menu import generate_menu
 from scripts.wiki.init_wiki import init_wiki
+from scripts.wiki.mermaid import process_mermaid
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -43,6 +45,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_generate_menu = subparsers.add_parser("generate-menu", help="Generate menu.json and doc-map.md")
     p_generate_menu.add_argument("project_path")
     p_generate_menu.add_argument("--project-name")
+    p_mermaid = subparsers.add_parser("mermaid", help="Repair and optionally validate Mermaid diagrams")
+    p_mermaid.add_argument("project_path")
+    p_mermaid.add_argument("--dry-run", action="store_true")
+    p_mermaid.add_argument("--validate", action="store_true")
+    p_quality = subparsers.add_parser("quality", help="Check generated Markdown quality")
+    p_quality.add_argument("project_path")
     p_finalize = subparsers.add_parser("finalize", help="Run final wiki checks")
     p_finalize.add_argument("project_path")
     p_serve = subparsers.add_parser("serve", help="Serve generated wiki")
@@ -86,6 +94,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         generate_menu(Path(args.project_path), project_name=args.project_name)
         print("Generated menu.json and doc-map.md")
         return 0
+    if args.command == "mermaid":
+        import json
+
+        report = process_mermaid(Path(args.project_path), dry_run=args.dry_run, validate=args.validate)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if report["validation_errors"] else 0
+    if args.command == "quality":
+        import json
+
+        report = check_doc_quality(Path(args.project_path))
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["ok"] else 1
     if args.command == "finalize":
         return finalize_wiki(Path(args.project_path))
     if args.command == "serve":

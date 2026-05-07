@@ -57,7 +57,16 @@ def test_agentic_smoke_flow(tmp_path):
     assert validate_page_plan(plan)["ok"] is True
 
     wiki = tmp_path / ".deepwiki" / "wiki"
-    (wiki / "overview.md").write_text("# Overview\n\nSee [source](../../README.md).\n", encoding="utf-8")
+    (wiki / "overview.md").write_text(
+        "# Overview\n"
+        "<details open>\n"
+        "<summary>Relevant source files</summary>\n\n"
+        "- [README.md](file:///README.md#L1-L1) `L1-L1` - project introduction\n\n"
+        "</details>\n\n"
+        "## Overview\n\n"
+        "See [source](../../README.md).\n",
+        encoding="utf-8",
+    )
     generate_menu(tmp_path, "Sample")
 
     assert finalize_wiki(tmp_path) == 0

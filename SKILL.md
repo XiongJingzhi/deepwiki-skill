@@ -29,6 +29,8 @@ Run from this skill directory. If installed, `deepwiki <command>` is equivalent 
 | `generate-menu` | `deepwiki generate-menu <project_path>` |
 | `generate-pages` | For each planned page, run `deepwiki page-context <project_path> <page_id>`, then write the Markdown page |
 | `finalize-wiki` | `deepwiki finalize <project_path>` |
+| Quality only | `deepwiki quality <project_path>` |
+| Mermaid only | `deepwiki mermaid <project_path> --validate` |
 | Preview | `deepwiki serve <project_path>` |
 
 ## Rules
@@ -38,6 +40,7 @@ Run from this skill directory. If installed, `deepwiki <command>` is equivalent 
 - Split generation by page from `.deepwiki/cache/page-plan.json`.
 - Do not depend on old cache files such as `structure.json`, `module-analysis.json`, or `generation-plan.json`.
 - Stop on `finalize-wiki` failure and report the failed check.
+- Follow `references/rules/quality-standards.md` when writing pages.
 
 ## References
 
