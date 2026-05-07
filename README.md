@@ -1,14 +1,5 @@
 # DeepWiki
 
-DeepWiki is an agentic project documentation skill.
+Agentic project wiki generation skill.
 
-The clean workflow starts with a lightweight project inventory, then lets the Agent explore source files, plan pages, generate Markdown, and run final wiki checks.
-
-The old pipeline has been archived under `legacy/old-pipeline/`.
-
-## Local Development
-
-```bash
-pip install -e .[dev]
-python -m scripts.cli self-check
-```
+The main workflow prepares a lightweight inventory, lets the Agent analyze and plan pages, then verifies the generated wiki.
