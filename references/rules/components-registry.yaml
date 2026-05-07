@@ -1,0 +1,208 @@
+# Agentic 文档组件注册表
+# 用于 generate-pages 阶段。Agent 根据 page_type、page purpose、source_targets 和已读源码证据选择组件。
+# 本文件不依赖旧 pipeline 的 CodePurpose、module-analysis、parse-results 或 architecture-skeleton。
+
+components:
+  relevant-source-files:
+    priority: P0
+    purpose: 页面顶部源码追溯块，列出本页最相关源码文件和行号范围。
+    required: true
+    position: H1 后第一个区块
+    format: details open + 树形列表
+    use_when:
+      - 所有页面
+    required_evidence:
+      - page_context.source_files
+      - Agent 实际阅读过的源码行号
+    output_rules:
+      - summary 使用“相关源文件”或 “Relevant source files”
+      - 文件链接必须使用 file:///path#Lx-Ly
+      - 每项包含行号范围和相关原因
+
+  overview:
+    priority: P0
+    purpose: 说明页面主题解决什么问题、为什么存在、和项目整体的关系。
+    required: true
+    format: 2-4 段文字
+    use_when:
+      - 所有页面
+    required_evidence:
+      - page purpose
+      - semantic-analysis 中的项目目的或模块摘要
+      - 至少一个源码或参考文件证据
+
+  source-citations:
+    priority: P0
+    purpose: 在章节末尾标注本节依据的源码范围。
+    required: true
+    format: "**来源**：file links"
+    use_when:
+      - 所有非纯导航页面
+    required_evidence:
+      - 本节实际引用的源码文件和行号
+
+  nav-links:
+    priority: P0
+    purpose: 帮助读者跳转到相关页面。
+    required: false
+    format: Markdown 列表或表格
+    use_when:
+      - page_context.related_pages 非空
+      - 页面是 overview 或 concept
+
+  architecture-fit:
+    priority: P1
+    purpose: 解释当前主题在整体架构中的位置、上下游和职责边界。
+    required: false
+    format: 架构说明 + 边界表 + 可选 flowchart
+    use_when:
+      - page_type 是 overview、concept 或 deep-dive
+      - 页面涉及多个目录、多个命令或跨模块流程
+    fallback: 用“所在层 / 负责什么 / 不负责什么”表格替代图
+
+  execution-flow:
+    priority: P1
+    purpose: 解释主执行路径，从入口到输出的阶段。
+    required: false
+    format: 阶段表 + 可选 flowchart 或 sequenceDiagram
+    use_when:
+      - 页面涉及 CLI、命令、任务流、生成流程或 finalize 流程
+    fallback: 使用 3-7 步有序列表
+
+  internal-structure:
+    priority: P1
+    purpose: 解释文件、函数和子组件的职责分工。
+    required: false
+    format: 职责表 + 协作说明
+    use_when:
+      - source_targets 包含 2 个以上源码文件
+      - 页面目标是解释工具模块或实现细节
+
+  api-table:
+    priority: P1
+    purpose: 汇总命令、函数、配置项或 schema 字段。
+    required: false
+    format: Markdown 表格
+    use_when:
+      - 页面涉及 CLI 命令、公开函数、JSON schema、配置项
+    variants:
+      command_table:
+        columns: [命令, 输入, 输出, 失败行为]
+      function_table:
+        columns: [函数, 职责, 输入, 输出, 证据]
+      schema_table:
+        columns: [字段, 类型, 必需, 用途]
+
+  design-rationale:
+    priority: P1
+    purpose: 解释为什么采用当前设计，以及取舍是什么。
+    required: false
+    format: 设计目标 + 约束 + 当前方案 + 取舍表
+    use_when:
+      - 页面讨论架构、工作流、质量门控或重要边界
+    evidence_rule: 推断必须标注依据，不能伪装成源码事实。
+
+  data-flow:
+    priority: P2
+    purpose: 解释数据在 cache、page plan、page context、wiki 输出之间如何流动。
+    required: false
+    format: 数据流图 + 输入/输出表
+    use_when:
+      - 页面涉及缓存契约、页面计划、上下文生成或 finalize 输入输出
+
+  code-walkthrough:
+    priority: P2
+    purpose: 讲解关键函数的主路径、分支和错误处理。
+    required: false
+    format: 源码链接 + 精简代码片段或伪代码 + 逐段说明
+    use_when:
+      - 页面是 deep-dive
+      - 源码中存在核心函数、校验器、扫描器或收尾编排
+    constraints:
+      - 不整文件搬运
+      - 优先引用 20-80 行关键范围
+      - 解释 WHY 和 HOW
+
+  mermaid-diagram:
+    priority: P2
+    purpose: 可视化架构、流程、依赖或状态。
+    required: false
+    format: Mermaid fenced block
+    use_when:
+      - 页面有多阶段流程、模块关系、数据流或状态变化
+    required_preface: 每个图前必须有 1 段说明文字。
+    diagram_choice:
+      flowchart: 架构、工作流、数据流
+      sequenceDiagram: 交互时序
+      classDiagram: 类型、类或接口关系
+      stateDiagram-v2: 状态和生命周期
+
+  risk-and-boundaries:
+    priority: P2
+    purpose: 说明边界条件、失败行为、风险和维护注意事项。
+    required: false
+    format: 风险表或要点列表
+    use_when:
+      - 页面涉及文件系统、外部工具、路径校验、质量门控或可选依赖
+
+  extension-points:
+    priority: P3
+    purpose: 说明未来扩展位置和修改建议。
+    required: false
+    format: 扩展点列表
+    use_when:
+      - 页面面向维护者
+      - 语义分析中存在 extension_points
+
+page_profiles:
+  overview:
+    required_components:
+      - relevant-source-files
+      - overview
+      - architecture-fit
+      - nav-links
+      - source-citations
+    recommended_components:
+      - mermaid-diagram
+      - api-table
+
+  concept:
+    required_components:
+      - relevant-source-files
+      - overview
+      - execution-flow
+      - source-citations
+    recommended_components:
+      - data-flow
+      - design-rationale
+      - nav-links
+
+  deep-dive:
+    required_components:
+      - relevant-source-files
+      - overview
+      - internal-structure
+      - execution-flow
+      - source-citations
+    recommended_components:
+      - code-walkthrough
+      - mermaid-diagram
+      - risk-and-boundaries
+      - extension-points
+
+  reference:
+    required_components:
+      - relevant-source-files
+      - overview
+      - api-table
+      - source-citations
+    recommended_components:
+      - nav-links
+      - risk-and-boundaries
+
+selection_rules:
+  - 先满足 page_profiles 中的 required_components。
+  - 再根据页面目标、source_targets 和已读源码证据选择 recommended_components。
+  - 组件可以跳过，但必须有理由：证据不足、页面不适用、会造成重复。
+  - 不要为了凑组件生成空壳章节。
+  - Mermaid 图和表格至少选择一种，除非页面是极短导航页。

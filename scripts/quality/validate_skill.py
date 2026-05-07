@@ -17,6 +17,7 @@ REQUIRED_FILES = [
     "schemas/page-context-schema.json",
     "references/system-reference.md",
     "references/rules/quality-standards.md",
+    "references/rules/components-registry.yaml",
     "references/workflow/init-wiki.md",
     "references/workflow/prepare-inventory.md",
     "references/workflow/agentic-analysis.md",

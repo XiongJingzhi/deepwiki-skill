@@ -30,3 +30,5 @@
 ## 输出规则
 
 见 `references/rules/quality-standards.md`。
+
+页面组件注册表见 `references/rules/components-registry.yaml`。

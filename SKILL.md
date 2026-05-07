@@ -38,6 +38,7 @@ init-wiki → prepare-inventory → agentic-analysis → plan-pages
 - 文档生成以 `.deepwiki/cache/page-plan.json` 中的页面为拆分单位。
 - 不依赖旧缓存文件，例如 `structure.json`、`module-analysis.json`、`generation-plan.json`。
 - 写页面时遵循 `references/rules/quality-standards.md`。
+- 页面组件选择参考 `references/rules/components-registry.yaml`。
 - `finalize-wiki` 失败时必须停止，并报告失败检查项。
 
 ## 参考资料
@@ -45,3 +46,4 @@ init-wiki → prepare-inventory → agentic-analysis → plan-pages
 - 工作流细节：`references/workflow/*.md`
 - 缓存契约：`references/system-reference.md`
 - 输出规范：`references/rules/quality-standards.md`
+- 组件注册表：`references/rules/components-registry.yaml`
