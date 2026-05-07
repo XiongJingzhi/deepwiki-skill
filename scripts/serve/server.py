@@ -1,56 +1,84 @@
-"""Minimal static server for generated DeepWiki pages."""
+"""DeepWiki 本地预览服务器入口。"""
 
 from __future__ import annotations
 
-import argparse
-import functools
-import socket
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import errno
+import sys
+from http.server import HTTPServer
 from pathlib import Path
 from typing import List, Optional
 
-
-def wiki_dir_for_project(project_path: str | Path) -> Path:
-    wiki_dir = Path(project_path) / ".deepwiki" / "wiki"
-    if not wiki_dir.is_dir():
-        raise FileNotFoundError(f"wiki directory not found: {wiki_dir}")
-    return wiki_dir
+import scripts.serve.handler as _handler
 
 
-def find_available_port(host: str, start_port: int) -> int:
-    port = start_port
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                sock.bind((host, port))
-            except OSError:
-                port += 1
-                continue
-            return port
+def resolve_wiki_dir(project_path: str | Path) -> Path:
+    """解析并验证 .deepwiki/wiki 目录路径，不存在则退出。"""
+    target = Path(project_path).resolve()
+    wiki = target / ".deepwiki" / "wiki"
+    if not wiki.is_dir():
+        print(f"Error: wiki directory not found at {wiki}", file=sys.stderr)
+        sys.exit(1)
+    return wiki
 
 
-def serve_wiki(project_path: str | Path, host: str = "127.0.0.1", port: int = 8742) -> str:
-    wiki_dir = wiki_dir_for_project(project_path)
-    selected_port = find_available_port(host, port)
-    handler = functools.partial(SimpleHTTPRequestHandler, directory=str(wiki_dir))
-    server = ThreadingHTTPServer((host, selected_port), handler)
-    url = f"http://{host}:{selected_port}/"
-    print(f"Serving DeepWiki at {url}")
+def create_server_with_port_fallback(
+    host: str,
+    port: int,
+    handler_class,
+    max_attempts: int = 100,
+) -> tuple[HTTPServer, int]:
+    """Create an HTTP server, auto-incrementing the port when it is occupied."""
+    if port == 0:
+        server = HTTPServer((host, port), handler_class)
+        return server, server.server_address[1]
+
+    last_error = None
+    for candidate in range(port, port + max_attempts + 1):
+        try:
+            server = HTTPServer((host, candidate), handler_class)
+            return server, candidate
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            last_error = exc
+
+    raise OSError(
+        errno.EADDRINUSE,
+        f"No available port from {port} to {port + max_attempts}",
+    ) from last_error
+
+
+def serve_wiki(project_path: str | Path, host: str = "127.0.0.1", port: int = 8742):
+    """启动本地 wiki 预览服务器。"""
+    _handler.project_root = Path(project_path).resolve()
+    _handler.wiki_dir = resolve_wiki_dir(project_path)
+    menu = _handler._load_menu(_handler.wiki_dir)
+
+    server, actual_port = create_server_with_port_fallback(host, port, _handler.WikiHandler)
+    url = f"http://{host}:{actual_port}"
+    if actual_port != port:
+        print(f"Port {port} is in use; using {actual_port} instead.")
+    print(f"DeepWiki server running at {url}")
+    print(f"  Project: {menu.get('title', _handler.wiki_dir.parent.parent.name)}")
+    print(f"  Wiki:    {_handler.wiki_dir}")
+    print("  Press Ctrl+C to stop")
+
     try:
         server.serve_forever()
-    finally:
+    except KeyboardInterrupt:
+        print("\nServer stopped.")
         server.server_close()
-    return url
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Serve DeepWiki static pages")
-    parser.add_argument("project_path")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8742)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Start DeepWiki documentation server")
+    parser.add_argument("project_path", help="Path to project with .deepwiki/ directory")
+    parser.add_argument("--port", type=int, default=8742, help="Server port (default: 8742)")
+    parser.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
     args = parser.parse_args(argv)
-    serve_wiki(Path(args.project_path), host=args.host, port=args.port)
+    serve_wiki(args.project_path, args.port, args.host)
     return 0
 
 

@@ -157,7 +157,6 @@ components:
 page_profiles:
   overview:
     required_components:
-      - relevant-source-files
       - overview
       - architecture-fit
       - nav-links
@@ -168,7 +167,6 @@ page_profiles:
 
   concept:
     required_components:
-      - relevant-source-files
       - overview
       - execution-flow
       - source-citations
