@@ -2,6 +2,10 @@
 
 前置：`generate-overview`、初始 `generate-menu`、`extract_source_snippets` | 后置：`finalize-wiki`
 
+## 串行模式
+
+当用户输入“串行生成文档”、明确说“不派遣 subagent”或同义表达时，本阶段禁止生成 subagent prompt、禁止调用 `spawn_agent`。主 Agent 必须按 `generation-plan.json.pages[]` 顺序逐页生成模块文档，直接写入每个页面的 `output_path`，并将进度记录为 `mode: "serial"`。
+
 ## 生成 subagent 提示词
 
 ```bash

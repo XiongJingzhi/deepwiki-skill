@@ -2,6 +2,10 @@
 
 前置：`prepare_module_context`（必须）、`generate-skeleton`（可选）| 后置：`validate-analysis`
 
+## 串行模式
+
+当用户输入“串行生成文档”、明确说“不派遣 subagent”或同义表达时，本阶段禁止生成 subagent prompt、禁止调用 `spawn_agent`。主 Agent 必须按模块列表顺序读取各模块 `cache/modules/<slug>/context.json`，逐项补充 `cache/module-analysis.json`，并将进度记录为 `mode: "serial"`。
+
 ## 生成 subagent 提示词
 
 ```bash

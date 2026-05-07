@@ -2,6 +2,8 @@
 
 ## 何时启用subagent
 
+用户显式要求“串行生成文档”、"serial generate docs"、"no subagent"、"不派遣 subagent" 或同义表达时，必须进入全量串行模式。此时本文件下方的并行阈值全部失效，不得派遣或 spawn subagent；`extract-docs`、`generate-module-docs`、`quality-fix` 均由主 Agent 按任务列表顺序处理，并把 `state/progress.json` 对应阶段写为 `"mode": "serial"`。
+
 只有任务单元之间相互独立、写入目标互不覆盖时才启用subagent。适合并行的任务包括：
 
 - `extract-docs`：按模块分析。详见 [`../subagents/extract-docs.md`](../subagents/extract-docs.md)
@@ -48,8 +50,8 @@
 
 ## 串行降级
 
-当 subagent 不可用时，自动降级为主 Agent 串行：
-- **触发条件**：subagent 启动失败，或输出质量不达标
+当用户要求串行，或 subagent 不可用时，自动降级为主 Agent 串行：
+- **触发条件**：用户输入“串行生成文档”/明确禁止 subagent、subagent 启动失败，或输出质量不达标
 - **降级后** `mode` 记录为 `"serial"`，无需用户干预
 
 ## Subagent 上下文精简

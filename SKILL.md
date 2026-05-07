@@ -15,10 +15,13 @@ description: 通过深度分析源代码、架构和模块依赖，自动生成�
 | 用户意图 | 模式 | 入口工具 |
 |---------|------|---------|
 | 生成/创建文档 | **全量生成** | 从主路径第 1 步开始串行执行，`init-wiki` 只是初始化 |
+| 串行生成文档 / 不派遣 subagent | **全量串行生成** | 从主路径第 1 步开始执行；所有可拆分阶段也由主 Agent 顺序完成 |
 | 重建 wiki | **增量更新** | 已有 `.deepwiki/` 时从 `analyze-project` / `detect-changes` 继续，不要重新 `init-wiki` |
 | 检查 wiki 质量 | **仅质量检查** | `deepwiki quality <project_path>` |
 | 更新/升级文档 | **定向重生成** | `deepwiki page-context <project_path> <wiki_path>` → 按 `generate-module-docs` 规则重生成目标页 |
 | 预览文档 | **启动本地服务** | `deepwiki serve <project_path>`（默认端口 8742；端口占用时自动递增） |
+
+> **串行硬开关**：当用户输入“串行生成文档”、"serial generate docs"、"no subagent"、"不派遣 subagent" 或同义表达时，整个 DeepWiki 流程进入全量串行生成模式。即使模块数或页面数超过并行阈值，也不得调用、派遣、spawn subagent；`extract-docs`、`generate-module-docs`、`quality-fix` 均由主 Agent 按任务列表逐项顺序执行，并在 `state/progress.json` 中记录 `mode: "serial"`。
 
 > **命令约定**：若已执行 `pip install -e .`，优先使用 `deepwiki <command>`；否则在技能目录运行 `python -m scripts.cli <command>`。`init-wiki`、`analyze-project` 等是工作流阶段名，不一定是 CLI 子命令。
 
@@ -96,6 +99,8 @@ init-wiki → analyze-project → extract-structure → generate-skeleton
 **必须串行阶段**：`init-wiki`、`analyze-project`、`extract-structure`、`generate-skeleton`、`prepare_module_context`、`validate-analysis`、`plan-doc-topology`、`generate-overview`、`generate-menu`、`finalize-wiki`。这些步骤需要全局一致输入、写聚合文件，或负责合并检查。
 
 **触发阈值**：任务数 ≤ 5 时主 Agent 串行；6–15 时建议 subagent 分批；> 15 且当前环境支持/用户允许 subagent 时，必须按 [`batch-scheduling.md`](references/rules/batch-scheduling.md) 分批并行；不支持时按同一批次顺序串行执行。
+
+**用户指定串行优先**：用户请求“串行生成文档”或明确禁止 subagent 时，上述阈值全部失效，主 Agent 必须独自顺序完成所有阶段，不得调用 `spawn_agent` 或任何 subagent 派遣流程。
 
 ### 快捷路径
 
