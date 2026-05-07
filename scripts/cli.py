@@ -10,6 +10,8 @@ from typing import List, Optional
 from scripts.pipeline.prepare_inventory import prepare_inventory
 from scripts.pipeline.page_context import build_page_context
 from scripts.pipeline.validate_page_plan import validate_page_plan
+from scripts.wiki.finalize import finalize_wiki
+from scripts.wiki.generate_menu import generate_menu
 from scripts.wiki.init_wiki import init_wiki
 
 
@@ -36,6 +38,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_page_context.add_argument("project_path")
     p_page_context.add_argument("page_id")
     p_page_context.add_argument("--max-excerpt-chars", type=int, default=12000)
+    p_generate_menu = subparsers.add_parser("generate-menu", help="Generate menu.json and doc-map.md")
+    p_generate_menu.add_argument("project_path")
+    p_generate_menu.add_argument("--project-name")
+    p_finalize = subparsers.add_parser("finalize", help="Run final wiki checks")
+    p_finalize.add_argument("project_path")
     subparsers.add_parser("self-check", help="Validate the clean skill package")
 
     args = parser.parse_args(argv)
@@ -69,6 +76,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         safe_id = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in context["page_id"]).strip("_") or "page"
         print(Path(args.project_path) / ".deepwiki" / "cache" / "page-context" / f"{safe_id}.json")
         return 0
+    if args.command == "generate-menu":
+        generate_menu(Path(args.project_path), project_name=args.project_name)
+        print("Generated menu.json and doc-map.md")
+        return 0
+    if args.command == "finalize":
+        return finalize_wiki(Path(args.project_path))
     if args.command == "self-check":
         print("DeepWiki skill self-check passed.")
         return 0
